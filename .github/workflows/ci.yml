@@ -1,0 +1,122 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aidetector
+          POSTGRES_PASSWORD: aidetector
+          POSTGRES_DB: aidetector
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U aidetector"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://aidetector:aidetector@localhost:5432/aidetector
+      VAULT_KEY: ""
+      TEST_REQUIRE_DB: "1"
+      TEST_DATABASE_URL: postgresql+psycopg://aidetector:aidetector@localhost:5432/aidetector_test
+      TEST_REDIS_URL: redis://localhost:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Type-check
+        run: mypy app
+      - name: Migrate
+        run: alembic upgrade head
+      - name: Test
+        run: pytest -n auto -ra --cov=app --cov-report=term:skip-covered --cov-report=json --cov-report=xml --junitxml=test-report.xml
+      - name: Coverage floors and complete-suite gate
+        run: python -m scripts.check_coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-reports
+          path: |
+            services/api/coverage.json
+            services/api/coverage.xml
+            services/api/test-report.xml
+          retention-days: 14
+      - name: Real worker integration
+        run: pytest integration_tests -q
+      - name: Export backend contract
+        run: python -m scripts.export_openapi openapi.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-openapi
+          path: services/api/openapi.json
+
+  cli:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - name: Tests (the contract tests read cli/testdata/openapi.json)
+        run: go test -race -count=1 ./...
+      - name: Cross-compile
+        run: |
+          for t in darwin/arm64 linux/amd64 windows/amd64; do
+            GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/aidetector
+          done
+
+  web:
+    needs: api
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-openapi
+          path: apps/web/contracts
+      - name: Exact frontend/backend contract
+        run: npm run test:contracts
+      - run: npm run lint
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Browser workflows
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: apps/web/test-results
+          retention-days: 7

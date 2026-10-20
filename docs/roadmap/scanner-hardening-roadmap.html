@@ -1,0 +1,459 @@
+<title>Scanner Hardening Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f3f4f6; --surface:#ffffff; --surface-2:#eaecf0; --raise:#fdfdfc;
+    --ink:#171a20; --muted:#5c6470; --faint:#8b93a0; --line:#dbdfe6;
+    --accent:#b5670a; --accent-bright:#d1841f;
+    --crit:#bb2d24; --crit-bg:#f7e4e2; --crit-line:#e6b7b2;
+    --warn:#a06400; --good:#1a7f37; --good-bg:#e3f2e6; --good-line:#b6ddbe;
+    --del-bg:#f8e9e7; --del-mark:#c0392b;
+    --add-bg:#e6f3ea; --add-mark:#1a7f37;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+    --disp:"Archivo",var(--sans);
+    --shadow:0 1px 2px rgba(20,25,35,.06),0 6px 20px rgba(20,25,35,.05);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0c0f13; --surface:#14181e; --surface-2:#1b212a; --raise:#191e26;
+      --ink:#e9ebef; --muted:#8b939f; --faint:#69707b; --line:#262d37;
+      --accent:#e0a52e; --accent-bright:#f0b850;
+      --crit:#ef5b52; --crit-bg:#2a1614; --crit-line:#4a2420;
+      --warn:#e0a52e; --good:#54c26a; --good-bg:#132417; --good-line:#244a2c;
+      --del-bg:#241413; --del-mark:#ef5b52;
+      --add-bg:#12220f; --add-mark:#54c26a;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 26px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0c0f13; --surface:#14181e; --surface-2:#1b212a; --raise:#191e26;
+    --ink:#e9ebef; --muted:#8b939f; --faint:#69707b; --line:#262d37;
+    --accent:#e0a52e; --accent-bright:#f0b850;
+    --crit:#ef5b52; --crit-bg:#2a1614; --crit-line:#4a2420;
+    --warn:#e0a52e; --good:#54c26a; --good-bg:#132417; --good-line:#244a2c;
+    --del-bg:#241413; --del-mark:#ef5b52;
+    --add-bg:#12220f; --add-mark:#54c26a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 26px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    font-feature-settings:"tnum" 0;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  a{color:var(--accent);text-decoration:none}
+
+  /* ---- masthead ---- */
+  .mast{border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+  .mast::before{content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 7%,transparent),transparent 55%);
+    pointer-events:none}
+  .mast .wrap{padding-top:52px;padding-bottom:40px;position:relative}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent);font-weight:600;
+    display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .kicker .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+  h1{font-family:var(--disp);font-weight:800;letter-spacing:-.02em;
+    font-size:clamp(34px,5.6vw,58px);line-height:1.02;margin:0 0 18px;
+    text-wrap:balance;max-width:16ch}
+  .lede{font-size:clamp(16px,2.1vw,19px);color:var(--muted);max-width:62ch;margin:0}
+  .lede b{color:var(--ink);font-weight:600}
+  .statusline{font-family:var(--mono);font-size:12.5px;color:var(--faint);
+    margin-top:26px;display:flex;flex-wrap:wrap;gap:8px 22px;
+    border-top:1px dashed var(--line);padding-top:18px}
+  .statusline b{color:var(--muted);font-weight:500}
+  .statusline .ok{color:var(--good)}
+  .statusline .bad{color:var(--crit)}
+
+  /* ---- section scaffolding ---- */
+  section{padding:56px 0}
+  section+section{border-top:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--faint);font-weight:600;margin:0 0 6px}
+  .h2{font-family:var(--disp);font-weight:700;letter-spacing:-.015em;
+    font-size:clamp(24px,3.4vw,34px);margin:0 0 8px;text-wrap:balance}
+  .sub{color:var(--muted);max-width:64ch;margin:0 0 32px;font-size:16px}
+
+  /* ---- theme themes summary cards ---- */
+  .themes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .tcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:22px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+  .tcard .no{font-family:var(--mono);font-size:12px;color:var(--faint);font-weight:600}
+  .tcard h3{font-family:var(--disp);font-weight:700;font-size:19px;margin:0;letter-spacing:-.01em}
+  .tcard p{margin:0;font-size:14.5px;color:var(--muted)}
+  .tcard .foot{margin-top:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint);
+    border-top:1px dashed var(--line);padding-top:12px}
+
+  /* ---- chips ---- */
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);
+    font-size:11px;font-weight:600;letter-spacing:.03em;padding:3px 9px;border-radius:999px;
+    border:1px solid;text-transform:uppercase;white-space:nowrap}
+  .chip.crit{color:var(--crit);background:var(--crit-bg);border-color:var(--crit-line)}
+  .chip.good{color:var(--good);background:var(--good-bg);border-color:var(--good-line)}
+  .chip.p0{color:var(--crit);background:var(--crit-bg);border-color:var(--crit-line)}
+  .chip.p1{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent);
+    border-color:color-mix(in srgb,var(--warn) 32%,transparent)}
+  .chip.p2{color:var(--muted);background:var(--surface-2);border-color:var(--line)}
+
+  /* ---- oracle diff cards ---- */
+  .oracle{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    box-shadow:var(--shadow);overflow:hidden;margin-bottom:22px}
+  .oracle-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px;
+    padding:18px 22px;border-bottom:1px solid var(--line)}
+  .oracle-head .name{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.01em}
+  .oracle-head .file{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .oracle-head .owasp{margin-left:auto;font-family:var(--mono);font-size:11px;
+    color:var(--accent);font-weight:600}
+  .oracle-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .pane{padding:20px 22px}
+  .pane.before{background:linear-gradient(180deg,color-mix(in srgb,var(--del-bg) 55%,transparent),transparent 40%)}
+  .pane.after{border-left:1px solid var(--line);
+    background:linear-gradient(180deg,color-mix(in srgb,var(--add-bg) 55%,transparent),transparent 40%)}
+  .plabel{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .pane.before .plabel{color:var(--del-mark)}
+  .pane.after .plabel{color:var(--add-mark)}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.7;
+    overflow-x:auto;white-space:pre;color:var(--ink)}
+  pre .c{color:var(--faint)}
+  .pane.before pre .k{color:var(--del-mark);font-weight:600}
+  .pane.after pre .k{color:var(--add-mark);font-weight:600}
+  .verdict{margin:14px 0 0;font-size:13.5px;color:var(--muted)}
+  .verdict b{color:var(--ink);font-weight:600}
+
+  /* ---- defense before/after list ---- */
+  .flips{display:flex;flex-direction:column;gap:12px}
+  .flip{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:0;
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;box-shadow:var(--shadow)}
+  .flip .side{padding:16px 18px}
+  .flip .from{background:color-mix(in srgb,var(--del-bg) 40%,transparent)}
+  .flip .to{border-left:1px solid var(--line)}
+  .flip .arrow{display:flex;align-items:center;justify-content:center;
+    padding:0 4px;color:var(--accent);font-family:var(--mono);font-size:18px;
+    background:var(--surface-2);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  .flip .slabel{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+    text-transform:uppercase;font-weight:600;margin:0 0 6px}
+  .flip .from .slabel{color:var(--del-mark)}
+  .flip .to .slabel{color:var(--add-mark)}
+  .flip .t{font-size:14px;color:var(--ink);font-weight:500;margin:0}
+  .flip .d{font-size:12.5px;color:var(--muted);margin:5px 0 0;font-family:var(--mono)}
+
+  /* ---- roadmap timeline ---- */
+  .phases{display:flex;flex-direction:column;gap:0}
+  .phase{display:grid;grid-template-columns:170px 1fr;gap:24px;
+    padding:26px 0;border-top:1px solid var(--line)}
+  .phase:first-child{border-top:0;padding-top:4px}
+  .phase-meta .ph{font-family:var(--disp);font-weight:800;font-size:22px;letter-spacing:-.01em;
+    display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .phase-meta .goal{font-size:13px;color:var(--muted);font-family:var(--mono)}
+  .items{display:flex;flex-direction:column;gap:10px}
+  .item{display:flex;gap:12px;align-items:flex-start;background:var(--surface);
+    border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .item .idx{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600;
+    padding-top:1px;min-width:20px}
+  .item .body h4{margin:0 0 3px;font-size:15px;font-weight:600;font-family:var(--disp);letter-spacing:-.005em}
+  .item .body p{margin:0;font-size:13.5px;color:var(--muted)}
+  .item .body code{font-family:var(--mono);font-size:12px;background:var(--surface-2);
+    padding:1px 5px;border-radius:4px;color:var(--ink)}
+
+  /* ---- frameworks table ---- */
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+  thead th{text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--faint);font-weight:600;
+    padding:14px 18px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+  tbody td{padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:top;background:var(--surface)}
+  tbody tr:last-child td{border-bottom:0}
+  td .tool{font-family:var(--mono);font-weight:600;color:var(--ink)}
+  td .why{color:var(--muted);font-size:13px}
+  td.gap{color:var(--muted)}
+
+  footer{padding:40px 0 60px;border-top:1px solid var(--line);color:var(--faint);
+    font-family:var(--mono);font-size:12px}
+  footer b{color:var(--muted)}
+  .note{font-size:12.5px;color:var(--faint);margin-top:14px;font-style:italic}
+
+  @media (max-width:760px){
+    .themes{grid-template-columns:1fr}
+    .oracle-body{grid-template-columns:1fr}
+    .pane.after{border-left:0;border-top:1px solid var(--line)}
+    .flip{grid-template-columns:1fr}
+    .flip .arrow{border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+      padding:6px;transform:rotate(90deg)}
+    .flip .to{border-left:0}
+    .phase{grid-template-columns:1fr;gap:14px}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .reveal{opacity:0;transform:translateY(10px);animation:rise .6s ease forwards}
+    @keyframes rise{to{opacity:1;transform:none}}
+  }
+</style>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="kicker"><span class="dot"></span> aidetector · offensive-security review</div>
+    <h1>Scanner Hardening Roadmap</h1>
+    <p class="lede">The tiered-confidence framing is the product's best asset — but the <b>marquee authz/auth oracles are false-positive machines</b> and the tool has <b>no defenses of its own</b>. This is what to change, in order.</p>
+    <div class="statusline">
+      <span><b>engine</b> 10 checks · sequential · 500-req budget</span>
+      <span><b>oracles</b> <span class="bad">3 flagship checks unsound</span></span>
+      <span><b>self-defense</b> <span class="bad">no authn · open target field</span></span>
+      <span><b>strong</b> <span class="ok">write_oracle · cost ledger · graceful degrade</span></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- THEMES -->
+  <section>
+    <p class="eyebrow">The three findings that drive the plan</p>
+    <h2 class="h2">Where the gap actually is</h2>
+    <p class="sub">The engineering discipline is above the norm for a project this size. The gap is that the parts a buyer judges first haven't caught up to the bar the rest of the code sets.</p>
+    <div class="themes">
+      <div class="tcard reveal">
+        <span class="no">FINDING 01</span>
+        <h3>Oracles don't prove what they claim</h3>
+        <p>BOLA compares two <i>authorized</i> identities on a fixed <code style="font-family:var(--mono)">id=1</code>; broken-auth never checks that auth was required. Both fire on healthy endpoints.</p>
+        <div class="foot">→ false positives + false negatives</div>
+      </div>
+      <div class="tcard reveal" style="animation-delay:.08s">
+        <span class="no">FINDING 02</span>
+        <h3>The tool has no security of its own</h3>
+        <p>No API authentication and an unvalidated target URL make a hosted deploy an SSRF-as-a-service pivot. The <code style="font-family:var(--mono)">authorized:true</code> flag is a checkbox, not access control.</p>
+        <div class="foot">→ blocks any "production-ready" claim</div>
+      </div>
+      <div class="tcard reveal" style="animation-delay:.16s">
+        <span class="no">FINDING 03</span>
+        <h3>Sequential engine runs shallow</h3>
+        <p>Sync httpx, checks one at a time, one flat 500-request cap spread across ops × checks × payloads. A 100-op spec gets ~5 requests per endpoint, total.</p>
+        <div class="foot">→ slow scans, thin coverage</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORACLE REBUILDS -->
+  <section>
+    <p class="eyebrow">Change set A · detection accuracy</p>
+    <h2 class="h2">Rebuild the flagship oracles</h2>
+    <p class="sub">Model each on the one check that is already sound — <code style="font-family:var(--mono);font-size:13px">write_oracle.py</code>, which proves a mutation persisted <i>across identities</i> with a read-back. Move authz/auth from "responses look alike" to an explicit authorization baseline.</p>
+
+    <!-- BOLA -->
+    <article class="oracle reveal">
+      <div class="oracle-head">
+        <span class="name">BOLA</span>
+        <span class="file">app/engine/checks/authz.py:26</span>
+        <span class="owasp">OWASP API1</span>
+      </div>
+      <div class="oracle-body">
+        <div class="pane before">
+          <p class="plabel"><span class="chip crit">current</span> replay, byte-compare</p>
+<pre><span class="c"># fixed id, two authorized identities</span>
+ra = send(GET, path{<span class="k">id=1</span>}, creds[0])
+rb = send(GET, path{<span class="k">id=1</span>}, creds[1])
+flag <span class="k">if</span> ra.ok and rb.ok
+        <span class="k">and ra.text == rb.text</span></pre>
+          <p class="verdict">Identical bytes across two authorized callers is the <b>expected</b> result for any shared or public object. Never reads a <i>foreign</i> object, so real BOLA is untested.</p>
+        </div>
+        <div class="pane after">
+          <p class="plabel"><span class="chip good">rebuilt</span> ownership-differential</p>
+<pre><span class="c"># A owns X; can attacker B read A's X?</span>
+own = send(X, <span class="k">high_priv</span>)   <span class="c"># owner view</span>
+vic = send(X, <span class="k">low_priv</span>)    <span class="c"># attacker</span>
+anon = send(X, <span class="k">no_auth</span>)    <span class="c"># baseline</span>
+flag CONFIRMED <span class="k">if</span> vic ≈ own
+   <span class="k">and</span> anon in (401,403)   <span class="c"># does gate</span></pre>
+          <p class="verdict">Proves B sees A's private object <b>and</b> the endpoint does authenticate — so a match is a real cross-tenant read, not a public resource. Add sequential/UUID id enumeration + similarity scoring over byte-equality.</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- BROKEN AUTH -->
+    <article class="oracle reveal">
+      <div class="oracle-head">
+        <span class="name">Broken Authentication</span>
+        <span class="file">app/engine/checks/auth.py:24</span>
+        <span class="owasp">OWASP API2</span>
+      </div>
+      <div class="oracle-body">
+        <div class="pane before">
+          <p class="plabel"><span class="chip crit">current</span> garbage header</p>
+<pre>forged = {Authorization:
+  <span class="k">"aidetector-forged-&lt;hex&gt;"</span>}  <span class="c"># not Bearer</span>
+r = send(method, path, forged)
+flag <span class="k">if</span> r.status &lt; 400</pre>
+          <p class="verdict">A genuinely <b>public</b> endpoint returns 200 to any header → false positive. The token isn't even well-formed, so no real bypass class is exercised.</p>
+        </div>
+        <div class="pane after">
+          <p class="plabel"><span class="chip good">rebuilt</span> baseline-gated + JWT suite</p>
+<pre>anon = send(op, <span class="k">no_auth</span>)
+<span class="k">if</span> anon.status not in (401,403): <span class="k">skip</span>
+<span class="k">for</span> t in [alg_none, weak_secret,
+     kid_inject, foreign_user, expired]:
+  <span class="k">if</span> send(op, t) ≈ valid: flag CONFIRMED</pre>
+          <p class="verdict">First confirm auth is <b>required</b>, then run a real forgery suite (<code style="font-family:var(--mono)">alg=none</code>, weak secret, <code style="font-family:var(--mono)">kid</code>/<code style="font-family:var(--mono)">jku</code> injection, algorithm confusion, cross-user replay). Names the bypass class in the finding.</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- BFLA -->
+    <article class="oracle reveal">
+      <div class="oracle-head">
+        <span class="name">BFLA</span>
+        <span class="file">app/engine/checks/authz.py:56</span>
+        <span class="owasp">OWASP API5</span>
+      </div>
+      <div class="oracle-body">
+        <div class="pane before">
+          <p class="plabel"><span class="chip crit">current</span> substring match</p>
+<pre>priv = <span class="k">"/admin" in path</span>       <span class="c"># literal</span>
+r = send(op, lowest_priv)
+flag <span class="k">if</span> r.status &lt; 400</pre>
+          <p class="verdict">Misses scope/role-encoded privilege and versioned admin paths; flags on bare status without a high-priv baseline to compare against.</p>
+        </div>
+        <div class="pane after">
+          <p class="plabel"><span class="chip good">rebuilt</span> scope-aware differential</p>
+<pre>priv = admin_path <span class="k">or</span> scope_in(op)
+hi = send(op, <span class="k">high_priv</span>)     <span class="c"># reference</span>
+lo = send(op, <span class="k">low_priv</span>)
+flag <span class="k">if</span> hi.ok <span class="k">and</span> lo ≈ hi  <span class="c"># same fn</span></pre>
+          <p class="verdict">Derive "privileged" from the security scope the parser already keeps, and confirm the low-priv identity gets the <b>same privileged function</b> the high-priv one does.</p>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- SELF-DEFENSE FLIPS -->
+  <section>
+    <p class="eyebrow">Change set B · the tool's own posture</p>
+    <h2 class="h2">Give the scanner defenses</h2>
+    <p class="sub">An active scanner that anyone can reach and point anywhere is an attack proxy. These four flips are the blockers on calling it production-ready — or, if it's a single-operator local tool, the trust boundary to document and bind down.</p>
+    <div class="flips">
+      <div class="flip reveal">
+        <div class="side from"><p class="slabel">now</p><p class="t">API is fully unauthenticated</p><p class="d">main.py · every /scans route</p></div>
+        <div class="arrow">→</div>
+        <div class="side to"><p class="slabel">change</p><p class="t">AuthN + per-tenant scope on every route</p><p class="d">the authorized:true flag stays, as consent — not access control</p></div>
+      </div>
+      <div class="flip reveal" style="animation-delay:.06s">
+        <div class="side from"><p class="slabel">now</p><p class="t">target_base_url is a bare string</p><p class="d">schemas.py:15 · no validation</p></div>
+        <div class="arrow">→</div>
+        <div class="side to"><p class="slabel">change</p><p class="t">SSRF egress guard</p><p class="d">validate scheme · resolve DNS · block private / link-local / metadata ranges · operator allowlist</p></div>
+      </div>
+      <div class="flip reveal" style="animation-delay:.12s">
+        <div class="side from"><p class="slabel">now</p><p class="t">Target bytes flow into an agent run bypassPermissions as root</p><p class="d">plan_agent.py · response_sample → LLM</p></div>
+        <div class="arrow">→</div>
+        <div class="side to"><p class="slabel">change</p><p class="t">Treat evidence as untrusted</p><p class="d">minimal allowed_tools · drop bypass where possible · prefer a scoped API call over the agent for adjudication</p></div>
+      </div>
+      <div class="flip reveal" style="animation-delay:.18s">
+        <div class="side from"><p class="slabel">now</p><p class="t">Reflected secrets/PII persisted</p><p class="d">response_sample[:400] → DB, snapshots, PDF</p></div>
+        <div class="arrow">→</div>
+        <div class="side to"><p class="slabel">change</p><p class="t">Redact evidence before storage</p><p class="d">a scan must not copy the target's secrets into your database and report</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section>
+    <p class="eyebrow">Sequenced delivery</p>
+    <h2 class="h2">Roadmap</h2>
+    <p class="sub">Ordered by what unblocks a trustworthy result first. P0 is correctness and self-defense; P1 is depth and reliability; P2 is coverage and polish.</p>
+    <div class="phases">
+
+      <div class="phase reveal">
+        <div class="phase-meta">
+          <div class="ph"><span class="chip p0">P0</span> Trust</div>
+          <div class="goal">before any "production" claim</div>
+        </div>
+        <div class="items">
+          <div class="item"><span class="idx">1</span><div class="body"><h4>Rebuild BOLA + broken-auth oracles</h4><p>Ownership-differential + explicit authorization baseline, modeled on <code>write_oracle</code>.</p></div></div>
+          <div class="item"><span class="idx">2</span><div class="body"><h4>API authentication + SSRF egress guard</h4><p>Close the open front door and the open target field together.</p></div></div>
+          <div class="item"><span class="idx">3</span><div class="body"><h4>Redact secrets/PII from stored evidence</h4><p>Sanitize <code>response_sample</code>, run snapshots, and the PDF report.</p></div></div>
+          <div class="item"><span class="idx">4</span><div class="body"><h4>Constrain the adjudicator</h4><p>Untrusted-evidence framing, minimal tools, drop <code>bypassPermissions</code>.</p></div></div>
+        </div>
+      </div>
+
+      <div class="phase reveal">
+        <div class="phase-meta">
+          <div class="ph"><span class="chip p1">P1</span> Depth</div>
+          <div class="goal">real scans on real specs</div>
+        </div>
+        <div class="items">
+          <div class="item"><span class="idx">5</span><div class="body"><h4>Async engine + per-host rate limiting</h4><p>Replace the flat 500-cap with adaptive / per-op budgets; concurrency with a token bucket.</p></div></div>
+          <div class="item"><span class="idx">6</span><div class="body"><h4>Auth-token refresh + 429 backoff</h4><p>A mid-scan token expiry currently turns every later check into a silent false negative.</p></div></div>
+          <div class="item"><span class="idx">7</span><div class="body"><h4>Fix the OOB transport</h4><p>One-shot <code>interactsh-client</code> subprocesses can't correlate — use a persistent sidecar.</p></div></div>
+          <div class="item"><span class="idx">8</span><div class="body"><h4>Schemathesis input gen + broaden adjudication</h4><p>Property-based/negative inputs; adjudicate the FP-prone injection leads, where triage helps most.</p></div></div>
+        </div>
+      </div>
+
+      <div class="phase reveal">
+        <div class="phase-meta">
+          <div class="ph"><span class="chip p2">P2</span> Coverage</div>
+          <div class="goal">breadth &amp; integration</div>
+        </div>
+        <div class="items">
+          <div class="item"><span class="idx">9</span><div class="body"><h4>Stateful sequences + robust $ref</h4><p>RESTler-style create-as-A → read-as-B; resolve nested allOf/oneOf/arrays/remote refs.</p></div></div>
+          <div class="item"><span class="idx">10</span><div class="body"><h4>SARIF/CVSS output + live-target tests</h4><p>Make findings CI-consumable; cache adjudication verdicts to stop re-spending tokens on re-runs.</p></div></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FRAMEWORKS -->
+  <section>
+    <p class="eyebrow">Buy vs build</p>
+    <h2 class="h2">Libraries to adopt, by gap</h2>
+    <p class="sub">Highest leverage first. Each replaces hand-rolled code that currently under-covers, or adds a capability the engine lacks entirely.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Gap today</th><th>Adopt</th><th>What it buys</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="gap">Hand-shaped inputs, no negative testing</td>
+            <td><span class="tool">Schemathesis</span></td>
+            <td class="why">Property-based, OpenAPI-driven generation on Hypothesis; boundary + negative inputs; stateful sequencing. Biggest single win.</td>
+          </tr>
+          <tr>
+            <td class="gap">Fixed-id BOLA/BFLA, no dependencies</td>
+            <td><span class="tool">RESTler</span></td>
+            <td class="why">Infers producer→consumer order, so authz is tested as a real create→read sequence across identities.</td>
+          </tr>
+          <tr>
+            <td class="gap">Thin $ref resolver (#/ + one allOf)</td>
+            <td><span class="tool">prance + openapi-spec-validator</span></td>
+            <td class="why">Spec-compliant resolution of nested composition, arrays, and remote refs — fixes silent body-field under-coverage.</td>
+          </tr>
+          <tr>
+            <td class="gap">Malformed non-Bearer "forged token"</td>
+            <td><span class="tool">PyJWT + jwt_tool techniques</span></td>
+            <td class="why">A real forgery suite: alg=none, weak-secret, kid/jku injection, algorithm confusion.</td>
+          </tr>
+          <tr>
+            <td class="gap">One-shot OOB subprocess (non-correlating)</td>
+            <td><span class="tool">interactsh (persistent client)</span></td>
+            <td class="why">A long-lived sidecar holds the registration keypair so blind-vuln callbacks actually correlate.</td>
+          </tr>
+          <tr>
+            <td class="gap">Sequential sync requests</td>
+            <td><span class="tool">httpx.AsyncClient + aiolimiter</span></td>
+            <td class="why">Concurrency with a per-host rate limit instead of a single flat DoS cap.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Calibration: write_oracle, graceful degradation, the cost ledger, and the tiered-confidence framing are genuinely strong. The work here is bringing the marquee checks and the tool's own posture up to that same bar.</p>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <b>aidetector</b> · senior offensive-security assessment · findings cite file:line in the repo · roadmap sequenced P0 → P2
+</footer>

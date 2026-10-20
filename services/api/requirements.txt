@@ -1,0 +1,24 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.54
+alembic==1.14.0
+psycopg[binary]==3.2.13
+pydantic==2.12.5
+pydantic-settings==2.7.0
+celery[redis]==5.4.0
+redis==5.2.1
+cryptography==44.0.0
+httpx==0.28.1
+pyyaml==6.0.3
+python-multipart==0.0.20
+reportlab==4.2.5
+pyjwt==2.10.1
+openapi-spec-validator==0.7.1
+aiolimiter==1.2.1
+schemathesis==4.25.2
+jsonschema==4.26.0
+detect-secrets==1.5.0
+prance==26.7.19.0
+
+# Explicit AWS SigV4 signing only; no ambient credential chain.
+botocore==1.43.90

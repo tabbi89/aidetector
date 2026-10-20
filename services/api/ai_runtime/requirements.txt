@@ -1,0 +1,4 @@
+# Isolated venv for the Claude Agent SDK planner. Kept separate from the main
+# service so the SDK's mcp/starlette deps never conflict with FastAPI.
+claude-agent-sdk==0.2.148
+httpx==0.28.1

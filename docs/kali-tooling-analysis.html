@@ -1,0 +1,260 @@
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1f2630;
+    --border: #2d3542;
+    --ink: #e6edf3;
+    --ink-dim: #9aa7b4;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --amber: #d29922;
+    --red: #f85149;
+    --violet: #bc8cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .kali-report {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55;
+    padding: 2.5rem 1.25rem 4rem;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  .kali-report h1 { font-size: 1.6rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+  .kali-report h2 {
+    font-size: 1.15rem; margin: 2.5rem 0 1rem; padding-bottom: .4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .kali-report h3 { font-size: .98rem; margin: 1.4rem 0 .5rem; color: var(--ink); }
+  .kali-report p { margin: .5rem 0; color: var(--ink-dim); }
+  .kali-report strong { color: var(--ink); }
+  .kali-report code {
+    font-family: var(--mono); font-size: .85em; background: var(--surface-2);
+    padding: .1em .35em; border-radius: 4px; color: var(--ink);
+  }
+  .sub { color: var(--ink-dim); font-size: .95rem; margin-bottom: 1.5rem; }
+
+  .verdict {
+    border: 1px solid var(--border); border-left: 4px solid var(--green);
+    background: var(--surface); border-radius: 8px; padding: 1rem 1.25rem; margin: 1.25rem 0;
+  }
+  .verdict.warn { border-left-color: var(--amber); }
+  .verdict p { margin: .35rem 0; }
+
+  .tag {
+    display: inline-block; font-size: .72rem; font-weight: 600; padding: .15em .6em;
+    border-radius: 999px; vertical-align: middle; letter-spacing: .02em;
+  }
+  .tag.ver { background: rgba(63,185,80,.15); color: var(--green); }
+  .tag.heur { background: rgba(210,153,34,.15); color: var(--amber); }
+  .tag.gap { background: rgba(248,81,73,.15); color: var(--red); }
+  .tag.new { background: rgba(188,140,255,.15); color: var(--violet); }
+
+  .grid { display: grid; gap: 1rem; }
+  .cols-2 { grid-template-columns: 1fr; }
+  @media (min-width: 760px) { .cols-2 { grid-template-columns: 1fr 1fr; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem 1.1rem;
+  }
+  .card h3 { margin-top: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; margin: .75rem 0; }
+  th, td { text-align: left; padding: .55rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--ink-dim); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  td { color: var(--ink); }
+  td.dim { color: var(--ink-dim); }
+  .tbl-wrap { overflow-x: auto; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: .5rem; margin: 1rem 0; }
+  .box {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: .6rem .8rem; font-size: .82rem; flex: 1 1 130px; min-width: 130px;
+  }
+  .box .t { font-weight: 600; font-size: .85rem; display: block; margin-bottom: .15rem; }
+  .box .d { color: var(--ink-dim); font-size: .78rem; }
+  .box.hl { border-color: var(--accent); }
+  .box.hl .t { color: var(--accent); }
+  .box.kali { border-color: var(--violet); }
+  .box.kali .t { color: var(--violet); }
+  .arrow { align-self: center; color: var(--ink-dim); font-size: 1.1rem; flex: 0 0 auto; }
+
+  .phases { list-style: none; margin: 1rem 0; padding: 0; counter-reset: ph; }
+  .phases li {
+    position: relative; padding: 0 0 1.4rem 2.6rem; border-left: 2px solid var(--border);
+    margin-left: .9rem; counter-increment: ph;
+  }
+  .phases li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .phases li::before {
+    content: counter(ph); position: absolute; left: -1rem; top: -.1rem;
+    width: 1.9rem; height: 1.9rem; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--accent); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem;
+  }
+  .phases .pt { font-weight: 600; color: var(--ink); }
+  .phases p { margin: .25rem 0 0; font-size: .88rem; }
+
+  .kv { font-size: .85rem; }
+  .kv dt { color: var(--ink-dim); margin-top: .6rem; }
+  .kv dd { margin: .15rem 0 0 0; }
+
+  ul.tight { margin: .4rem 0; padding-left: 1.2rem; }
+  ul.tight li { margin: .3rem 0; color: var(--ink-dim); font-size: .9rem; }
+  ul.tight li strong { color: var(--ink); }
+  .foot { margin-top: 3rem; font-size: .78rem; color: var(--ink-dim); border-top: 1px solid var(--border); padding-top: .8rem; }
+</style>
+
+<div class="kali-report">
+  <h1>Extending AI-Detector with Kali Linux tooling</h1>
+  <p class="sub">Feasibility + improvement map based on the official Kali Docker images docs and the current engine coverage (<code>apps/web/lib/coverage.ts</code>, <code>app/engine/</code>).</p>
+
+  <div class="verdict">
+    <p><strong>Verdict: yes, feasible — and the codebase already names the exact gaps Kali fills.</strong></p>
+    <p><code>coverage.ts</code> LIMITS literally states <em>“nuclei and sqlmap are still not wrapped”</em>, and the NOT_COVERED list plus check caveats enumerate the rest. The repo already has two proven integration templates the Kali tools can slot into: the <strong>ZAP sidecar profile</strong> (opt-in, profile-gated, HTTP-driven, degrades gracefully) and the <strong><code>WITH_INTERACTSH</code> build-arg</strong> (optional tooling baked into the worker image).</p>
+  </div>
+
+  <h2>1. What the Kali images actually are</h2>
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>Key facts from the official docs</h3>
+      <ul class="tight">
+        <li><strong><code>kalilinux/kali-rolling</code></strong> is the recommended base; updated ~weekly.</li>
+        <li>Images ship <strong>no tools by default</strong> — you install via <code>apt</code>.</li>
+        <li><code>kali-linux-headless</code> metapackage ≈ <strong>2&nbsp;GB+</strong> of tools — overkill here.</li>
+        <li><code>kali-last-release</code> = pinned snapshot; <code>bleeding-edge</code>/<code>experimental</code>/<code>dev</code> are for special cases only.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Implication for this project</h3>
+      <ul class="tight">
+        <li><strong>Cherry-pick packages</strong> (<code>nuclei</code>, <code>sqlmap</code>, <code>testssl.sh</code>, <code>feroxbuster</code>, <code>seclists</code>) instead of a metapackage — a few hundred MB, not 2&nbsp;GB.</li>
+        <li>Kali rolling is a <strong>moving target</strong>; for reproducibility prefer <code>kali-last-release</code> or pin package versions, and rebuild weekly.</li>
+        <li>Honest note: <code>sqlmap</code> and <code>testssl.sh</code> are also in Debian repos, and <code>nuclei</code>/<code>feroxbuster</code> ship as single binaries — so Kali is <strong>not strictly required</strong> for the top picks. Its value is as a curated toolbox base when you want several tools maintained together in one image.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>2. Coverage now → what Kali would add</h2>
+  <div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr><th style="width:26%">Current capability</th><th style="width:8%">Tier</th><th style="width:33%">Gap (as documented in coverage.ts)</th><th style="width:33%">Kali tool that closes it</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>SQLi reflection probes</td>
+        <td><span class="tag heur">heuristic</span></td>
+        <td class="dim">“No error-based, boolean-based, time-based or UNION verification.” LIMITS: “No timing analysis.”</td>
+        <td><strong><code>sqlmap</code></strong> — re-tests <em>already-flagged</em> parameters with <code>--technique=BEUST</code>. Turns heuristic leads into <strong>verified</strong> findings.</td>
+      </tr>
+      <tr>
+        <td>Hand-written httpx checks + optional ZAP</td>
+        <td><span class="tag gap">missing</span></td>
+        <td class="dim">LIMITS: “nuclei … still not wrapped.” No CVE, exposed-panel, default-credential or known-misconfig detection.</td>
+        <td><strong><code>nuclei</code></strong> — thousands of community templates (CVEs, exposures, misconfigs, default logins). Rate-limitable via <code>-rl</code>.</td>
+      </tr>
+      <tr>
+        <td>TLS config check</td>
+        <td><span class="tag ver">verified</span></td>
+        <td class="dim">Caveat: leaf cert + one negotiated connection only — “not the full chain, OCSP/CRL revocation, or an exhaustive cipher-suite enumeration.”</td>
+        <td><strong><code>testssl.sh</code></strong> — full transport audit with machine-readable JSON output that maps cleanly to <code>EngineFinding</code>.</td>
+      </tr>
+      <tr>
+        <td>Scans only operations parsed from the uploaded OpenAPI spec</td>
+        <td><span class="tag gap">missing</span></td>
+        <td class="dim">No discovery of undocumented / shadow endpoints (adjacent to OWASP API3:2023).</td>
+        <td><strong><code>feroxbuster</code> / <code>ffuf</code> + <code>seclists</code></strong> — content discovery; discovered paths become candidate Operations for the engine.</td>
+      </tr>
+      <tr>
+        <td>No stack awareness</td>
+        <td><span class="tag gap">missing</span></td>
+        <td class="dim">Checks are stack-agnostic; no technology fingerprinting.</td>
+        <td><strong><code>whatweb</code></strong> — fingerprint stack, then narrow the nuclei template set to what’s relevant.</td>
+      </tr>
+      <tr>
+        <td>Broken-auth check (random token replay)</td>
+        <td><span class="tag ver">verified</span></td>
+        <td class="dim">No JWT-specific attacks (alg confusion, <code>none</code> algorithm, signature stripping).</td>
+        <td><strong><code>jwt-tool</code></strong> — JWT attack battery; valuable if target APIs use bearer JWTs.</td>
+      </tr>
+      <tr>
+        <td>ZAP pass (opt-in)</td>
+        <td><span class="tag ver">verified</span></td>
+        <td class="dim">—</td>
+        <td><code>nikto</code> would overlap ZAP heavily. <strong>Skip.</strong></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>3. Integration options</h2>
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>Option A — tools in the worker image (cheap wins first)</h3>
+      <p>Extend <code>services/api/Dockerfile</code> with a <code>WITH_KALI_TOOLS</code>-style build-arg, exactly mirroring the existing <code>WITH_INTERACTSH</code> pattern. Invoke tools as subprocesses — the AI planner already shells out to a subprocess, so this is established convention.</p>
+      <ul class="tight">
+        <li><code>sqlmap</code>: pure Python, trivial to add; runs only against parameters the engine already flagged → naturally bounded.</li>
+        <li><code>testssl.sh</code>: in Debian repos; JSON output upgrades the existing TLS check.</li>
+        <li>Best for: phases 1–2 below.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Option B — Kali sidecar service (the real Kali use)</h3>
+      <p>New <code>kali</code> profile service, built <code>FROM kalilinux/kali-rolling</code> with a curated apt set + a thin job API, driven by the worker over HTTP — a structural clone of the ZAP adjunct: profile-gated in compose, <code>kali: true</code> per-run flag, a <code>_run_kali</code> side path in the runner, graceful degradation on any failure.</p>
+      <ul class="tight">
+        <li>Keeps the worker image lean; heavier tools live in their own container.</li>
+        <li>Matches every existing convention (<code>ZAP_BASE_URL</code> env, <code>make up-zap</code> analogue, <code>*_skipped</code> events).</li>
+        <li>Best for: phases 3–4 below.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Option B shape — how it slots into the existing stack</h3>
+  <div class="flow">
+    <div class="box"><span class="t">UI run dialog</span><span class="d">adds <code>kali: true</code> next to <code>zap</code> / <code>adjudicate</code></span></div>
+    <span class="arrow">→</span>
+    <div class="box"><span class="t">POST /scans/{id}/run</span><span class="d">body flag → <code>run_scan_task.delay(...)</code></span></div>
+    <span class="arrow">→</span>
+    <div class="box"><span class="t">runner.py</span><span class="d"><code>_run_kali()</code> side path after checks, like <code>_run_zap()</code></span></div>
+    <span class="arrow">→</span>
+    <div class="box kali"><span class="t">kali service (profile “kali”)</span><span class="d"><code>kalilinux/kali-rolling</code> + nuclei / feroxbuster / jwt-tool + thin job API</span></div>
+    <span class="arrow">→</span>
+    <div class="box hl"><span class="t">EngineFinding</span><span class="d">mapped like <code>map_alerts()</code>, check = e.g. <code>"kali_nuclei"</code></span></div>
+  </div>
+  <div class="verdict warn">
+    <p><strong>Rejected: rebuilding the worker <code>FROM kalilinux/kali-rolling</code>.</strong> Rolling-release base under a service with pinned Python deps (<code>python:3.12-slim</code> today) trades reproducibility for nothing — the worker needs a stable runtime, the tools need a toolbox. Keep them separate.</p>
+  </div>
+
+  <h2>4. Suggested roadmap</h2>
+  <ol class="phases">
+    <li>
+      <span class="pt">sqlmap confirmation pass</span> — highest value per unit effort.<br>
+      <p>Subprocess in the worker (Option A). Re-test only parameters already flagged by <code>reflected_injection</code>/<code>signature_injection</code> SQLi leads. Converts <span class="tag heur">heuristic</span> to <span class="tag ver">verified</span>. Opt-in via env/flag like OAST. Bound it: <code>--batch --retries=1 --timeout=5 --delay</code> + wall-clock timeout.</p>
+    </li>
+    <li>
+      <span class="pt">testssl.sh upgrade of the TLS check</span><br>
+      <p>Replaces the single-handshake analysis with full chain / cipher / protocol / OCSP coverage. <code>--json</code> output maps directly to the existing TLS finding shape; stays <span class="tag ver">verified</span> tier.</p>
+    </li>
+    <li>
+      <span class="pt">Kali sidecar + nuclei</span> — the biggest coverage jump.<br>
+      <p>New <code>kali</code> compose profile (Option B): nuclei with a curated template subset (CVEs, exposures, misconfigs), <code>-rl</code> rate limit, per-run opt-in, <code>kali_skipped</code>/<code>kali_done</code> events. Add a <code>/coverage</code> group for it, mirroring the ZAP group.</p>
+    </li>
+    <li>
+      <span class="pt">Endpoint discovery (feroxbuster/ffuf)</span> — largest effort, treat as a feature.<br>
+      <p>Discovery phase that feeds undocumented paths back as candidate Operations, so existing BOLA/BFLA/injection checks run on shadow endpoints too. Design decision needed: do discovered ops count against the 500-request budget?</p>
+    </li>
+  </ol>
+
+  <h2>5. Guardrails these additions must respect</h2>
+  <ul class="tight">
+    <li><strong>Authorization gate stays.</strong> Every Kali-tool pass only fires on an already-authorized run (<code>authorized: true</code>) and only with an explicit opt-in flag, same as ZAP.</li>
+    <li><strong>Outside the 500-request budget — say so.</strong> sqlmap/nuclei/feroxbuster make their own requests. Document them as side paths bounded by wall-clock timeout + tool-native rate limits (<code>-rl</code>, <code>--delay</code>), exactly how ZAP is documented today.</li>
+    <li><strong>Graceful degradation is mandatory.</strong> Missing tool / container down / timeout → emit <code>*_skipped</code> event, scan completes with engine findings intact. Never fail a scan on an adjunct.</li>
+    <li><strong>Image hygiene.</strong> Cherry-picked packages (~hundreds of MB), not <code>kali-linux-headless</code> (~2&nbsp;GB+). Pin <code>kali-last-release</code> or package versions if scan reproducibility matters.</li>
+    <li><strong>Coverage copy must stay honest.</strong> New entries in <code>coverage.ts</code> with correct confidence tier — nuclei template matches are closer to “verified” than reflection, but a template hit is still not exploitation for every class.</li>
+  </ul>
+
+  <p class="foot">Sources: kali.org official Docker images docs · repo: <code>apps/web/lib/coverage.ts</code> (LIMITS / NOT_COVERED), <code>app/engine/zap.py</code>, <code>app/engine/runner.py</code>, <code>docker-compose.yml</code>, <code>services/api/Dockerfile</code>. Package availability in the Kali archive should be confirmed with <code>apt search</code> at build time.</p>
+</div>

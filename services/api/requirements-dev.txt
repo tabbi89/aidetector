@@ -1,0 +1,9 @@
+ruff==0.8.4
+mypy==1.14.0
+pytest==9.1.1
+pytest-xdist==3.8.0
+pytest-cov==7.1.0
+coverage==7.16.0
+hypothesis==6.167.0
+mutmut==3.6.0
+types-PyYAML==6.0.12.20240917

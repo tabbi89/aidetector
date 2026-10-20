@@ -1,0 +1,217 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aidetector
+      POSTGRES_PASSWORD: aidetector
+      POSTGRES_DB: aidetector
+    # Host ports bind to loopback (BIND_HOST, default 127.0.0.1). Containers
+    # reach each other by service name, so nothing needs a LAN-facing port —
+    # and an unauthenticated broker on the LAN lets anyone enqueue a scan that
+    # skips the API's authorization gate.
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aidetector"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./services/api
+      args:
+        # Bake optional worker tools into the image: WITH_KALI_TOOLS=1 make up
+        WITH_KALI_TOOLS: ${WITH_KALI_TOOLS:-0}
+        WITH_INTERACTSH: ${WITH_INTERACTSH:-0}
+        # The AI runtime must be baked into the api image too, not just the
+        # worker/beat: the ask-your-scan route (POST /scans/{id}/ask) runs the
+        # planner in-process here, so without this the endpoint 502s even when
+        # scan-time adjudication (worker) works.
+        WITH_AI: ${WITH_AI:-0}
+        WITH_CURSOR: ${WITH_CURSOR:-0}
+        # ruff + mypy for `make lint`, which execs here.
+        WITH_DEV: ${WITH_DEV:-1}
+    # Run migrations before serving so a fresh/behind DB volume self-heals
+    # instead of 500ing until someone runs `alembic upgrade head` by hand.
+    command: sh -lc 'alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload'
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://aidetector:aidetector@postgres:5432/aidetector
+      REDIS_URL: redis://redis:6379/0
+      AI_PYTHON: ${AI_PYTHON:-/opt/venv-ai/bin/python}
+      MONITORING_AI_PROVIDER: ${MONITORING_AI_PROVIDER:-none}
+      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+      CURSOR_MODEL: ${CURSOR_MODEL:-composer-2.5}
+      CURSOR_MCP_SERVERS_JSON: ${CURSOR_MCP_SERVERS_JSON:-}
+      MONITORING_HMAC_KEY: ${MONITORING_HMAC_KEY:-}
+      # The CLI's `run --local` claims scans over POST /scans/{id}/local-runs.
+      LOCAL_RUNNER_ENABLED: ${LOCAL_RUNNER_ENABLED:-false}
+      # tests/test_coverage_mirror.py compares the engine with apps/web.
+      AIDETECTOR_REPO_ROOT: /repo
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:8000:8000"
+    volumes:
+      - ./services/api:/app
+      # Read-only view of the checkout for the mirror tests; the api never writes it.
+      - .:/repo:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./services/api
+      args:
+        WITH_KALI_TOOLS: ${WITH_KALI_TOOLS:-0}
+        WITH_INTERACTSH: ${WITH_INTERACTSH:-0}
+        WITH_AI: ${WITH_AI:-0}
+        WITH_CURSOR: ${WITH_CURSOR:-0}
+    command: celery -A app.workers.celery_app.celery worker --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://aidetector:aidetector@postgres:5432/aidetector
+      REDIS_URL: redis://redis:6379/0
+      # AI runtime python (baked at /opt/venv-ai when WITH_AI=1; a missing path
+      # degrades gracefully to no-AI). Credentials come from .env (ANTHROPIC_API_KEY).
+      AI_PYTHON: ${AI_PYTHON:-/opt/venv-ai/bin/python}
+      MONITORING_AI_PROVIDER: ${MONITORING_AI_PROVIDER:-none}
+      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+      CURSOR_MODEL: ${CURSOR_MODEL:-composer-2.5}
+      CURSOR_MCP_SERVERS_JSON: ${CURSOR_MCP_SERVERS_JSON:-}
+      MONITORING_HMAC_KEY: ${MONITORING_HMAC_KEY:-}
+      # Opt-in adjuncts (empty unless the matching profile is up). See README.
+      OAST_SERVER: ${OAST_SERVER:-}
+      OAST_TOKEN: ${OAST_TOKEN:-}
+      ZAP_BASE_URL: ${ZAP_BASE_URL:-}
+      ZAP_API_KEY: ${ZAP_API_KEY:-}
+      KALI_BASE_URL: ${KALI_BASE_URL:-}
+      KALI_API_KEY: ${KALI_API_KEY:-}
+      # Worker-side lead-confirmation tools; non-empty activates (needs
+      # WITH_KALI_TOOLS=1 baked into the image): SQLMAP_BIN=sqlmap,
+      # TESTSSL_BIN=testssl, COMMIX_BIN=commix, DALFOX_BIN=dalfox. TPLMAP_BIN is
+      # supported too but tplmap must be provisioned manually (see the Dockerfile).
+      SQLMAP_BIN: ${SQLMAP_BIN:-}
+      TESTSSL_BIN: ${TESTSSL_BIN:-}
+      COMMIX_BIN: ${COMMIX_BIN:-}
+      DALFOX_BIN: ${DALFOX_BIN:-}
+      TPLMAP_BIN: ${TPLMAP_BIN:-}
+    volumes:
+      - ./services/api:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./services/api
+      args:
+        WITH_KALI_TOOLS: ${WITH_KALI_TOOLS:-0}
+        WITH_INTERACTSH: ${WITH_INTERACTSH:-0}
+        WITH_AI: ${WITH_AI:-0}
+        WITH_CURSOR: ${WITH_CURSOR:-0}
+    command: celery -A app.workers.celery_app.celery beat --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://aidetector:aidetector@postgres:5432/aidetector
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./services/api:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  target:
+    build: ./services/target
+    command: uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload
+    # Intentionally vulnerable: loopback only, never reachable from elsewhere.
+    # Not BIND_HOST, so widening the other services cannot expose it.
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - ./services/target:/app
+
+  web:
+    build: ./apps/web
+    command: npm run dev
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      # Own build cache: host-side `npm run build` must not corrupt the dev server.
+      NEXT_DIST_DIR: .next-dev
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+  # --- Opt-in adjunct scanners (started only with their profile) -------------
+  # Out-of-band interaction server for blind-vuln confirmation (Option 2).
+  #   docker compose --profile oob up interactsh
+  # NOTE: real callbacks need public DNS delegation to this host's domain; on a
+  # local-only network only same-network HTTP/SMTP callbacks resolve. Set
+  # OAST_SERVER to the domain below and give the worker image interactsh-client.
+  interactsh:
+    image: projectdiscovery/interactsh-server:latest
+    profiles: ["oob"]
+    command: >
+      -domain ${OAST_DOMAIN:-oast.local}
+      -http-port 8095
+    # Deliberately NOT loopback: its job is receiving callbacks from targets.
+    ports:
+      - "8095:8095"
+    restart: unless-stopped
+
+  # OWASP ZAP daemon — heavier parallel active scanner (Option "ZAP too").
+  #   docker compose --profile zap up zap
+  # Drives spider + active-scan over its REST API; findings are mapped into the
+  # scan. Runs on its OWN request/cancel model, NOT the engine's 500-req budget.
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    profiles: ["zap"]
+    command: >
+      zap.sh -daemon -host 0.0.0.0 -port 8090
+      -config api.key=${ZAP_API_KEY:-changeme}
+      -config api.addrs.addr.name=.*
+      -config api.addrs.addr.regex=true
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:8090:8090"
+    restart: unless-stopped
+
+  # Kali adjunct service — curated tools from the official Kali image (nuclei
+  # templates, ffuf discovery, nikto, whatweb, katana crawl, arjun params),
+  # driven over a small job API.
+  #   docker compose --profile kali up kali
+  # Runs OUTSIDE the engine's 500-req budget; per-run opt-in via kali:true.
+  kali:
+    build: ./services/kali
+    profiles: ["kali"]
+    environment:
+      KALI_API_KEY: ${KALI_API_KEY:-}
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:8091:8091"
+    volumes:
+      - ./services/kali/app:/opt/kali/app
+    restart: unless-stopped
+
+volumes:
+  pgdata:

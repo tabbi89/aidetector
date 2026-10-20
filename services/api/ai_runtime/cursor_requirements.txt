@@ -1,0 +1,3 @@
+# Optional Cursor SDK for Phase K explanations. Installed only with
+# --build-arg WITH_CURSOR=1; it is not a dependency of the API process.
+cursor-sdk

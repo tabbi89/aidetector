@@ -1,0 +1,51 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["mutants"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's Depends()/Query() in argument defaults is the intended idiom.
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+addopts = "-q -ra"
+testpaths = ["tests"]
+markers = ["allow_subprocess: explicitly allow controlled Python import probes"]
+filterwarnings = [
+    # reportlab's rl_safe_eval uses deprecated ast nodes; third-party noise.
+    "ignore::DeprecationWarning:reportlab.*",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+
+[tool.mutmut]
+source_paths = ["app/"]
+only_mutate = [
+    "app/engine/header_policy.py",
+    "app/engine/exposure_policy.py",
+    "app/engine/fingerprint.py",
+    "app/engine/spec_values.py",
+    # The escaped-vs-unneutralised discriminator behind every reflection lead.
+    "app/engine/injection_probe.py",
+]
+pytest_add_cli_args_test_selection = [
+    "tests/test_engine_headers.py", "tests/test_engine_exposure.py",
+    "tests/test_char_fingerprint.py", "tests/test_spec_values.py",
+    "tests/test_policy_properties.py",
+    "tests/test_reflection_oracle.py",
+]
+pytest_add_cli_args = ["-x", "-q"]
+also_copy = ["tests/", "alembic.ini", "alembic/"]

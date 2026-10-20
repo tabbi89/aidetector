@@ -1,0 +1,184 @@
+{
+  "version": 1,
+  "scope": "held-out synthetic detector cases; not production estimates",
+  "true_positives": 11,
+  "false_positives": 0,
+  "false_negatives": 0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "valid_request_coverage": 0.9583333333333334,
+  "inconclusive_rate": 0.041666666666666664,
+  "cleanup_attempts": 44,
+  "cleanup_successes": 44,
+  "cleanup_success_rate": 1.0,
+  "cases": [
+    {
+      "name": "expression:True:compute",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "expression:False:compute",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "expression:False:static",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "expression:False:reject",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": false,
+      "outcome": "blocked"
+    },
+    {
+      "name": "workflow:approval:skip:0:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:approval:replay:1:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:approval:cross_identity:1:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:nested-ownership:cross_identity:0:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:bulk-approval:skip:0:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:bulk-approval:replay:0:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:bulk-approval:cross_identity:1:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:archive-restore:skip:0:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:archive-restore:replay:1:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:archive-restore:cross_identity:1:True",
+      "expected": true,
+      "detected": true,
+      "baseline_valid": true,
+      "outcome": "finding"
+    },
+    {
+      "name": "workflow:approval:skip:0:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:approval:replay:1:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:approval:cross_identity:1:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:nested-ownership:cross_identity:0:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:bulk-approval:skip:0:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:bulk-approval:replay:0:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:bulk-approval:cross_identity:1:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:archive-restore:skip:0:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:archive-restore:replay:1:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    },
+    {
+      "name": "workflow:archive-restore:cross_identity:1:False",
+      "expected": false,
+      "detected": false,
+      "baseline_valid": true,
+      "outcome": "passed"
+    }
+  ]
+}

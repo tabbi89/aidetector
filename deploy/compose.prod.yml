@@ -1,0 +1,122 @@
+# Production stack for runpentests.com — run by `make deploy`, never by hand
+# on a workstation. Differences from the dev docker-compose.yml, all deliberate:
+#
+# - No `target`. services/target is intentionally vulnerable and must never be
+#   reachable; it is not even copied to the server (see deploy/rsync-exclude).
+# - Only Caddy publishes ports. Postgres and Redis live on the compose network
+#   alone: the broker is unauthenticated and the worker trusts a queued
+#   run_scan message, so a reachable Redis would bypass every API gate.
+# - Built images, no source bind-mounts, no --reload, no dev tooling.
+# - Secrets (VAULT_KEY, the database password) come from /etc/runpentests.env,
+#   generated once on the server by deploy/remote.sh and never synced.
+name: runpentests
+
+x-api-env: &api-env
+  env_file: /etc/runpentests.env
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aidetector
+      POSTGRES_DB: aidetector
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in /etc/runpentests.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aidetector"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *api-env
+    image: runpentests-api:latest
+    build:
+      context: ../services/api
+    # Migrations first, so a deploy that ships a revision applies it before
+    # serving. Caddy strips /api, and --root-path puts it back in the docs'
+    # links. --proxy-headers trusts X-Forwarded-For because only Caddy can
+    # reach this container, and Caddy overwrites the header with the client
+    # address it resolved from Cloudflare (see deploy/caddy/Caddyfile) — otherwise
+    # every visitor shares one sign-in/sign-up throttle bucket.
+    # One string on purpose: a folded YAML block keeps the newline before a
+    # more-indented line, and sh then runs the flags as a separate command.
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --root-path /api --proxy-headers --forwarded-allow-ips '*'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *api-env
+    image: runpentests-api:latest
+    command: celery -A app.workers.celery_app.celery worker --loglevel=info --concurrency=2
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  beat:
+    <<: *api-env
+    image: runpentests-api:latest
+    command: celery -A app.workers.celery_app.celery beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  web:
+    image: runpentests-web:latest
+    build:
+      context: ../apps/web
+      dockerfile: ../../deploy/web.Dockerfile
+      args:
+        # Baked at build time: the browser talks to the API on the same origin.
+        NEXT_PUBLIC_API_URL: https://${SITE_DOMAIN:?set in /etc/runpentests.env}/api
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      # A directory, not the file: rsync replaces the Caddyfile with a new inode,
+      # which a single-file bind mount would never see. remote.sh reloads Caddy.
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

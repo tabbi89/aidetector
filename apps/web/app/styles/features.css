@@ -1,0 +1,626 @@
+/* Feature styles split out of globals.css: connection, readiness,
+   entitlement, CLI handoff, attention summary, export menu, finding work.
+   Imported by app/layout.tsx after globals.css so the cascade order is
+   unchanged. Tokens live in globals.css. */
+
+/* ---------- scan readiness, entitlement, CLI handoff ---------- */
+/* Draft resume note: quiet, but it is a status region so it is announced. */
+.draft-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: 780px;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.draft-note .copybtn {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+/* Step-4 readiness: a definition list, not prose, so rows scan in one pass. */
+.readiness {
+  max-width: 780px;
+  margin: 0 0 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.readiness-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 15px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.readiness-row:first-child {
+  border-top: none;
+}
+
+.readiness dt {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.readiness dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.readiness-target {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.readiness dd.is-warn,
+.readiness .is-warn {
+  color: var(--amber);
+}
+
+.readiness-danger {
+  color: var(--amber);
+}
+
+.readiness-reasons {
+  margin: 5px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.readiness-maybe {
+  margin: 6px 0 0;
+  color: var(--amber);
+  font-size: 12px;
+}
+
+/* Run-panel feature availability: one row per on-screen feature, with a
+   three-state chip (available / locked by plan / unavailable here). */
+.feat-list {
+  list-style: none;
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--line);
+}
+
+.feat-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--paper);
+  font-size: 13px;
+}
+
+.feat-name {
+  font-weight: 600;
+}
+
+.feat-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.feat-chip.available {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.feat-chip.premium {
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+
+.feat-chip.locked {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.feat-chip.unavailable {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.feat-reason {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.feat-link {
+  font-size: 12px;
+}
+
+/* CLI handoff on the wizard's last step. Code blocks reuse the landing
+   `.shell` panel so the two lanes look the same. */
+.cli-handoff {
+  max-width: 780px;
+  margin-top: 22px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.cli-title {
+  margin: 0;
+  font-size: 15px;
+}
+
+.cli-intro {
+  margin: 4px 0 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.cli-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cli-tab {
+  margin-bottom: -1px;
+  padding: 7px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cli-tab:hover {
+  color: var(--ink-soft);
+}
+
+.cli-tab[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+}
+
+.cli-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cli-command {
+  position: relative;
+}
+
+.cli-command .shell {
+  margin: 0;
+  padding: 14px 16px;
+  padding-right: 84px;
+  font-size: 11.5px;
+}
+
+.cli-command .copybtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  color: var(--shell-comment);
+}
+
+.cli-command .copybtn:hover {
+  background: var(--shell-line);
+  color: var(--shell-ink);
+}
+
+.cli-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .readiness-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* ---------- finding assignment and discussion ---------- */
+/* Collapsed per-finding workflow: assignment fields, the discussion, and the
+   copy/retest actions. Token-driven so it reads in both themes, and one column
+   at narrow widths. */
+.finding-work {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.finding-work > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.finding-work > summary::-webkit-details-marker {
+  display: none;
+}
+
+.finding-work > summary::before {
+  content: "▸";
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.finding-work[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.finding-work[open] > summary {
+  color: var(--ink-soft);
+}
+
+.fw-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.fw-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.fw-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.fw-events {
+  border: 0;
+  padding: 0;
+  margin: 4px 0 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.fw-events legend {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--ink-soft);
+}
+
+.fw-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.fw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.fw-field > span:first-child {
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.fw-field input,
+.fw-field select,
+.fw-compose textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.fw-field input[type="date"] {
+  min-width: 0;
+}
+
+.fw-field input:focus,
+.fw-field select:focus,
+.fw-compose textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.fw-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fw-saved {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fw-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.fw-notice {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.fw-comments {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.fw-comments h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fw-empty {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.fw-comment-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fw-comment-list > li {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 9px 11px;
+}
+
+.fw-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fw-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.fw-time {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.fw-del {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.fw-del:hover:not(:disabled) {
+  color: var(--red);
+}
+
+.fw-del:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fw-comment-body {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.fw-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fw-compose textarea {
+  min-height: 76px;
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.fw-compose-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fw-counter {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.fw-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The work queue: one row per assigned finding, action-first. */
+.work-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.work-queue-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.work-queue-row:hover {
+  background: var(--surface-2);
+}
+
+.work-queue-row.overdue {
+  border-left-color: var(--red);
+}
+
+.wq-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.wq-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.wq-due.overdue {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.wq-status {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.wq-status.in_progress {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.wq-status.resolved {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.wq-status.accepted_risk {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+@media (max-width: 760px) {
+  .fw-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .fw-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .work-queue-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .wq-meta {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+

@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# flash — hand a bounded task to a DeepSeek Flash agent.
+#
+# The Opus 5 session is the orchestrator; this is how it delegates. Each role
+# runs headless Claude Code pointed at DeepSeek's Anthropic-compatible endpoint:
+#
+#   researcher  read-only, in the repo           → prints findings
+#   writer      read-only, in the repo           → prints the text
+#   worker      edits in its own git worktree    → commits to flash/<slug>, prints the diffstat
+#
+# Nothing a worker does lands on your branch: the orchestrator reviews
+# `git diff HEAD...flash/<slug>` and integrates it (or discards the worktree).
+#
+# Usage:
+#   scripts/flash researcher "Where does the runner decide check order?"
+#   scripts/flash worker --slug header-cap "Make MAX_HEADER_ENDPOINTS configurable..."
+#   scripts/flash writer "Summarise the diff on flash/header-cap for a PR body"
+#   scripts/flash clean <slug>           # remove a worker's worktree and branch
+#
+# Options: --slug NAME  --model ID (default $FLASH_MODEL or deepseek-flash)
+#          --max-turns N (default 60)  --dry-run
+#
+# Key: $DEEPSEEK_API_KEY, else the macOS keychain item "deepseek-api"
+#   security add-generic-password -a "$USER" -s deepseek-api -w
+set -euo pipefail
+
+ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+ROLES="$ROOT/.claude/flash/roles"
+LEDGER="$ROOT/.flash/ledger.jsonl"
+
+die() { echo "flash: $*" >&2; exit 2; }
+
+role="${1:-}"; shift || true
+
+if [[ "$role" == "clean" ]]; then
+  slug="${1:?usage: flash clean <slug>}"
+  git -C "$ROOT" worktree remove --force "$ROOT/.worktrees/$slug" 2>/dev/null || true
+  git -C "$ROOT" branch -D "flash/$slug" 2>/dev/null || true
+  echo "removed worktree and branch for $slug"
+  exit 0
+fi
+
+[[ "$role" =~ ^(researcher|worker|writer)$ ]] || die "role must be researcher, worker, writer or clean"
+
+slug="" model="${FLASH_MODEL:-deepseek-flash}" max_turns=60 dry_run=0
+while [[ $# -gt 1 ]]; do
+  case "$1" in
+    --slug) slug="$2"; shift 2 ;;
+    --model) model="$2"; shift 2 ;;
+    --max-turns) max_turns="$2"; shift 2 ;;
+    --dry-run) dry_run=1; shift ;;
+    *) break ;;
+  esac
+done
+task="${1:-}"
+[[ -n "$task" ]] || die "missing task text"
+# An Opus/Sonnet-looking id is silently remapped by DeepSeek to its Pro tier.
+[[ "$model" == deepseek-* ]] || die "model must be a deepseek-* id (got $model)"
+
+key="${DEEPSEEK_API_KEY:-}"
+if [[ -z "$key" ]] && command -v security >/dev/null; then
+  key="$(security find-generic-password -s deepseek-api -w 2>/dev/null || true)"
+fi
+[[ -n "$key" || $dry_run -eq 1 ]] || die "no DeepSeek key: set DEEPSEEK_API_KEY or add keychain item deepseek-api"
+
+read_tools="Read,Grep,Glob,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git grep:*),Bash(ls:*)"
+cwd="$ROOT"
+case "$role" in
+  researcher|writer)
+    tools="Read,Grep,Glob,Bash"
+    allowed="$read_tools"
+    mode="dontAsk"
+    ;;
+  worker)
+    [[ -n "$slug" ]] || slug="task-$(date +%Y%m%d-%H%M%S)"
+    [[ "$slug" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "slug must be kebab-case"
+    cwd="$ROOT/.worktrees/$slug"
+    tools="Read,Grep,Glob,Edit,Write,Bash"
+    allowed="$read_tools,Edit,Write,Bash(git status:*),Bash(cd:*),Bash(pytest:*),Bash(ruff:*),Bash(mypy:*),Bash(python:*),Bash(python3:*),Bash(which:*),Bash(.venv/bin/*:*),Bash(npx tsc:*),Bash(npm run lint:*)"
+    mode="acceptEdits"
+    ;;
+esac
+
+cmd=(claude --bare -p
+  --model "$model"
+  --max-turns "$max_turns"
+  --output-format json
+  --permission-mode "$mode"
+  --tools "$tools"
+  --allowedTools "$allowed"
+  --append-system-prompt-file "$ROOT/CLAUDE.md"
+  --append-system-prompt-file "$ROLES/$role.md")
+
+if [[ $dry_run -eq 1 ]]; then
+  printf 'cwd: %s\n' "$cwd"; printf '%q ' "${cmd[@]}"; echo; exit 0
+fi
+
+if [[ "$role" == "worker" ]]; then
+  [[ -e "$cwd" ]] && die "worktree $cwd already exists (scripts/flash clean $slug)"
+  mkdir -p "$ROOT/.worktrees"
+  git -C "$ROOT" worktree add -q -b "flash/$slug" "$cwd" HEAD
+  # Dependencies are gitignored, so a fresh worktree has none; borrow the main
+  # checkout's. The links are excluded so the worker's commit never picks them up.
+  exclude="$(git -C "$ROOT" rev-parse --git-common-dir)/info/exclude"
+  for dep in services/api/.venv apps/web/node_modules; do
+    [[ -d "$ROOT/$dep" ]] || continue
+    ln -s "$ROOT/$dep" "$cwd/$dep"
+    grep -qxF "/$dep" "$exclude" 2>/dev/null || echo "/$dep" >> "$exclude"
+  done
+fi
+
+mkdir -p "$(dirname "$LEDGER")"
+out="$(
+  cd "$cwd"
+  # Scrub every other route to Anthropic so the key and the traffic go only to DeepSeek.
+  env -u CLAUDECODE -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN \
+      -u CLAUDE_CODE_USE_BEDROCK -u CLAUDE_CODE_USE_VERTEX -u CLAUDE_CODE_USE_FOUNDRY \
+    ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic" \
+    ANTHROPIC_API_KEY="$key" \
+    ANTHROPIC_DEFAULT_HAIKU_MODEL="$model" \
+    ANTHROPIC_SMALL_FAST_MODEL="$model" \
+    API_TIMEOUT_MS=600000 \
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+    PATH="$ROOT/services/api/.venv/bin:$PATH" \
+    PYTHONPATH="$cwd/services/api" \
+    "${cmd[@]}" "$task"
+)" && rc=0 || rc=$?
+
+# total_cost_usd is priced at Anthropic rates, so the ledger keeps tokens only.
+jq -c --arg role "$role" --arg slug "$slug" --arg model "$model" \
+  '{ts: (now|todate), role: $role, slug: $slug, model: $model,
+    turns: .num_turns, is_error: .is_error, usage: .usage}' <<<"$out" >> "$LEDGER" || true
+
+jq -r '.result // "(no result)"' <<<"$out" 2>/dev/null || echo "$out" >&2
+[[ $rc -eq 0 ]] || echo "flash: $role run failed (exit $rc) — partial work is still committed below" >&2
+
+if [[ "$role" == "worker" ]]; then
+  git -C "$cwd" add -A
+  if git -C "$cwd" diff --cached --quiet; then
+    echo; echo "--- worker made no changes (branch flash/$slug)"
+  else
+    git -C "$cwd" commit -q -m "flash($slug): $(head -c 60 <<<"$task" | tr '\n' ' ')"
+    echo; echo "--- flash/$slug  (worktree .worktrees/$slug)"
+    git -C "$ROOT" diff --stat "HEAD...flash/$slug"
+  fi
+fi
+[[ $rc -eq 0 ]] || exit 2

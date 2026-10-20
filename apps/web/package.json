@@ -1,0 +1,32 @@
+{
+  "name": "aidetector-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "pretest:e2e": "playwright install chromium",
+    "test:e2e": "playwright test",
+    "test:contracts": "openapi-typescript contracts/openapi.json --default-non-nullable false --empty-objects-unknown -o contracts/generated.ts && tsc -p contracts/tsconfig.json"
+  },
+  "dependencies": {
+    "next": "15.5.25",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/node": "22.10.2",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "eslint": "9.17.0",
+    "eslint-config-next": "15.5.25",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.7.2"
+  },
+  "overrides": {
+    "postcss": "8.5.28"
+  }
+}

@@ -1,0 +1,53 @@
+name: Policy mutation report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 4 * * 1"
+  # Gate the pure decision modules on pull requests too: a mutation that breaks
+  # the header/exposure/reflection/fingerprint policy must not land silently and
+  # wait for the weekly run to notice. Scoped by path so it does not slow every
+  # PR — only the ones that touch these files (or their proof tests).
+  pull_request:
+    paths:
+      - "services/api/app/engine/header_policy.py"
+      - "services/api/app/engine/exposure_policy.py"
+      - "services/api/app/engine/fingerprint.py"
+      - "services/api/app/engine/spec_values.py"
+      - "services/api/app/engine/injection_probe.py"
+      - "services/api/tests/test_engine_headers.py"
+      - "services/api/tests/test_engine_exposure.py"
+      - "services/api/tests/test_char_fingerprint.py"
+      - "services/api/tests/test_spec_values.py"
+      - "services/api/tests/test_policy_properties.py"
+      - "services/api/tests/test_reflection_oracle.py"
+
+jobs:
+  policies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Mutate four pure policy modules
+        run: mutmut run --max-children 2
+      - name: Report outcomes separately
+        if: always()
+        run: |
+          mutmut results > mutation-results.txt
+          python -m scripts.mutation_report
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: policy-mutation-report
+          path: |
+            services/api/mutation-report.json
+            services/api/mutation-results.txt
+            services/api/mutants
+          retention-days: 14

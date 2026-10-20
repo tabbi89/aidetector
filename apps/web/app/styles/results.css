@@ -1,0 +1,226 @@
+/* ---------- scan results: "Needs attention" and the export menu ----------
+   Both components shipped without styles; these use only the theme tokens. */
+
+.attention {
+  margin: 28px 0 8px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.attention-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.attention-head h2 {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.attention-sub { font-size: 12.5px; color: var(--muted); }
+
+.attention-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.attention-row:last-child { border-bottom: 0; }
+.attention-row:hover { background: var(--surface); }
+.attention-row:hover .attention-action { text-decoration: underline; }
+.attention-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.attention-row.high-risk { border-left-color: var(--red); }
+.attention-row.gap { border-left-color: var(--amber); }
+.attention-row.muted { color: var(--ink-soft); }
+
+.attention-count {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.attention-row.high-risk .attention-count { color: var(--red); background: var(--red-soft); }
+.attention-row.gap .attention-count { color: var(--amber); background: var(--amber-soft); }
+.attention-row.muted .attention-count { color: var(--muted); }
+
+.attention-copy { display: grid; gap: 4px; min-width: 0; }
+.attention-copy strong { font-size: 14.5px; font-weight: 600; }
+.attention-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.attention-finding {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+.attention-action {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.attention-action::after { content: " →"; }
+
+.attention-verdict {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+}
+.attention-verdict:last-child { border-bottom: 0; }
+.attention-verdict.ok { background: var(--teal-soft); border-left-color: var(--teal); }
+.attention-verdict.caution { background: var(--amber-soft); border-left-color: var(--amber); }
+.attention-verdict .attention-detail { color: var(--ink-soft); }
+.attention-verdict-icon {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--paper);
+}
+.attention-verdict.ok .attention-verdict-icon { background: var(--teal); }
+.attention-verdict.caution .attention-verdict-icon { background: var(--amber); }
+
+.attention-clean {
+  margin: 0;
+  padding: 14px 18px;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--teal-soft);
+  border-top: 1px solid var(--line);
+}
+.attention-head + .attention-clean { border-top: 0; }
+.attention-caveat { color: var(--ink-soft); }
+
+@media (max-width: 640px) {
+  .attention-row,
+  .attention-verdict { grid-template-columns: 40px minmax(0, 1fr); }
+  .attention-action { grid-column: 2; }
+}
+
+/* Export menu */
+.export-menu { position: relative; display: inline-block; }
+.export-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 248px;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+.export-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.export-item:hover:not(:disabled),
+.export-item:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+  text-decoration: none;
+}
+.export-item:disabled { color: var(--muted); cursor: not-allowed; }
+.export-label { font-weight: 500; }
+.export-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--violet-soft);
+  color: var(--violet);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.export-upgrade { color: var(--accent); font-weight: 600; border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; margin-top: 4px; }
+.export-menu-err {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: max-content;
+  max-width: 320px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+/* Scan list: several scans often share a target URL, so each row shows its id. */
+.scan-row .scan-id {
+  margin-left: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.scan-row .target {
+  display: inline-block;
+  max-width: calc(100% - 96px);
+  vertical-align: bottom;
+}
+
+/* The new-scan wizard uses the page's full content width, like the scan page,
+   instead of the 780px reading column the shared panel rules cap it at. */
+.new-scan .panel,
+.new-scan .draft-note,
+.new-scan .readiness,
+.new-scan .cli-handoff,
+.new-scan .specbox,
+.new-scan .shell {
+  max-width: none;
+}

@@ -1,0 +1,104 @@
+"""Comparing two runs of a scan: what is new, what is fixed, what is still there.
+
+A single scan report answers "what is wrong". A team fixing things needs "what
+changed since last time" — three new highs is a decision, sixty findings is a
+document nobody reads. Every run already archives a findings snapshot
+(``ScanRun.findings_snapshot``); this reads two of them.
+
+Matching is by fingerprint (``app/engine/fingerprint.py``), which is what makes
+"the same finding" a meaningful phrase across runs. Snapshots written before
+fingerprints existed carry none: those rows are reported as **unmatchable**
+rather than silently counted as new, because "12 new findings" that only means
+"the older run predates the feature" is worse than saying so.
+
+Pure — no DB, no I/O. The route hands it two snapshots and serialises the result.
+"""
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
+
+from app.domain.enums import CONFIDENCE_RANK, SEVERITY_RANK
+
+
+@dataclass
+class RunDiff:
+    """What changed between two archived runs."""
+
+    #: In the newer run, not the older — a regression, or newly reachable.
+    added: list[dict[str, Any]] = field(default_factory=list)
+    #: In the older run, not the newer — fixed, or no longer reachable.
+    resolved: list[dict[str, Any]] = field(default_factory=list)
+    #: In the older run only, but produced by a pass the newer run left off —
+    #: the newer run never looked, so calling these "fixed" would be a lie.
+    not_retested: list[dict[str, Any]] = field(default_factory=list)
+    #: In both. Carries the *newer* row, since that is the current state.
+    unchanged: list[dict[str, Any]] = field(default_factory=list)
+    #: Rows on either side with no fingerprint, which cannot be matched.
+    unmatchable: int = 0
+
+
+def _by_fingerprint(rows: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], int]:
+    """Index a snapshot by fingerprint, counting rows that have none.
+
+    A run can legitimately produce two findings with one fingerprint only if a
+    check emits duplicates; the first wins and the rest are treated as the same
+    finding, which is the honest reading of an identity collision.
+    """
+    indexed: dict[str, dict[str, Any]] = {}
+    unmatchable = 0
+    for row in rows:
+        fp = str(row.get("fingerprint") or "")
+        if not fp:
+            unmatchable += 1
+            continue
+        indexed.setdefault(fp, row)
+    return indexed, unmatchable
+
+
+def diff_snapshots(
+    older: list[dict[str, Any]],
+    newer: list[dict[str, Any]],
+    *,
+    not_retested: Callable[[dict[str, Any]], bool] | None = None,
+) -> RunDiff:
+    """Compare two ``findings_snapshot`` lists, oldest first.
+
+    ``not_retested`` marks an older-only row the newer run could not have
+    reproduced (its pass was off); such rows are split out of ``resolved``.
+    """
+    old_index, old_bad = _by_fingerprint(older)
+    new_index, new_bad = _by_fingerprint(newer)
+
+    added = [row for fp, row in new_index.items() if fp not in old_index]
+    gone = [row for fp, row in old_index.items() if fp not in new_index]
+    unchanged = [row for fp, row in new_index.items() if fp in old_index]
+    skipped = [row for row in gone if not_retested is not None and not_retested(row)]
+    resolved = [row for row in gone if not (not_retested is not None and not_retested(row))]
+
+    return RunDiff(
+        added=_ordered(added),
+        resolved=_ordered(resolved),
+        not_retested=_ordered(skipped),
+        unchanged=_ordered(unchanged),
+        unmatchable=old_bad + new_bad,
+    )
+
+
+# Derived from the one vocabulary in app.domain.enums, so a new severity or
+# confidence tier can never reorder the diff differently from the API/reports.
+_SEVERITY_RANK = {s.value: r for s, r in SEVERITY_RANK.items()}
+_CONFIDENCE_RANK = {c.value: r for c, r in CONFIDENCE_RANK.items()}
+
+
+def _ordered(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Most severe first, proof before leads — the order used everywhere else."""
+    return sorted(
+        rows,
+        key=lambda r: (
+            -_SEVERITY_RANK.get(str(r.get("severity", "")), 0),
+            -_CONFIDENCE_RANK.get(str(r.get("confidence", "heuristic")), 0),
+            str(r.get("check", "")),
+        ),
+    )

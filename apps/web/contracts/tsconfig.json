@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": ["api.contract.ts", "generated.ts", "../lib/api.ts"],
+  "exclude": ["../node_modules"]
+}

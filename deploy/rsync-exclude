@@ -1,0 +1,27 @@
+# Never shipped to the server by `make deploy`.
+#
+# services/target is intentionally vulnerable and must never be deployed
+# anywhere reachable — it is excluded here AND deploy/remote.sh refuses to run
+# if it ever appears on the server.
+/services/target/
+/services/kali/
+/cli/
+/.git/
+/.claude/
+/.flash/
+/.worktrees/
+.env
+.env.*
+node_modules/
+.next/
+.next-dev/
+out/
+.venv/
+.venv-ai/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.tsbuildinfo
+/apps/web/test-results/
+.DS_Store

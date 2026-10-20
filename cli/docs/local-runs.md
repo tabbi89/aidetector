@@ -1,0 +1,90 @@
+# How a run works: the traffic leaves from this machine
+
+Every scan the CLI starts runs **here**: the engine runs in a throwaway container on this
+machine and every request to the target leaves from it, so a scan reaches an API only you
+can see (an internal host, a service behind a VPN, `localhost`) as easily as a public one.
+The service keeps the record and does the thinking: the results, the full request log and
+the methodology manifest go to it, it runs any AI analysis you asked for (`--ai`:
+adjudication and the security design review) before the run completes, and it renders the
+reports — graded, fingerprinted, diffable and triaged like any other run.
+
+```bash
+make runner-image                                   # once: build the runner image
+# and on the server: LOCAL_RUNNER_ENABLED=true (off by default; the claim 404s otherwise)
+
+export AIDETECTOR_SECRET_ALICE=...  AIDETECTOR_SECRET_ADMIN=...   # or --secrets-file / a prompt
+aidetector run "$ID" --authorized --fail-on high --verified-only
+```
+
+With `--ai`, the CLI waits after the upload while the service adjudicates the findings
+("results uploaded; the service is running the AI analysis"); Ctrl-C stops waiting, the
+analysis carries on, and `aidetector wait ID` picks it up again.
+
+## The heavy tools (ZAP, Kali)
+
+`--zap` and `--kali` (and `--level deep`) run those tools too, still from this machine:
+the CLI starts each as its own container on the Docker network you pass, and the runner
+reaches it there by name. Because the runner finds them by name, **a shared network is
+required** — pass `--docker-network` (the same one that reaches the target). Build the
+Kali image once with `make kali-image`; the ZAP image is pulled on first use. Each tool
+gets a fresh per-run API key, and the CLI removes both containers when the run ends.
+Lead confirmation (sqlmap/dalfox/commix/tplmap) and the testssl audit still run only on
+the server.
+
+How it works: the CLI **claims** the run from the server — which answers the authorization
+gate, the target guard and the premium check, and issues the request budget and a per-run
+token — then starts the engine in a throwaway container here. The container uploads its
+findings, authenticated by that token alone.
+
+- **Secrets stay local.** Each identity's secret is found on this machine, in order: a
+  `--secrets-file` (JSON `{name: secret}`, must be mode `0600`), a `secret_env` value from
+  `aidetector.yml`, `AIDETECTOR_SECRET_<NAME>` (and `AIDETECTOR_REFRESH_SECRET_<NAME>`),
+  then a hidden prompt. Secrets are keyed by credential **name**, so two identities with
+  the same role keep distinct secrets. A role key (`{role: secret}`, or
+  `AIDETECTOR_SECRET_<ROLE>`) is accepted only when that role is unique; a shared role must
+  be keyed by name, and using a role key for it is a usage error naming the identities.
+  Secrets go to the container on **stdin** — never argv, never its environment, never the
+  server. An identity with no secret is dropped from the run with a named reason; the rest
+  still run.
+- **The container holds no API key** — only the per-run token, which is scoped to this one
+  run and dies when it ends.
+- **The container is locked down:** read-only filesystem, non-root, all capabilities
+  dropped, no-new-privileges, 1 GB memory and a process limit, and no Docker socket.
+- **The server's budget is the budget.** The runner cannot raise the request cap or rate,
+  and the server refuses an upload that reports more requests than it issued.
+- **Cloud metadata is always refused** (including IPv6 forms that embed an IPv4 address);
+  private and internal hosts are allowed — that is the point.
+- **Ctrl-C** stops the container gracefully and the run ends `cancelled`. If the container
+  dies, the CLI closes the run, so the scan is never left locked.
+- A loopback server or target (`localhost`, `127.0.0.1`) is rewritten to
+  `host.docker.internal`, since `localhost` inside a container is the container. Override
+  with `--runner-server`, and join a Docker network with `--docker-network`. Repeat it (or
+  separate names with commas) to join several: a stack whose own network is
+  `internal: true` has no route to the server, so pass that network for the target and
+  one with egress for the server — `--docker-network app_internal,app_egress`. Joining
+  more than one needs Docker 25 or later.
+
+## When a run looks wrong
+
+After the findings, the CLI prints **what limited this run** — the few lines out of the
+progress log that change what the findings mean, worst first:
+
+- `✗ … answered 404, so this run never reached the API` — the routes do not exist on the
+  target. The line shows the URL a request was sent to; when the target already ends with
+  the spec's server path (`/api/v1`) and the route repeats it, set `target:` to the origin.
+  Routes are re-derived from the spec at the start of every run, so a stale route left by
+  an older server repairs itself once the server is upgraded. With no identity the line
+  says so instead: some APIs answer 404 to a caller without a key, and only an identity
+  tells the two apart.
+- `✗ identity 'x' was rejected` — every request with that identity answered 401: its secret
+  is wrong or expired, or it belongs in another header (`header:`).
+- `✗ none of the requests got an answer` — the runner cannot reach the target; pass the
+  target's network with `--docker-network`.
+- `!` lines narrowed the run without voiding it (resource setup failed, a tool did not run,
+  the budget ran out); one last line counts the checks with nothing to test in this API.
+
+The runner image is built by hand, so it can fall behind the CLI. A run warns when
+`aidetector-runner:latest` was built from another version — rebuild it with
+`make runner-image`. An old image is why `aidetector runs trace` can show no requests.
+
+The runner image is large (~1.4 GB: it is the API image).
