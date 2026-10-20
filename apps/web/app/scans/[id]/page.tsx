@@ -45,11 +45,6 @@ import { SchedulePanel } from "./SchedulePanel";
 import { SpecPanel } from "./SpecPanel";
 import { ACTIVE, type CredForm } from "../../components/scanShared";
 
-/**
- * The project file a CLI run last recorded, or null when the web owns every
- * setting. The `{}` the API sends then is typed as an index signature, so a
- * property check alone narrows nothing — this guard reads the runtime shape.
- */
 /** Host first, so a long URL does not fill the tab. */
 function scanTitle(url: string | undefined): string | null {
   if (!url) return null;
@@ -60,6 +55,11 @@ function scanTitle(url: string | undefined): string | null {
   }
 }
 
+/**
+ * The project file a CLI run last recorded, or null when the web owns every
+ * setting. The `{}` the API sends then is typed as an index signature, so a
+ * property check alone narrows nothing — this guard reads the runtime shape.
+ */
 function managedConfigOf(scan: Scan | null): ManagedConfig | null {
   const config = scan?.managed_config as unknown as Partial<ManagedConfig> | undefined;
   return typeof config?.path === "string" ? (config as ManagedConfig) : null;

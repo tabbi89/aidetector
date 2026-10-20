@@ -5,17 +5,22 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type KeyboardEvent,
+  type Ref,
 } from "react";
 import { api } from "@/lib/api";
 import { useConnection, type ConnectionStatus } from "@/lib/connection";
+import { usePageTitle } from "./usePageTitle";
 
 type Mode = "signin" | "signup";
 
 /** Mirrors the server's password rule, so the browser can say so first. */
 const MIN_PASSWORD = 6;
 const MAX_PASSWORD = 256;
+
+const noSubscription = () => () => {};
 
 const COPY: Record<Mode, { title: string; lead: string; submit: string; busy: string }> = {
   signin: {
@@ -54,37 +59,32 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [signInFailed, setSignInFailed] = useState(false);
   const [sent, setSent] = useState(false);
-  // Clicks before hydration are dropped. Keep every control disabled until
-  // then so the form does not look ready while it still ignores input.
-  const [hydrated, setHydrated] = useState(false);
+  // False only while server-rendered HTML waits for hydration (on /login).
+  // Clicks then are dropped, and a native submit would put the password in
+  // the URL, so the buttons wait. A client-side mount is hydrated at once.
+  const hydrated = useSyncExternalStore(noSubscription, () => true, () => false);
   const firstField = useRef<HTMLInputElement>(null);
+  const passwordField = useRef<HTMLInputElement>(null);
   const titleId = useId();
   const copy = COPY[mode];
 
+  usePageTitle(sent ? "Request sent" : mode === "signup" ? "Request access" : "Sign in");
+
+  // The fields stay enabled before hydration so password managers can fill
+  // them, and what they (or the reader) put there is in the DOM, not in state.
+  // The form mounts in sign-in mode, so the first field is the email.
   useEffect(() => {
-    setHydrated(true);
+    const typedEmail = firstField.current?.value;
+    const typedPassword = passwordField.current?.value;
+    if (typedEmail) setEmail(typedEmail);
+    if (typedPassword) setPassword(typedPassword);
   }, []);
 
-  // The tab title follows the form. On the way out, put the page title back
-  // only while this panel still owns it — a navigation may already have
-  // published the next page's title.
-  useEffect(() => {
-    const base = document.title;
-    return () => {
-      if (/^(Sign in|Request access|Request sent) · aidetector$/.test(document.title)) {
-        document.title = base;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const label = sent ? "Request sent" : mode === "signup" ? "Request access" : "Sign in";
-    document.title = `${label} · aidetector`;
-  }, [mode, sent]);
-
-  // The first empty field takes focus once the form can actually take it.
+  // The first field takes focus once the form can actually take it, unless
+  // the reader is already typing in one (on /login, before hydration).
   useEffect(() => {
     if (!hydrated || sent) return;
+    if (document.activeElement instanceof HTMLInputElement) return;
     firstField.current?.focus();
   }, [mode, sent, hydrated]);
 
@@ -104,6 +104,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     edited();
     if (mode === "signup") {
@@ -129,22 +130,27 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
       return;
     }
     setSignInFailed(true);
+    // A wrong password is the usual cause: put the reader back on it.
+    passwordField.current?.focus();
+    passwordField.current?.select();
   }
 
   const error = mode === "signin" && signInFailed ? connectionError : signUpError;
+  const progress = busy
+    ? mode === "signup"
+      ? "Sending your access request. This can take a few seconds."
+      : "Signing in. This can take a few seconds."
+    : null;
   // A live region that exists before the message does. Mounting role="status"
   // only after success is easy for a screen reader to miss.
   const announcement = sent
     ? `Request sent for ${email.trim()}. An admin has to approve it before that account can sign in.`
-    : busy
-      ? mode === "signup"
-        ? "Sending your access request. This can take a few seconds."
-        : "Signing in. This can take a few seconds."
-      : "";
+    : (progress ?? "");
 
   return (
     <div className="wrap auth">
-      <section className="auth-card" aria-labelledby={titleId} aria-busy={!hydrated || busy}>
+      <section className="auth-card" aria-labelledby={titleId}>
+        {/* No aria-busy on an ancestor: it can hold this region's updates back. */}
         <p className="visually-hidden" aria-live="polite" aria-atomic="true">
           {announcement}
         </p>
@@ -178,7 +184,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                     placeholder="Ada Lovelace"
                     required
                     maxLength={120}
-                    disabled={!hydrated || busy}
+                    readOnly={busy}
                     value={displayName}
                     onChange={(e) => {
                       setDisplayName(e.target.value);
@@ -199,7 +205,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                   inputMode="email"
                   spellCheck={false}
                   required
-                  disabled={!hydrated || busy}
+                  readOnly={busy}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -210,7 +216,8 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
 
               <PasswordField
                 mode={mode}
-                locked={!hydrated || busy}
+                inputRef={passwordField}
+                readOnly={busy}
                 value={password}
                 onChange={(value) => {
                   setPassword(value);
@@ -224,16 +231,21 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                 </p>
               )}
 
-              {busy && (
+              {progress && (
                 <p className="auth-progress">
                   <span className="spinner" aria-hidden="true" />
-                  {mode === "signup"
-                    ? "Sending your request. This can take a few seconds."
-                    : "Signing in. This can take a few seconds."}
+                  {progress}
                 </p>
               )}
 
-              <button className="btn auth-submit" type="submit" disabled={!hydrated || busy}>
+              {/* aria-disabled, not disabled, while busy: a disabled button
+                  drops the focus it holds. `submit` ignores the repeat. */}
+              <button
+                className="btn auth-submit"
+                type="submit"
+                disabled={!hydrated}
+                aria-disabled={busy || undefined}
+              >
                 {busy ? copy.busy : copy.submit}
               </button>
             </form>
@@ -283,12 +295,14 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
  */
 function PasswordField({
   mode,
-  locked,
+  inputRef,
+  readOnly,
   value,
   onChange,
 }: {
   mode: Mode;
-  locked: boolean;
+  inputRef: Ref<HTMLInputElement>;
+  readOnly: boolean;
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -308,6 +322,7 @@ function PasswordField({
       <label htmlFor={inputId}>Password</label>
       <div className="auth-password-row">
         <input
+          ref={inputRef}
           id={inputId}
           type={visible ? "text" : "password"}
           name="password"
@@ -316,7 +331,7 @@ function PasswordField({
           minLength={signup ? MIN_PASSWORD : undefined}
           maxLength={MAX_PASSWORD}
           aria-describedby={signup || capsLock ? hintId : undefined}
-          disabled={locked}
+          readOnly={readOnly}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={readCaps}
@@ -328,7 +343,6 @@ function PasswordField({
           type="button"
           aria-controls={inputId}
           aria-pressed={visible}
-          disabled={locked}
           onClick={() => setVisible((v) => !v)}
         >
           {visible ? "Hide" : "Show"}

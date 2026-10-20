@@ -7660,11 +7660,6 @@ a.oncall-tile:hover, a.oncall-tile:focus-visible { border-color: var(--accent-li
   outline-offset: 1px;
 }
 
-.auth-reveal:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .auth-hint {
   display: flex;
   flex-wrap: wrap;
@@ -7736,6 +7731,12 @@ a.oncall-tile:hover, a.oncall-tile:focus-visible { border-color: var(--accent-li
   opacity: 0.45;
   cursor: not-allowed;
   text-decoration: none;
+}
+
+/* Busy, but still holding focus (see SignInPanel). */
+.auth-submit[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: progress;
 }
 
 .auth-progress {
@@ -7813,8 +7814,9 @@ a.oncall-tile:hover, a.oncall-tile:focus-visible { border-color: var(--accent-li
   overflow-x: auto;
 }
 
-/* Held while the first probe settles, so the footer does not jump. The card
-   mirrors the sign-in form instead of leaving main empty. */
+/* The session-check card AuthGate shows while the first probe settles. It
+   sits in the same `.auth` frame as the sign-in form (whose min-height keeps
+   the footer from jumping) instead of leaving main empty. */
 .auth-wait-title {
   margin: 0;
   font-size: 22px;

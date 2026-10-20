@@ -31,7 +31,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!ready || status === "checking") {
     return (
       <div className="wrap auth">
-        <section className="auth-card auth-skeleton" aria-busy="true" aria-labelledby="session-check-title">
+        <section className="auth-card" aria-busy="true" aria-labelledby="session-check-title">
           <h1 id="session-check-title" className="auth-wait-title">Checking your session…</h1>
           <p className="auth-wait-lead">This page opens once sign-in is confirmed.</p>
           <div className="auth-skel" aria-hidden="true">

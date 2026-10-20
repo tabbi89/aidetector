@@ -1,10 +1,12 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { BrandLink } from "./components/AppHome";
 import { Nav } from "./components/Nav";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { AuthGate } from "./components/AuthGate";
 import { FooterLinks } from "./components/FooterLinks";
 import { AccountMenu } from "./components/AccountMenu";
+import { BOOT_THEME } from "./components/theme";
+import { TITLE_SUFFIX } from "./components/title";
 import { ConnectionProvider } from "@/lib/connection";
 import "./globals.css";
 import "./styles/features.css";
@@ -15,7 +17,7 @@ import "./styles/cli-guide.css";
 export const metadata: Metadata = {
   title: {
     default: "aidetector — active API security scanning",
-    template: "%s · aidetector",
+    template: `%s${TITLE_SUFFIX}`,
   },
   description:
     "OpenAPI-driven API security scanner — active OWASP API Top 10 testing with an Opus + DeepSeek adjudication cascade.",
@@ -23,16 +25,6 @@ export const metadata: Metadata = {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231a54ff'/><path d='M16 6l8 3.5v6c0 5-3.4 8.9-8 10.5-4.6-1.6-8-5.5-8-10.5v-6L16 6z' fill='none' stroke='white' stroke-width='2.2' stroke-linejoin='round'/></svg>",
   },
 };
-
-export const viewport: Viewport = {
-  themeColor: "#ffffff",
-};
-
-/**
- * Applies a stored theme before first paint so a dark-mode reader never sees a
- * light flash. No stored choice means light — the OS preference is not read.
- */
-const BOOT_THEME = `try{var t=localStorage.getItem("aidetector-theme");var dark=t==="dark";document.documentElement.dataset.theme=dark?"dark":"light";var color=dark?"#0e1116":"#ffffff";function paint(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",color)}paint();document.addEventListener("DOMContentLoaded",paint)}catch(e){}`;
 
 export default function RootLayout({
   children,

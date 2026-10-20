@@ -25,6 +25,7 @@ test("a signed-out tab sees only sign-in, and signing in shows the page it asked
   await page.goto("/workspace");
 
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page).toHaveTitle("Sign in · aidetector");
   const nav = page.getByRole("navigation", { name: "Primary" });
   await expect(nav.getByRole("link", { name: "Scans" })).toHaveCount(0);
 
@@ -35,16 +36,58 @@ test("a signed-out tab sees only sign-in, and signing in shows the page it asked
   await expect(
     page.getByRole("alert").filter({ hasText: "invalid email or password" }),
   ).toBeVisible();
-  // A wrong password is an answer on the form; the form stays.
+  // A wrong password is an answer on the form; the form stays, and the
+  // reader is put back on the password to try again.
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByLabel("Password")).toBeFocused();
 
   await page.getByLabel("Password").fill("correct horse battery");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/workspace$/);
+  // The page's own title replaces the form's.
+  await expect(page).toHaveTitle(/^Workspace · .+ · aidetector$/);
   // Signed in, the header is the app: Scans, New scan, Monitoring — nothing else.
   await expect(nav.getByRole("link")).toHaveText(["Scans", "New scan", "Monitoring"]);
   await expect(page.getByRole("heading", { name: "Sign in" })).toHaveCount(0);
   expect(api.requests.some((r) => r.path === "/auth/login")).toBe(true);
+});
+
+test("the sign-in title holds across a signed-out tab's client navigation", async ({ page, api }) => {
+  void api;
+  await page.addInitScript(() => sessionStorage.removeItem("aidetector.api-key"));
+  await page.goto("/scans");
+  await expect(page).toHaveTitle("Sign in · aidetector");
+
+  await page.getByRole("banner").getByRole("link", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/scans$/);
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page).toHaveTitle("Sign in · aidetector");
+});
+
+test("the browser chrome colour follows the theme, from one tag", async ({ page, api }) => {
+  void api;
+  await page.addInitScript(() => localStorage.setItem("aidetector-theme", "dark"));
+  const errors: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") errors.push(m.text());
+  });
+  await page.goto("/coverage");
+
+  const meta = page.locator('meta[name="theme-color"]');
+  await expect(meta).toHaveCount(1);
+  await expect(meta).toHaveAttribute("content", "#0e1116");
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
+  await expect(meta).toHaveAttribute("content", "#ffffff");
+
+  // Client navigation leaves the tag alone.
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await page.getByRole("banner").getByRole("link", { name: "aidetector." }).click();
+  await expect(page).toHaveURL(/\/scans$/);
+  await expect(meta).toHaveCount(1);
+  await expect(meta).toHaveAttribute("content", "#0e1116");
+  expect(errors.filter((e) => /hydrat/i.test(e))).toEqual([]);
 });
 
 test("an open server keeps pages closed and says how to create the admin", async ({ page, api }) => {
