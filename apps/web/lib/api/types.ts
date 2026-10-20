@@ -79,8 +79,8 @@ export type CheckKey =
  * it does not configure one.
  */
 export interface RunOptions {
-  /** Let the server expand quick/standard/deep into the passes it implies. */
-  level?: ScanLevel;
+  /** Let the server expand quick/standard/deep into the passes it implies. Null leaves the server default. */
+  level?: ScanLevel | null;
   seed?: number | null;
   adjudicate: boolean;
   security_review: boolean;
