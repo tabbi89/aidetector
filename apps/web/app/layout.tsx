@@ -32,7 +32,7 @@ export const viewport: Viewport = {
  * Applies a stored theme before first paint so a dark-mode reader never sees a
  * light flash. No stored choice means light — the OS preference is not read.
  */
-const BOOT_THEME = `try{var t=localStorage.getItem("aidetector-theme");document.documentElement.dataset.theme=t==="dark"?"dark":"light"}catch(e){}`;
+const BOOT_THEME = `try{var t=localStorage.getItem("aidetector-theme");var dark=t==="dark";document.documentElement.dataset.theme=dark?"dark":"light";var color=dark?"#0e1116":"#ffffff";function paint(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",color)}paint();document.addEventListener("DOMContentLoaded",paint)}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -67,7 +67,7 @@ export default function RootLayout({
               </span>
               <span className="foot-note">
                 Active scanner. Only ever point it at a target you own or are
-                authorised to test.
+                authorized to test.
               </span>
               <FooterLinks />
             </div>

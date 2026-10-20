@@ -54,14 +54,39 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [signInFailed, setSignInFailed] = useState(false);
   const [sent, setSent] = useState(false);
+  // Clicks before hydration are dropped. Keep every control disabled until
+  // then so the form does not look ready while it still ignores input.
+  const [hydrated, setHydrated] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
   const titleId = useId();
   const copy = COPY[mode];
 
-  // The first empty field takes focus when the form appears or changes mode.
   useEffect(() => {
-    if (!sent) firstField.current?.focus();
+    setHydrated(true);
+  }, []);
+
+  // The tab title follows the form. On the way out, put the page title back
+  // only while this panel still owns it — a navigation may already have
+  // published the next page's title.
+  useEffect(() => {
+    const base = document.title;
+    return () => {
+      if (/^(Sign in|Request access|Request sent) · aidetector$/.test(document.title)) {
+        document.title = base;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const label = sent ? "Request sent" : mode === "signup" ? "Request access" : "Sign in";
+    document.title = `${label} · aidetector`;
   }, [mode, sent]);
+
+  // The first empty field takes focus once the form can actually take it.
+  useEffect(() => {
+    if (!hydrated || sent) return;
+    firstField.current?.focus();
+  }, [mode, sent, hydrated]);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -107,10 +132,25 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
   }
 
   const error = mode === "signin" && signInFailed ? connectionError : signUpError;
+  // A live region that exists before the message does. Mounting role="status"
+  // only after success is easy for a screen reader to miss.
+  const announcement = sent
+    ? `Request sent for ${email.trim()}. An admin has to approve it before that account can sign in.`
+    : busy
+      ? mode === "signup"
+        ? "Sending your access request. This can take a few seconds."
+        : "Signing in. This can take a few seconds."
+      : "";
 
   return (
     <div className="wrap auth">
-      <section className="auth-card" aria-labelledby={titleId}>
+      <section className="auth-card" aria-labelledby={titleId} aria-busy={!hydrated || busy}>
+        <p className="visually-hidden" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </p>
+        <noscript>
+          <p className="banner info">Sign-in needs JavaScript. Enable it, then reload this page.</p>
+        </noscript>
         {sent ? (
           <RequestSent
             titleId={titleId}
@@ -138,6 +178,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                     placeholder="Ada Lovelace"
                     required
                     maxLength={120}
+                    disabled={!hydrated || busy}
                     value={displayName}
                     onChange={(e) => {
                       setDisplayName(e.target.value);
@@ -158,6 +199,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                   inputMode="email"
                   spellCheck={false}
                   required
+                  disabled={!hydrated || busy}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -168,6 +210,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
 
               <PasswordField
                 mode={mode}
+                locked={!hydrated || busy}
                 value={password}
                 onChange={(value) => {
                   setPassword(value);
@@ -181,7 +224,16 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                 </p>
               )}
 
-              <button className="btn auth-submit" type="submit" disabled={busy}>
+              {busy && (
+                <p className="auth-progress">
+                  <span className="spinner" aria-hidden="true" />
+                  {mode === "signup"
+                    ? "Sending your request. This can take a few seconds."
+                    : "Signing in. This can take a few seconds."}
+                </p>
+              )}
+
+              <button className="btn auth-submit" type="submit" disabled={!hydrated || busy}>
                 {busy ? copy.busy : copy.submit}
               </button>
             </form>
@@ -191,7 +243,12 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                 <>
                   <p>
                     New here?{" "}
-                    <button className="auth-link" type="button" onClick={() => switchMode("signup")}>
+                    <button
+                      className="auth-link"
+                      type="button"
+                      disabled={!hydrated}
+                      onClick={() => switchMode("signup")}
+                    >
                       Request access
                     </button>
                   </p>
@@ -202,7 +259,12 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
               ) : (
                 <p>
                   Already approved?{" "}
-                  <button className="auth-link" type="button" onClick={() => switchMode("signin")}>
+                  <button
+                    className="auth-link"
+                    type="button"
+                    disabled={!hydrated}
+                    onClick={() => switchMode("signin")}
+                  >
                     Sign in
                   </button>
                 </p>
@@ -221,10 +283,12 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
  */
 function PasswordField({
   mode,
+  locked,
   value,
   onChange,
 }: {
   mode: Mode;
+  locked: boolean;
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -252,6 +316,7 @@ function PasswordField({
           minLength={signup ? MIN_PASSWORD : undefined}
           maxLength={MAX_PASSWORD}
           aria-describedby={signup || capsLock ? hintId : undefined}
+          disabled={locked}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={readCaps}
@@ -263,6 +328,7 @@ function PasswordField({
           type="button"
           aria-controls={inputId}
           aria-pressed={visible}
+          disabled={locked}
           onClick={() => setVisible((v) => !v)}
         >
           {visible ? "Hide" : "Show"}
@@ -291,15 +357,24 @@ function RequestSent({
   email: string;
   onBack: () => void;
 }) {
+  const back = useRef<HTMLButtonElement>(null);
+
+  // The submit button that opened this view is gone, so move focus onto the
+  // way back. A quiet control with no focus is easy to miss and easy to miss
+  // clicking.
+  useEffect(() => {
+    back.current?.focus();
+  }, []);
+
   return (
-    <div className="auth-sent" role="status">
+    <div className="auth-sent">
       <span className="auth-sent-mark" aria-hidden="true">✓</span>
       <h1 id={titleId}>Request sent</h1>
       <p>
         An admin has to approve <strong>{email}</strong> before it can sign in. Once they do,
         sign in with the password you just chose.
       </p>
-      <button className="btn quiet auth-submit" type="button" onClick={onBack}>
+      <button ref={back} className="btn auth-submit" type="button" onClick={onBack}>
         Back to sign in
       </button>
     </div>

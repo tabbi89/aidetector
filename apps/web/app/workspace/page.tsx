@@ -29,6 +29,7 @@ import {
   type WorkspaceToken,
 } from "@/lib/api";
 import { useUrlState } from "@/lib/useUrlState";
+import { usePageTitle } from "../components/usePageTitle";
 import { CopyButton } from "../components/ui";
 
 // Workspace settings, laid out the way a settings area is expected to read: a
@@ -350,6 +351,7 @@ export default function WorkspacePage() {
   const requested = getUrl("section");
   const active =
     visibleSections.find((s) => s.id === requested) ?? visibleSections[0] ?? SECTIONS[0]!;
+  usePageTitle(`Workspace · ${active.title}`);
 
   const load = useCallback(async () => {
     try {

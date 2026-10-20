@@ -21,15 +21,21 @@ export function ThemeToggle() {
     setReady(true);
   }, []);
 
-  function toggle() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
+  function apply(next: Theme) {
     setTheme(next);
     document.documentElement.dataset.theme = next;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", next === "dark" ? "#0e1116" : "#ffffff");
     try {
       localStorage.setItem(KEY, next);
     } catch {
       /* private mode — the choice just doesn't persist */
     }
+  }
+
+  function toggle() {
+    if (!ready) return;
+    apply(theme === "dark" ? "light" : "dark");
   }
 
   const dark = theme === "dark";
@@ -39,8 +45,9 @@ export function ThemeToggle() {
       type="button"
       className="theme-toggle"
       onClick={toggle}
+      disabled={!ready}
       aria-pressed={ready ? dark : undefined}
-      title={dark ? "Switch to light" : "Switch to dark"}
+      title={ready ? (dark ? "Switch to light" : "Switch to dark") : "Loading theme"}
     >
       <span className="ico" aria-hidden="true">
         {dark ? (

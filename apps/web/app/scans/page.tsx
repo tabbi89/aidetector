@@ -145,7 +145,7 @@ export default function ScansIndex() {
   };
 
   return (
-    <section className="wrap" style={{ padding: "40px 24px 80px" }}>
+    <section className="wrap section">
       <div className="eyebrow">OWASP API Top 10</div>
       <h1>API security scans</h1>
       <p className="lead">
@@ -155,7 +155,7 @@ export default function ScansIndex() {
         adds the heavy passes — ZAP, Kali tools, confirmation and AI review.
       </p>
 
-      <div style={{ marginTop: 26, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="actions">
         <Link className="btn" href="/scans/new">
           <span aria-hidden="true">+</span> New scan
         </Link>

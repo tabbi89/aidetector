@@ -17,6 +17,7 @@ import {
   type MonitoringSetupView,
   type RouteDay,
 } from "@/lib/api";
+import { usePageTitle } from "../../components/usePageTitle";
 
 type CodeRef = { path: string; line: number | null; note: string };
 type Explanation = {
@@ -1624,6 +1625,7 @@ function ObservationCard({ group, runs, latest, onExplain, onSuppress, onShowCon
 export default function MonitoringDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [monitor, setMonitor] = useState<InfrastructureMonitor | null>(null);
+  usePageTitle(monitor?.name ? `Monitor · ${monitor.name}` : null);
   const [runs, setRuns] = useState<MonitoringRun[]>([]);
   const [rapidRuns, setRapidRuns] = useState<MonitoringRapidRun[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);

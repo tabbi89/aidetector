@@ -44,8 +44,9 @@ Agent SDK), **DeepSeek V4** executes the high-volume work as a delegated tool.
 > [docs/runbook.md](docs/runbook.md),
 > [scanner-hardening-roadmap.md](docs/roadmap/scanner-hardening-roadmap.md),
 > [next-phase-roadmap.md](docs/roadmap/next-phase-roadmap.md),
-> [tooling-expansion-roadmap.md](docs/roadmap/tooling-expansion-roadmap.md), and
-> [services/api/ai_runtime/README.md](services/api/ai_runtime/README.md).
+> [tooling-expansion-roadmap.md](docs/roadmap/tooling-expansion-roadmap.md),
+> [services/api/ai_runtime/README.md](services/api/ai_runtime/README.md), and
+> [docs/ui-ux-review-2026-10-20.md](docs/ui-ux-review-2026-10-20.md).
 
 ## Stack
 
