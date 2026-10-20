@@ -108,7 +108,8 @@ test("requesting access checks the password as it is typed and confirms the requ
 
   await page.getByRole("button", { name: "Request access", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Request sent" })).toBeVisible();
-  await expect(page.getByText("dana@example.test")).toBeVisible();
+  // The address is also in the polite live region; the visible confirmation is the exact text.
+  await expect(page.getByText("dana@example.test", { exact: true })).toBeVisible();
   expect(api.requests.find((r) => r.path === "/auth/signup")?.body).toEqual({
     email: "dana@example.test", display_name: "Dana Example", password: "long enough password",
   });
