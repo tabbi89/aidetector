@@ -47,6 +47,8 @@ Agent SDK), **DeepSeek V4** executes the high-volume work as a delegated tool.
 > [tooling-expansion-roadmap.md](docs/roadmap/tooling-expansion-roadmap.md), and
 > [services/api/ai_runtime/README.md](services/api/ai_runtime/README.md).
 
+Hosted-product evaluation (2026-10-20): [docs/product-evaluation-2026-10-20.md](docs/product-evaluation-2026-10-20.md).
+
 ## Stack
 
 | Layer            | Choice                                    |
