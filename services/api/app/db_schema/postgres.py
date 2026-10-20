@@ -1,7 +1,7 @@
 """Fixed PostgreSQL catalog queries, pinned egress and enforceable call deadlines.
 
-Runs only inside the local runner, on the machine the user ran ``aidetector
---local`` from: the server never connects to a target database. It stays as
+Runs only inside the local runner, on the machine the user ran the
+``aidetector`` CLI from: the server never connects to a target database. It stays as
 strict as when it ran server-side — fixed catalog queries in a read-only
 transaction, one vetted address, hard deadlines, bounded output — because the
 runner is still our code holding the user's password.

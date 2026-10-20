@@ -246,7 +246,7 @@ func credAdd(ctx context.Context, e *Env, args []string) int {
 	privilege := fs.Int("privilege", -1, "explicit privilege, 0 lowest … 3 highest (default: from the role name)")
 	updateFlag := fs.Bool("update", false, "update the identity with this name instead of failing when it exists")
 	secretStdin := fs.Bool("secret-stdin", false, "read the secret from stdin (one line)")
-	localOnly := fs.Bool("local-only", false, "keep the secret on this machine: only `run --local` can use the identity")
+	localOnly := fs.Bool("local-only", false, "keep the secret on this machine: only a CLI run can use the identity")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return e.parseFailed("cred", fs, err)

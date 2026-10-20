@@ -264,7 +264,7 @@ contract test fails if the CLI can't.
 into the plain flags inside `_require_run_authorization`, *before* any gate
 judges them, so the gates, the archive and the diff never see a level. A level
 only turns flags on, leaves out what the tenant's plan or the lane (local runs:
-`LOCAL_REFUSED`) cannot do instead of refusing, and **never implies `mutate` or an
+`LOCAL_REFUSED`, currently empty) cannot do instead of refusing, and **never implies `mutate` or an
 AI pass** — writes and AI are each their own explicit switch. An explicit `true`
 still answers its own gate (an explicit `premium: true` on a free plan is 402); an
 explicit `false` is not an opt-out, since a level turns that pass on anyway. A
@@ -674,8 +674,8 @@ primitives → feature blocks. Every colour is a CSS custom property with a
 **The everyday form is `aidetector URL [DIR]`** (`cli/internal/commands/target.go`), or bare
 `aidetector` inside a project with an `aidetector.yml` (`cli/internal/project`). It composes
 the subcommands: consent first, then reuse the scan for that target (or create one), find a
-spec, upsert identities by name, run, and print the findings. A DIR makes it a local run with
-whitebox source. `aidetector.yml` sets settings with precedence **flags > file > web >
+spec, upsert identities by name, run, and print the findings. Like `run`, it is always a
+local run (below); a DIR adds whitebox source (`--source` on `run`). `aidetector.yml` sets settings with precedence **flags > file > web >
 defaults**, per setting. It never holds secrets (`secret_env` names an environment variable;
 secret-looking keys are refused) or consent (no `authorized` key, unknown keys refused). The
 CLI reports what the file owns via `PUT /scans/{id}/managed-config` → `Scan.managed_config`,
@@ -686,7 +686,8 @@ digest. `config_source` travels **inside the Celery options dict**, not as a tas
 would fail the task during a rolling deploy.
 
 A single static Go binary that drives the server over the same API the web UI uses, and is
-the way to gate a pipeline (`run --wait --fail-on high --verified-only --new-only`; exit
+the way to gate a pipeline (`run --fail-on high --verified-only --new-only`, or `wait` to
+attach to a run already going and gate on it the same way; exit
 codes 0 clean, 1 findings, 2 usage/auth, 3 failed, 4 timeout). It is hand-written, not
 generated — FastAPI emits OpenAPI 3.1, which Go generators only partly support — and two
 tests keep it honest: the Go contract tests read `cli/testdata/openapi.json` (every route
@@ -712,14 +713,23 @@ pass is undocumented, or a guide is not served or not linked from the README.
 The web UI is the **fast lane** (levels quick and standard, plus the writes and AI
 switches; `deep` — ZAP, Kali, the confirm tools — is shown as CLI-only) and the CLI is
 the heavy lane. The server still accepts every run
-flag — the split is a UI gate, not an API change.
+flag — the split is a UI gate, not an API change. The two lanes also differ in where the
+traffic comes from: a web run is executed by the server's Celery worker, while **every CLI
+run is local** — there is no `--local` flag and no CLI path that queues a server-side scan.
 
-**`run --local`** sends the scan traffic from the CLI machine. The CLI claims the run
-(`POST /scans/{id}/local-runs`, `app/api/routes/runner.py`, off unless
-`LOCAL_RUNNER_ENABLED`) — the server answers the authorization gate, the target guard and
-the premium check, refuses the heavy and most AI passes, issues the request budget and a
-hashed per-run token — then starts `app/runner` in a hardened throwaway container
-(`make runner-image`). The runner is the engine tier run without a database:
+**A CLI run sends the scan traffic from the CLI machine** (`runLocal`,
+`cli/internal/commands/local.go`, reached from both `run` and the target form). The CLI
+claims the run (`POST /scans/{id}/local-runs`, `app/api/routes/runner.py`, off unless
+`LOCAL_RUNNER_ENABLED` — a 404 there prints that hint) — the server answers the
+authorization gate, the target guard and the premium check, issues the request budget and
+a hashed per-run token — then starts `app/runner` in a hardened throwaway container
+(`make runner-image`). A local run performs every pass (`run_levels.LOCAL_REFUSED` is
+empty): the confirm tools, testssl and OAST ship in the runner image, ZAP and Kali run as
+sibling containers the CLI starts, and the AI passes make their planner calls on the
+service (`/runner/runs/{id}/plan` and `/ai` in the loop; adjudication and the security
+review after the upload, `workers/tasks.py:review_local_run`), which holds the model keys,
+the ledger and the per-run cap. Identities the CLI creates are `local_only`: the server
+stores the shape, the secret stays on the CLI machine. The runner is the engine tier run without a database:
 `app/engine/execution.py` is the DB-free core, `app/runner/main.py` supplies an HTTP-backed
 `RunJournal`, and `tests/test_layering.py` imports both with SQLAlchemy blocked so neither
 can grow a DB dependency. Invariants to keep: credential secrets reach the container on
@@ -741,10 +751,10 @@ run) onto `ScanRun.schema_context` (migration `0052`, which also dropped the old
 `database_connections` table and its encrypted passwords). Every consumer — adaptive, AI
 resource refinement, the security design review, monitor context — reads `ctx.schema_context`,
 set once per run: by the runner from its own read, or on a server run from the newest available
-snapshot (`db_schema/snapshots.py:latest_snapshot`). Two AI passes a local run may request,
-because neither sends target traffic and both run on the server: `security_review` after the
-upload (`workers/tasks.py:review_local_run`), and `plan` when the runner asks before its first
-check (`POST /runner/runs/{id}/plan`, which only reorders the claim's operations and returns the
+snapshot (`db_schema/snapshots.py:latest_snapshot`). The schema-reading AI passes of a local
+run run on the server, since none sends target traffic: `security_review` after the upload
+(`workers/tasks.py:review_local_run`), and `plan` when the runner asks before its first check
+(`POST /runner/runs/{id}/plan`, which only reorders the claim's operations and returns the
 stored plan if asked twice). The runner starts its heartbeat first, so a slow plan never trips
 the reaper.
 

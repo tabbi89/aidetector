@@ -1,6 +1,6 @@
 """Local-only identities: the shape lives on the server, the secret never does.
 
-`aidetector run --local` supplies every secret to its own runner container, so
+A CLI run (every one is local) supplies every secret to its own runner container, so
 the server needs an identity's name, role and auth shape, but not its secret.
 These tests pin the three halves of that promise: the API refuses a secret on a
 local-only identity (accepting and discarding it would still have carried it
@@ -119,7 +119,7 @@ def test_a_run_that_left_identities_out_does_not_call_their_findings_fixed(
     # A check that needs no identity still counts as re-tested.
     assert not unperformed("security_headers", gaps)
     message = next(e.message for e in scan.events if e.stage == "identities_unavailable")
-    assert "aidetector run --local" in message
+    assert "a CLI run (`aidetector run`)" in message
 
 
 def test_the_local_only_flag_is_in_the_audit_trail(client, new_scan):

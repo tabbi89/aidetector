@@ -52,8 +52,8 @@ class CredentialProfile(Base):
     # holds the grant's sensitive material (client_secret / password); otherwise
     # it holds the token/value sent as-is. Empty for a local-only identity.
     secret_ref: Mapped[str] = mapped_column(String(1024))
-    # A local-only identity's secret never reaches the server: `aidetector run
-    # --local` supplies it to its own runner container. The server knows only
+    # A local-only identity's secret never reaches the server: a CLI run (every
+    # one is local) supplies it to its own runner container. The server knows only
     # the shape, so a server-side run leaves the identity out.
     local_only: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False

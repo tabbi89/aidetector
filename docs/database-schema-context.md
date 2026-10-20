@@ -1,6 +1,6 @@
 # Database schema context
 
-Schema context is **local-only**. The server never connects to a target database and holds no database credentials. A project's `schema:` block in `aidetector.yml` is read by `aidetector --local` on the CLI machine, which uploads a structure-only snapshot with its results. The scan then reuses the newest available snapshot for its server-side AI passes and for a monitor's database context.
+Schema context is **local-only**. The server never connects to a target database and holds no database credentials. A project's `schema:` block in `aidetector.yml` is read by the `aidetector` CLI (every CLI run is local) on the CLI machine, which uploads a structure-only snapshot with its results. The scan then reuses the newest available snapshot for its server-side AI passes and for a monitor's database context.
 
 Migration `0052` adds `scan_runs.schema_context` and drops `database_connections` together with the encrypted passwords it held (the downgrade recreates an empty table; the secrets are gone by design). Run `alembic upgrade head` in `services/api`. There are no `DB_SCHEMA_*` settings and nothing to configure on the server or worker for schema access.
 
@@ -76,7 +76,7 @@ Snapshots are stored on `ScanRun.schema_context` as `{status, reason, captured_a
 - `latest_attempt` — the newest run that tried to read the schema, successful or not.
 - `latest_snapshot` — the newest run whose attempt was available, by run number. A later failed read leaves the earlier snapshot in use.
 
-When a server run opens with `adaptive`, `resource_refine` or `security_review`, it calls `_attach_schema_snapshot` once and sets `ctx.schema_context` to that snapshot. The run posts `schema_context` naming the source run and table count, or `schema_context_unavailable` telling the operator to add a `schema:` block and run `aidetector --local`. Runs without those options never look.
+When a server run opens with `adaptive`, `resource_refine` or `security_review`, it calls `_attach_schema_snapshot` once and sets `ctx.schema_context` to that snapshot. The run posts `schema_context` naming the source run and table count, or `schema_context_unavailable` telling the operator to add a `schema:` block and run `aidetector` from the CLI. Runs without those options never look.
 
 All consumers now share that one value:
 

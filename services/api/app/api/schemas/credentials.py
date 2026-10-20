@@ -65,7 +65,7 @@ class CredentialCreate(BaseModel):
     grant_type: GrantType = GrantType.static
     token_url: str | None = Field(default=None, max_length=2048)
     grant_params: dict[str, Any] = Field(default_factory=dict)
-    # The secret stays on the CLI machine; only `aidetector run --local` can
+    # The secret stays on the CLI machine; only a CLI run (`aidetector run`) can
     # use this identity, and a server run leaves it out.
     local_only: bool = False
 

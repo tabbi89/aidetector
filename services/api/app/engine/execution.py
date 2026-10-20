@@ -206,7 +206,7 @@ def announce_missing_identity_pair(
     supplied = len(ctx.credentials)
     remedy = (
         f"{local_only} local-only identit{'y' if local_only == 1 else 'ies'} "
-        "can only be used by `aidetector run --local`"
+        "can only be used by a CLI run (`aidetector run`)"
         if local_only
         else "add a second credential"
     )

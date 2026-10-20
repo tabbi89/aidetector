@@ -1,7 +1,8 @@
 """The local runner — execute a claimed scan here, upload the result.
 
-``aidetector run --local`` claims a scan from the server (the authorization gate,
-the request budget and the per-run token are all answered there), then starts
+Every CLI run (``aidetector run``, ``aidetector URL``) claims a scan from the
+server (the authorization gate, the request budget and the per-run token are
+all answered there), then starts
 this process in a throwaway container on the CLI machine. The scan traffic
 therefore originates where that machine can reach, and the server never has to.
 

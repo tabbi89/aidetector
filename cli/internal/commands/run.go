@@ -31,7 +31,7 @@ var RunFlags = map[string]string{
 	"genai-payloads":  "genai_payloads",
 	"adaptive":        "adaptive",
 	"resource-refine": "resource_refine",
-	// Heavy-lane bounded whitebox agent; only meaningful with --local.
+	// Heavy-lane bounded whitebox agent; only meaningful with --source.
 	"agent": "agent",
 	// The AI passes that fit --level; the server expands the level.
 	"ai": "ai",
