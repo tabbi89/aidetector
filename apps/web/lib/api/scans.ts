@@ -34,10 +34,10 @@ export interface Credential {
   grant_type: GrantType;
   token_url: string | null;
   grant_params: Record<string, unknown>;
-  /** 0..100, higher is more privileged; null means "infer from the role name". */
-  privilege?: number | null;
-  /** The workspace the identity belongs to: BOLA pairs across tenants, BFLA within one. */
-  tenant?: string | null;
+  /** 0..100, higher is more privileged; null means "infer from the role name". Always present. */
+  privilege: number | null;
+  /** The workspace the identity belongs to; null when it declares none. Always present. */
+  tenant: string | null;
   // The secret stays on the CLI machine; only `aidetector run` uses it.
   local_only: boolean;
 }
@@ -351,9 +351,9 @@ export interface ScanRun {
     /** Identities this run left out (local-only, or unreadable); [] when none. */
     identities_missing: string[];
     /** Engine checks the run skipped as inapplicable; the diff never calls their findings fixed. */
-    skipped_checks?: string[];
+    skipped_checks: string[];
     /** Engine checks that raised before finishing (e.g. a timeout); not fixed either. */
-    failed_checks?: string[];
+    failed_checks: string[];
   };
   /**
    * How many request-trace rows this run archived. The rows themselves are not

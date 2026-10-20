@@ -456,7 +456,7 @@ export default function NewScan() {
         <span className="sep" aria-hidden="true">›</span>
         <span>New scan</span>
       </div>
-      <h1 style={{ fontSize: 28 }}>New scan</h1>
+      <h1>New scan</h1>
 
       <ol className="steps" aria-label={`Step ${step} of 4: ${STEP_LABELS[step]}`}>
         {([1, 2, 3, 4] as Step[]).map((s) => {

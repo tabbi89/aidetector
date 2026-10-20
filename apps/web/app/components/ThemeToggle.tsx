@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-export type Theme = "light" | "dark";
-
-const KEY = "aidetector-theme";
+import { paintThemeColor, THEME_KEY, type Theme } from "./theme";
 
 /**
  * Light/dark switch. Light is the product default — the system preference is
  * intentionally not consulted, so dark only ever comes from a stored choice
- * (see the boot script in layout.tsx, which applies it before first paint).
+ * (see `BOOT_THEME` in theme.ts, which applies it before first paint).
  */
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("light");
@@ -21,15 +18,20 @@ export function ThemeToggle() {
     setReady(true);
   }, []);
 
-  function toggle() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
+  function apply(next: Theme) {
     setTheme(next);
     document.documentElement.dataset.theme = next;
+    paintThemeColor(next);
     try {
-      localStorage.setItem(KEY, next);
+      localStorage.setItem(THEME_KEY, next);
     } catch {
       /* private mode — the choice just doesn't persist */
     }
+  }
+
+  function toggle() {
+    if (!ready) return;
+    apply(theme === "dark" ? "light" : "dark");
   }
 
   const dark = theme === "dark";
@@ -39,8 +41,9 @@ export function ThemeToggle() {
       type="button"
       className="theme-toggle"
       onClick={toggle}
+      disabled={!ready}
       aria-pressed={ready ? dark : undefined}
-      title={dark ? "Switch to light" : "Switch to dark"}
+      title={ready ? (dark ? "Switch to light" : "Switch to dark") : "Loading theme"}
     >
       <span className="ico" aria-hidden="true">
         {dark ? (

@@ -252,16 +252,19 @@ test("pending cancellation survives polling and reload until the worker stops", 
   page.on("dialog", (dialog) => void dialog.accept()); // Cancel asks first
   api.scan.status = "running";
   api.deferCancellation = true;
+  // Other live regions (the findings summary's "Counting every finding…")
+  // can be up at the same moment, so match the cancellation note by its text.
+  const pending = page.getByRole("status").filter({ hasText: "Cancellation requested" });
   await page.goto(`/scans/${sid}`);
   await page.getByRole("button", { name: "Cancel scan" }).click();
   await expect(page.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
-  await expect(page.getByRole("status")).toContainText("Cancellation requested");
+  await expect(pending).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
-  await expect(page.getByRole("status")).toContainText("Cancellation requested");
+  await expect(pending).toBeVisible();
   api.scan.status = "cancelled";
   await expect(page.getByRole("button", { name: /Run now/ })).toBeVisible();
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(pending).toHaveCount(0);
 });
 
 test("completed findings export downloads readable JSON", async ({ page, api }) => {

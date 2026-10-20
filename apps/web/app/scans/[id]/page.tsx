@@ -20,6 +20,7 @@ import {
   type Verdict,
 } from "@/lib/api";
 import { useUrlState } from "@/lib/useUrlState";
+import { usePageTitle } from "../../components/usePageTitle";
 import { ErrorBanner, Skel } from "../../components/ui";
 import { ActivityLog, stageLabel } from "./ActivityLog";
 import { AiCostPanel } from "./AiCostPanel";
@@ -43,6 +44,16 @@ import { useFindings, useRunResources, useScanProgress } from "./useScanData";
 import { SchedulePanel } from "./SchedulePanel";
 import { SpecPanel } from "./SpecPanel";
 import { ACTIVE, type CredForm } from "../../components/scanShared";
+
+/** Host first, so a long URL does not fill the tab. */
+function scanTitle(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    return `Scan · ${new URL(url).host}`;
+  } catch {
+    return `Scan · ${url}`;
+  }
+}
 
 /**
  * The project file a CLI run last recorded, or null when the web owns every
@@ -102,6 +113,7 @@ export default function ScanDetail({
 
   const progress = useScanProgress(id);
   const { scan, events, connected, staleSeconds, notFound, setScan } = progress;
+  usePageTitle(scanTitle(scan?.target_base_url));
   const running = scan ? ACTIVE.has(scan.status) : false;
   const verifiedHost = verifiedHostOf(useTargetOwnership(id, scan?.target_base_url ?? ""));
 

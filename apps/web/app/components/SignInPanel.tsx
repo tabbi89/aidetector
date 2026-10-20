@@ -5,17 +5,22 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type KeyboardEvent,
+  type Ref,
 } from "react";
 import { api } from "@/lib/api";
 import { useConnection, type ConnectionStatus } from "@/lib/connection";
+import { usePageTitle } from "./usePageTitle";
 
 type Mode = "signin" | "signup";
 
 /** Mirrors the server's password rule, so the browser can say so first. */
 const MIN_PASSWORD = 6;
 const MAX_PASSWORD = 256;
+
+const noSubscription = () => () => {};
 
 const COPY: Record<Mode, { title: string; lead: string; submit: string; busy: string }> = {
   signin: {
@@ -54,14 +59,34 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [signInFailed, setSignInFailed] = useState(false);
   const [sent, setSent] = useState(false);
+  // False only while server-rendered HTML waits for hydration (on /login).
+  // Clicks then are dropped, and a native submit would put the password in
+  // the URL, so the buttons wait. A client-side mount is hydrated at once.
+  const hydrated = useSyncExternalStore(noSubscription, () => true, () => false);
   const firstField = useRef<HTMLInputElement>(null);
+  const passwordField = useRef<HTMLInputElement>(null);
   const titleId = useId();
   const copy = COPY[mode];
 
-  // The first empty field takes focus when the form appears or changes mode.
+  usePageTitle(sent ? "Request sent" : mode === "signup" ? "Request access" : "Sign in");
+
+  // The fields stay enabled before hydration so password managers can fill
+  // them, and what they (or the reader) put there is in the DOM, not in state.
+  // The form mounts in sign-in mode, so the first field is the email.
   useEffect(() => {
-    if (!sent) firstField.current?.focus();
-  }, [mode, sent]);
+    const typedEmail = firstField.current?.value;
+    const typedPassword = passwordField.current?.value;
+    if (typedEmail) setEmail(typedEmail);
+    if (typedPassword) setPassword(typedPassword);
+  }, []);
+
+  // The first field takes focus once the form can actually take it, unless
+  // the reader is already typing in one (on /login, before hydration).
+  useEffect(() => {
+    if (!hydrated || sent) return;
+    if (document.activeElement instanceof HTMLInputElement) return;
+    firstField.current?.focus();
+  }, [mode, sent, hydrated]);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -79,6 +104,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     edited();
     if (mode === "signup") {
@@ -104,13 +130,33 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
       return;
     }
     setSignInFailed(true);
+    // A wrong password is the usual cause: put the reader back on it.
+    passwordField.current?.focus();
+    passwordField.current?.select();
   }
 
   const error = mode === "signin" && signInFailed ? connectionError : signUpError;
+  const progress = busy
+    ? mode === "signup"
+      ? "Sending your access request. This can take a few seconds."
+      : "Signing in. This can take a few seconds."
+    : null;
+  // A live region that exists before the message does. Mounting role="status"
+  // only after success is easy for a screen reader to miss.
+  const announcement = sent
+    ? `Request sent for ${email.trim()}. An admin has to approve it before that account can sign in.`
+    : (progress ?? "");
 
   return (
     <div className="wrap auth">
       <section className="auth-card" aria-labelledby={titleId}>
+        {/* No aria-busy on an ancestor: it can hold this region's updates back. */}
+        <p className="visually-hidden" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </p>
+        <noscript>
+          <p className="banner info">Sign-in needs JavaScript. Enable it, then reload this page.</p>
+        </noscript>
         {sent ? (
           <RequestSent
             titleId={titleId}
@@ -138,6 +184,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                     placeholder="Ada Lovelace"
                     required
                     maxLength={120}
+                    readOnly={busy}
                     value={displayName}
                     onChange={(e) => {
                       setDisplayName(e.target.value);
@@ -158,6 +205,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                   inputMode="email"
                   spellCheck={false}
                   required
+                  readOnly={busy}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -168,6 +216,8 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
 
               <PasswordField
                 mode={mode}
+                inputRef={passwordField}
+                readOnly={busy}
                 value={password}
                 onChange={(value) => {
                   setPassword(value);
@@ -181,7 +231,21 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                 </p>
               )}
 
-              <button className="btn auth-submit" type="submit" disabled={busy}>
+              {progress && (
+                <p className="auth-progress">
+                  <span className="spinner" aria-hidden="true" />
+                  {progress}
+                </p>
+              )}
+
+              {/* aria-disabled, not disabled, while busy: a disabled button
+                  drops the focus it holds. `submit` ignores the repeat. */}
+              <button
+                className="btn auth-submit"
+                type="submit"
+                disabled={!hydrated}
+                aria-disabled={busy || undefined}
+              >
                 {busy ? copy.busy : copy.submit}
               </button>
             </form>
@@ -191,7 +255,12 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
                 <>
                   <p>
                     New here?{" "}
-                    <button className="auth-link" type="button" onClick={() => switchMode("signup")}>
+                    <button
+                      className="auth-link"
+                      type="button"
+                      disabled={!hydrated}
+                      onClick={() => switchMode("signup")}
+                    >
                       Request access
                     </button>
                   </p>
@@ -202,7 +271,12 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
               ) : (
                 <p>
                   Already approved?{" "}
-                  <button className="auth-link" type="button" onClick={() => switchMode("signin")}>
+                  <button
+                    className="auth-link"
+                    type="button"
+                    disabled={!hydrated}
+                    onClick={() => switchMode("signin")}
+                  >
                     Sign in
                   </button>
                 </p>
@@ -221,10 +295,14 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
  */
 function PasswordField({
   mode,
+  inputRef,
+  readOnly,
   value,
   onChange,
 }: {
   mode: Mode;
+  inputRef: Ref<HTMLInputElement>;
+  readOnly: boolean;
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -244,6 +322,7 @@ function PasswordField({
       <label htmlFor={inputId}>Password</label>
       <div className="auth-password-row">
         <input
+          ref={inputRef}
           id={inputId}
           type={visible ? "text" : "password"}
           name="password"
@@ -252,6 +331,7 @@ function PasswordField({
           minLength={signup ? MIN_PASSWORD : undefined}
           maxLength={MAX_PASSWORD}
           aria-describedby={signup || capsLock ? hintId : undefined}
+          readOnly={readOnly}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={readCaps}
@@ -291,15 +371,24 @@ function RequestSent({
   email: string;
   onBack: () => void;
 }) {
+  const back = useRef<HTMLButtonElement>(null);
+
+  // The submit button that opened this view is gone, so move focus onto the
+  // way back. A quiet control with no focus is easy to miss and easy to miss
+  // clicking.
+  useEffect(() => {
+    back.current?.focus();
+  }, []);
+
   return (
-    <div className="auth-sent" role="status">
+    <div className="auth-sent">
       <span className="auth-sent-mark" aria-hidden="true">✓</span>
       <h1 id={titleId}>Request sent</h1>
       <p>
         An admin has to approve <strong>{email}</strong> before it can sign in. Once they do,
         sign in with the password you just chose.
       </p>
-      <button className="btn quiet auth-submit" type="button" onClick={onBack}>
+      <button ref={back} className="btn auth-submit" type="button" onClick={onBack}>
         Back to sign in
       </button>
     </div>
