@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// On runpentests.com the API shares an origin with the web app, and the
+// On aidetector.com the API shares an origin with the web app, and the
 // User-Agent prefix is what routes a CLI request to the API.
 func TestEveryRequestCarriesTheCLIUserAgent(t *testing.T) {
 	got := ""

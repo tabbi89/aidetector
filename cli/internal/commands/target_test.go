@@ -732,10 +732,10 @@ func TestScanPageURLPointsAtTheWebUI(t *testing.T) {
 	env := map[string]string{}
 	e := &Env{Getenv: func(k string) string { return env[k] }}
 	cases := map[string]string{
-		"https://runpentests.com":  "https://runpentests.com/scans/abc",
-		"https://runpentests.com/": "https://runpentests.com/scans/abc",
-		"http://127.0.0.1:8000":    "http://127.0.0.1:3000/scans/abc",
-		"http://localhost:8000":    "http://localhost:3000/scans/abc",
+		"https://aidetector.com":  "https://aidetector.com/scans/abc",
+		"https://aidetector.com/": "https://aidetector.com/scans/abc",
+		"http://127.0.0.1:8000":   "http://127.0.0.1:3000/scans/abc",
+		"http://localhost:8000":   "http://localhost:3000/scans/abc",
 	}
 	for server, want := range cases {
 		if got := scanPageURL(e, server, "abc"); got != want {

@@ -9,7 +9,7 @@ import { SectionLabel } from "./components/SectionLabel";
 import { TierChip } from "./components/TierChip";
 
 export const metadata: Metadata = {
-  title: "runpentests — Run an API pen test. See what to fix.",
+  title: "aidetector — Run an API pen test. See what to fix.",
   description:
     "Start an API pen test in your browser or terminal. Review findings, see the requests behind them, and export a report with guidance on what to fix.",
 };

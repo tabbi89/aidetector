@@ -7,7 +7,7 @@ import { Terminal, type TermLine } from "../components/Terminal";
 export const metadata: Metadata = {
   title: "CLI guide",
   description:
-    "How to drive runpentests from the terminal: connect, scan an API in one command, commit a project file, read results and gate a pipeline.",
+    "How to drive aidetector from the terminal: connect, scan an API in one command, commit a project file, read results and gate a pipeline.",
 };
 
 /*
@@ -35,11 +35,11 @@ const INSTALL: TermLine[] = [
   "# connect once — the key is prompted for, never a flag",
   "$ aidetector login",
   "API key (input hidden):",
-  { text: "logged in to https://runpentests.com", tone: "ok" },
+  { text: "logged in to https://aidetector.com", tone: "ok" },
   "$ aidetector status",
   "cli: 15f5da6",
   "profile: default",
-  "server: https://runpentests.com",
+  "server: https://aidetector.com",
   "api key: set",
   { text: "reachable: yes", tone: "ok" },
   "passes:",
@@ -435,7 +435,7 @@ export default function CliGuide() {
               runtime.
             </p>
             <p>
-              <code>login</code> connects to <code>https://runpentests.com</code>{" "}
+              <code>login</code> connects to <code>https://aidetector.com</code>{" "}
               and saves a profile: the server and your key, in a file only you
               can read. A self-hosted server takes <code>--server URL</code>;
               save several with <code>--profile</code> and switch with{" "}
@@ -746,7 +746,7 @@ export default function CliGuide() {
           <div className="lane lane-mine">
             <h3>Your machine</h3>
             <div className="lane-box">
-              <strong>runpentests CLI</strong>
+              <strong>aidetector CLI</strong>
               <span>
                 Finds each secret locally: a <code>--secrets-file</code>,{" "}
                 <code>secret_env</code> or <code>AIDETECTOR_SECRET_&lt;NAME&gt;</code>.
@@ -784,7 +784,7 @@ export default function CliGuide() {
           </ol>
           <div style={{ display: "grid", gap: 14 }}>
             <div className="lane">
-              <h3>runpentests server</h3>
+              <h3>aidetector server</h3>
               <div className="lane-box">
                 <strong>Grades the run</strong>
                 <span>

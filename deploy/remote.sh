@@ -6,7 +6,7 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE=/etc/runpentests.env
-SITE_DOMAIN="${SITE_DOMAIN:-runpentests.com}"
+SITE_DOMAIN="${SITE_DOMAIN:-aidetector.com}"
 COMPOSE=(sudo docker compose -f "$DIR/deploy/compose.prod.yml" --env-file "$ENV_FILE")
 
 # The vulnerable target must never run here. rsync-exclude keeps it out; this

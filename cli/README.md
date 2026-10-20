@@ -60,7 +60,7 @@ flag that lets a run change target data.
 
 ```bash
 aidetector login --server http://127.0.0.1:8000 --no-key     # local dev, auth off
-aidetector login                                              # https://runpentests.com; prompts for the API key
+aidetector login                                              # https://aidetector.com; prompts for the API key
 
 ID=$(aidetector scan create --target https://api.example.com --spec openapi.json)
 aidetector cred add $ID --name alice --role user  --auth-type bearer     # secret: prompt
@@ -77,7 +77,7 @@ Everything below is the detail.
 ## The everyday form
 
 ```bash
-aidetector login                                        # once; the server defaults to https://runpentests.com
+aidetector login                                        # once; the server defaults to https://aidetector.com
 
 aidetector https://api.example.com                      # scan this API
 aidetector https://api.example.com ./my-project         # ...and read the code in ./my-project
@@ -154,7 +154,7 @@ sends anywhere is the spec's text, to your aidetector server, for the same auth 
 
 | command | does |
 | --- | --- |
-| `login [--server URL] [--profile NAME]` / `logout` / `status` | save a server (default https://runpentests.com) as a profile, remove the current profile, and check the connection |
+| `login [--server URL] [--profile NAME]` / `logout` / `status` | save a server (default https://aidetector.com) as a profile, remove the current profile, and check the connection |
 | `profile list` · `profile use NAME` · `profile rm NAME --yes` | manage saved server profiles (one server and key each) |
 | `init [URL] [--spec FILE] [--yes] [--force]` | write an `aidetector.yml` shaped by the spec's auth (public, one key, or roles) |
 | `scans list [--target URL] [--full-ids]` · `show [ID]` · `rm ID --yes` | manage scans |
@@ -224,7 +224,7 @@ request budget stays. The full list is in [docs/safety.md](docs/safety.md).
 key, plus which profile is current. Save several and switch between them:
 
 ```bash
-aidetector login                                                    # profile "default", https://runpentests.com
+aidetector login                                                    # profile "default", https://aidetector.com
 aidetector login --server https://staging.example.com --profile staging
 aidetector profile list          # NAME, SERVER, KEY set/none; * marks the current one
 aidetector profile use staging   # make staging current

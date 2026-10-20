@@ -30,7 +30,7 @@ import {
 export const metadata: Metadata = {
   title: "Coverage",
   description:
-    "Exactly which vulnerability classes the runpentests engine tests for, how each one is detected, and what it does not cover.",
+    "Exactly which vulnerability classes the aidetector engine tests for, how each one is detected, and what it does not cover.",
 };
 
 const ORDER: Confidence[] = ["verified", "heuristic", "planned"];

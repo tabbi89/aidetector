@@ -240,7 +240,7 @@ func NormalizeServer(raw string, allowInsecureHTTP bool) (string, error) {
 
 // DefaultServer is the hosted service. `login` uses it when --server is not
 // given, and a client with no server configured talks to it.
-const DefaultServer = "https://runpentests.com"
+const DefaultServer = "https://aidetector.com"
 
 // IsLoopback reports whether a host name or address is this machine.
 func IsLoopback(host string) bool { return isLoopback(host) }

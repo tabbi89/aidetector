@@ -17,7 +17,7 @@ test("the overview, CLI guide and coverage stay public", async ({ page, api }) =
   await expect(nav.getByRole("link", { name: "Scans" })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: "Monitoring" })).toHaveCount(0);
   await expect(page.getByRole("banner").getByRole("link", { name: "Sign in" })).toBeVisible();
-  await expect(page.getByRole("banner").getByRole("link", { name: "runpentests." })).toHaveAttribute("href", "/");
+  await expect(page.getByRole("banner").getByRole("link", { name: "aidetector." })).toHaveAttribute("href", "/");
 });
 
 test("a signed-out tab sees only sign-in, and signing in shows the page it asked for", async ({ page, api }) => {
@@ -71,7 +71,7 @@ test("a signed-in tab starts at the scans list, and the logo leads there", async
   await page.goto("/");
   await expect(page).toHaveURL(/\/scans$/);
   await page.goto("/coverage");
-  await page.getByRole("banner").getByRole("link", { name: "runpentests." }).click();
+  await page.getByRole("banner").getByRole("link", { name: "aidetector." }).click();
   await expect(page).toHaveURL(/\/scans$/);
 });
 

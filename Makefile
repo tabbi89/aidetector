@@ -214,7 +214,7 @@ cli-contract: ## Refresh cli/testdata/openapi.json from the running api (then ru
 
 .PHONY: cli install-cli cli-all test-cli cli-contract runner-image kali-image
 
-# --- Production (runpentests.com) ----------------------------------------------
+# --- Production (aidetector.com) ----------------------------------------------
 # One host over ssh; see deploy/compose.prod.yml. Secrets stay on the host in
 # /etc/runpentests.env and are generated there on the first deploy.
 DEPLOY_HOST ?= prod-runpentests

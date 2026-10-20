@@ -107,7 +107,7 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("server answered %d: %s", e.Status, e.Detail)
 }
 
-// UserAgent identifies the CLI on every request. On runpentests.com the API
+// UserAgent identifies the CLI on every request. On aidetector.com the API
 // shares an origin with the web app, and this prefix is what routes a request
 // for /scans to the API instead of the page (deploy/caddy/Caddyfile).
 var UserAgent = "aidetector-cli"

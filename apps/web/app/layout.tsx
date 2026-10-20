@@ -14,8 +14,8 @@ import "./styles/cli-guide.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "runpentests — active API security scanning",
-    template: "%s · runpentests",
+    default: "aidetector — active API security scanning",
+    template: "%s · aidetector",
   },
   description:
     "OpenAPI-driven API security scanner — active OWASP API Top 10 testing with an Opus + DeepSeek adjudication cascade.",
@@ -63,7 +63,7 @@ export default function RootLayout({
           <footer className="sitefoot">
             <div className="wrap inner">
               <span className="brand-sm">
-                runpentests<span className="dot">.</span>
+                aidetector<span className="dot">.</span>
               </span>
               <span className="foot-note">
                 Active scanner. Only ever point it at a target you own or are

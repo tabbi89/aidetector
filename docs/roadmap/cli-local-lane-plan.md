@@ -4,7 +4,7 @@
 reports and ai analysis is done on official service, we also record the tests."
 
 So the CLI lane becomes one shape: **every request to the target leaves from the CLI
-machine; the official service (runpentests.com) holds the record, does the AI and
+machine; the official service (aidetector.com) holds the record, does the AI and
 renders the reports.** The web stays the fast lane and keeps server runs; this plan is
 about the CLI only.
 
@@ -167,7 +167,7 @@ schedules decision keeps).
 
 **Design.**
 - The service runs `interactsh-server` publicly (it is already a compose profile, `oob`)
-  under its own domain (e.g. `oast.runpentests.com`), with a token.
+  under its own domain (e.g. `oast.aidetector.com`), with a token.
 - The claim returns `oast: {server, token}` when configured. The runner image is built
   with `WITH_INTERACTSH=1` and starts `InteractshClient` against it; the session keypair
   lives in the runner, so callbacks correlate there.
@@ -326,6 +326,6 @@ findings carry the same grading as a server run's.
 | # | Decision | Recommendation |
 | --- | --- | --- |
 | 1 | CLI `schedule` (step 3) | drop it from the CLI; document cron/CI |
-| 2 | OAST domain and DNS (step 4) | a subdomain of runpentests.com with NS delegation |
+| 2 | OAST domain and DNS (step 4) | a subdomain of aidetector.com with NS delegation |
 | 3 | First-use image download for deep (step 5) | ask once per image |
 | 4 | Keep `--local` as a no-op (step 3) | yes, for one release |

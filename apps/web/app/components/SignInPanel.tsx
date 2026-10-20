@@ -19,7 +19,7 @@ const MAX_PASSWORD = 256;
 
 const COPY: Record<Mode, { title: string; lead: string; submit: string; busy: string }> = {
   signin: {
-    title: "Sign in to runpentests",
+    title: "Sign in to aidetector",
     lead: "Use the email and password for your workspace.",
     submit: "Sign in",
     busy: "Signing in…",

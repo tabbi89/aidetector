@@ -1,4 +1,4 @@
-# Production stack for runpentests.com — run by `make deploy`, never by hand
+# Production stack for aidetector.com — run by `make deploy`, never by hand
 # on a workstation. Differences from the dev docker-compose.yml, all deliberate:
 #
 # - No `target`. services/target is intentionally vulnerable and must never be

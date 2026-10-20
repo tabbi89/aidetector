@@ -1644,7 +1644,7 @@ func TestWithNoServerConfiguredTheClientUsesTheHostedService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Base() != config.DefaultServer || config.DefaultServer != "https://runpentests.com" {
-		t.Fatalf("base = %q, want %q", c.Base(), "https://runpentests.com")
+	if c.Base() != config.DefaultServer || config.DefaultServer != "https://aidetector.com" {
+		t.Fatalf("base = %q, want %q", c.Base(), "https://aidetector.com")
 	}
 }
