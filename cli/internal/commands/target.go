@@ -59,9 +59,6 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	for flagName := range RunFlags {
 		passes[flagName] = fs.Bool(flagName, false, PassHelp[flagName])
 	}
-	for flagName := range passAliases {
-		passes[flagName] = fs.Bool(flagName, false, passAliasHelp[flagName])
-	}
 	levelFlag := fs.String("level", "", "how hard to look: quick | standard | deep (default quick)")
 	checks := fs.String("checks", "", "comma-separated check keys to scope the run to")
 	rps := fs.Int("rps", 0, "requests per second (1-100)")
@@ -192,6 +189,9 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 		body[field] = true
 	}
 	for _, p := range pf.Passes {
+		if now, renamed := renamedPasses[p]; renamed {
+			return e.usage("aidetector.yml: the %q pass is now called %q", p, now)
+		}
 		field, ok := passField(p)
 		if !ok {
 			return e.usage("aidetector.yml: unknown pass %q in passes", p)

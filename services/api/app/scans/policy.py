@@ -62,7 +62,7 @@ def authorize_run(
     if options.resource_refine and not options.premium:
         raise RunOptionConflict("resource refinement requires premium:true")
     if options.resource_refine and not options.mutate:
-        raise RunOptionConflict("resource refinement requires mutate:true")
+        raise RunOptionConflict("resource refinement requires writes")
 
 
 def require_target_allowed(

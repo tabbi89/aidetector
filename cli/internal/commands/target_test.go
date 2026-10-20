@@ -477,6 +477,24 @@ func TestProjectFileDrivesTheRunAndRecordsWhatItOwns(t *testing.T) {
 	}
 }
 
+func TestProjectFileMutatePassNamesItsNewName(t *testing.T) {
+	s := &stateful{}
+	h, target, _ := targetHarness(t, s, "", false, nil)
+	writeFile(t, h.env.Dir, "aidetector.yml", fmt.Sprintf(
+		"target: %s\nspec: api/openapi.json\npasses: [mutate]\n", target))
+	writeFile(t, h.env.Dir, "api/openapi.json", testSpec)
+
+	if code := h.run("--authorized"); code != ExitUsage {
+		t.Fatalf("exit = %d, want %d\n%s", code, ExitUsage, h.errOut.String())
+	}
+	if !strings.Contains(h.errOut.String(), `the "mutate" pass is now called "writes"`) {
+		t.Fatalf("the error should name the new pass:\n%s", h.errOut.String())
+	}
+	if run := s.last("POST /scans/new1/local-runs"); run != nil {
+		t.Fatalf("a refused pass must not claim a run: %v", run)
+	}
+}
+
 func TestProjectFileLevelAndWritesReachTheRunAndAFlagWins(t *testing.T) {
 	s := &stateful{}
 	h, target, _ := targetHarness(t, s, "", false, nil)

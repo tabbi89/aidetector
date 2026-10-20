@@ -659,14 +659,14 @@ class BflaCheck:
             return (
                 "no operation is admin-only by its path (/admin) or declared scope — "
                 "writes a lower role should be refused are tested by write_authz "
-                "(under mutate)"
+                "(with writes on)"
             )
         if not any(
             method_is_allowed(op.method, allow_mutation=ctx.allow_mutation) for op in privileged
         ):
             return (
                 "every admin-only operation is a write, and writes to the target are off "
-                "(enable 'mutate' to probe them)"
+                "(turn on writes to probe them)"
             )
         return None
 

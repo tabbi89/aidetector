@@ -10,7 +10,7 @@ spec: openapi.yaml            # relative to this file
 # source: .                   # read this code for file:line evidence
 rps: 5
 level: standard               # quick | standard | deep
-passes: [writes, ai]          # any run pass, without the dashes; writes = mutate
+passes: [writes, ai]          # any run pass, without the dashes
 checks: [bola, bfla]
 fail_on: high
 verified_only: true

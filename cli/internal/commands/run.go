@@ -18,7 +18,8 @@ import (
 // values with the server's RunRequest booleans: a flag the server grows must
 // show up here or the build fails.
 var RunFlags = map[string]string{
-	"mutate":          "mutate",
+	// The flag is the product's word; the API field keeps its older name.
+	"writes":          "mutate",
 	"fuzz":            "fuzz",
 	"premium":         "premium",
 	"zap":             "zap",
@@ -37,22 +38,13 @@ var RunFlags = map[string]string{
 	"ai": "ai",
 }
 
-// passAliases are alternative spellings of a pass flag. They set the same
-// RunRequest field but stay out of RunFlags, whose field names are unique.
-var passAliases = map[string]string{
-	"writes": "mutate",
-}
+// renamedPasses are old pass names. Each pass has one name, so the old one is
+// refused, but the error says what it is called now.
+var renamedPasses = map[string]string{"mutate": "writes"}
 
-var passAliasHelp = map[string]string{
-	"writes": "allow tests that change target data; same as --mutate",
-}
-
-// passField resolves a flag name, alias included, to its RunRequest field.
+// passField resolves a flag name to its RunRequest field.
 func passField(name string) (string, bool) {
-	if field, ok := RunFlags[name]; ok {
-		return field, true
-	}
-	field, ok := passAliases[name]
+	field, ok := RunFlags[name]
 	return field, ok
 }
 
@@ -60,7 +52,7 @@ func passField(name string) (string, bool) {
 // usage. A pass that saves time is never described as "enable the X pass": the
 // cost to the target or the tokens is the part that matters.
 var PassHelp = map[string]string{
-	"mutate":          "write to the target: write oracle, mass assignment, race, seeded BOLA, body-field fuzzing (restores/cleans up after itself)",
+	"writes":          "allow tests that change target data: write oracle, mass assignment, race, seeded BOLA, body-field fuzzing (restores/cleans up after itself)",
 	"fuzz":            "schema fuzzing of request inputs",
 	"premium":         "premium checks (needs entitlement)",
 	"zap":             "OWASP ZAP active scan — slow, far more traffic than the request budget",
@@ -98,9 +90,6 @@ func addPassFlags(fs *flag.FlagSet) map[string]*bool {
 	passes := map[string]*bool{}
 	for flagName := range RunFlags {
 		passes[flagName] = fs.Bool(flagName, false, PassHelp[flagName])
-	}
-	for flagName := range passAliases {
-		passes[flagName] = fs.Bool(flagName, false, passAliasHelp[flagName])
 	}
 	return passes
 }
@@ -159,11 +148,6 @@ func (e *Env) resolveOutput(fs *flag.FlagSet, asJSON bool, output string) (strin
 func (e *Env) runBody(passes map[string]*bool, level, checks string, rps int) (map[string]any, int) {
 	body := map[string]any{}
 	for flagName, field := range RunFlags {
-		if *passes[flagName] {
-			body[field] = true
-		}
-	}
-	for flagName, field := range passAliases {
 		if *passes[flagName] {
 			body[field] = true
 		}

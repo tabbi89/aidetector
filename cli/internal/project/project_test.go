@@ -23,7 +23,7 @@ const good = `
 target: https://staging.example.com
 spec: openapi.yaml
 rps: 5
-passes: [mutate]
+passes: [writes]
 fail_on: high
 verified_only: true
 identities:

@@ -316,7 +316,7 @@ def test_a_writing_check_says_why_it_did_not_run() -> None:
         for stage, _, message in journal.events
         if stage == "check_skipped"
     }
-    assert "mutate" in reasons["write_authz"]
+    assert "turn on writes" in reasons["write_authz"]
     assert "OAST_SERVER" in reasons["oob_injection"]
     assert "fuzz" in reasons["schema_fuzz"]
 

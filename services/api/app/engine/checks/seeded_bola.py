@@ -62,7 +62,7 @@ class SeededBolaCheck:
     def inapplicable(ctx: ScanContext) -> str | None:
         """Needs write permission, two identities, and a create/read pair."""
         if not ctx.allow_mutation:
-            return "writes to the target are off (enable 'mutate' to run it)"
+            return "writes to the target are off (turn on writes to run it)"
         if ctx.identity_pair() is None:
             return ctx.pair_gap()
         return None

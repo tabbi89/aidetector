@@ -5,14 +5,13 @@ The everyday choices are three words:
 - `--level quick|standard|deep` — how hard to look. The server expands it: quick is the
   engine only, standard adds fuzzing (and premium checks when entitled), deep adds ZAP,
   Kali, lead confirmation and the testssl.sh TLS audit.
-- `--writes` — allow tests that change target data. It is the documented spelling of
-  `--mutate`, which still works; a level never implies it.
+- `--writes` — allow tests that change target data. A level never implies it.
 - `--ai` — the AI passes that fit the level (risk plan, verdicts, security review); it
   spends tokens. The AI passes need `DEEPSEEK_API_KEY` set on the server; without it they
   are skipped (the scan still runs).
 
 In `aidetector.yml` the same choices are `level:` and `passes:` (pass names without the
-dashes; `writes` is `mutate`):
+dashes):
 
 ```yaml
 level: standard
@@ -28,7 +27,7 @@ The individual pass flags are advanced and mirror the server's `RunRequest`:
 
 | flag | does |
 | --- | --- |
-| `--mutate` | write to the target: write oracle, mass assignment, race, seeded BOLA, body-field fuzzing (restores and cleans up after itself); `--writes` is the same |
+| `--writes` | change target data: write oracle, mass assignment, race, seeded BOLA, body-field fuzzing (restores and cleans up after itself) |
 | `--fuzz` | schema fuzzing of request inputs |
 | `--premium` | premium checks (needs entitlement) |
 | `--zap` | OWASP ZAP active scan — slow, far more traffic than the request budget |
@@ -46,7 +45,7 @@ The individual pass flags are advanced and mirror the server's `RunRequest`:
 
 Every AI pass spends tokens. `--checks a,b` scopes the engine to some checks and
 `--rps N` slows the request rate. **Every pass is off unless you ask for it** —
-`--mutate`/`--writes` writes to the target, `--zap/--kali/--confirm` fire far more traffic
+`--writes` changes target data, `--zap/--kali/--confirm` fire far more traffic
 than the budget allows, and `--testssl` can take five minutes.
 
 `aidetector status` lists which passes this server can run and why the others cannot. A

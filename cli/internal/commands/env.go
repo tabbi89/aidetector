@@ -268,6 +268,12 @@ func (e *Env) parseFailed(cmd string, fs *flag.FlagSet, err error) int {
 	if errors.Is(err, flag.ErrHelp) {
 		return e.printCommandHelp(cmd, fs)
 	}
+	for old, now := range renamedPasses {
+		if err.Error() == "flag provided but not defined: -"+old {
+			e.errorf("error: --%s is now --%s\n", old, now)
+			return ExitUsage
+		}
+	}
 	e.errorf("error: %v\nrun 'aidetector help %s' for usage\n", err, cmd)
 	return ExitUsage
 }

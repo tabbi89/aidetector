@@ -70,7 +70,7 @@ disk.
 
 Leave these out unless the person asks for them:
 
-- `passes: [writes]` (or `mutate`) — tests that **change target data**;
+- `passes: [writes]` — tests that **change target data**;
 - `passes: [ai]` and the other AI passes — they spend tokens;
 - `level: deep` — slow tools with far more traffic than the request budget.
 

@@ -97,7 +97,7 @@ class WriteOracleCheck:
     def inapplicable(ctx: ScanContext) -> str | None:
         """Needs write permission, two identities, and a create/update pair."""
         if not ctx.allow_mutation:
-            return "writes to the target are off (enable 'mutate' to run it)"
+            return "writes to the target are off (turn on writes to run it)"
         if not _writer_pairs(ctx):
             return ctx.pair_gap()
         if not build_resource_pairs(ctx.operations):

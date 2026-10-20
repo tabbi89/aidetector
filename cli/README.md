@@ -53,7 +53,7 @@ passes: [ai]
 and from then on just run `aidetector` in that folder.
 
 The AI passes need `DEEPSEEK_API_KEY` set on the server; without it they are skipped (the
-scan still runs). `--writes` (or `--mutate`) is never implied by a level: it is the one
+scan still runs). `--writes` is never implied by a level: it is the one
 flag that lets a run change target data.
 
 **A full pipeline, step by step** — the same commands, against a local server:
@@ -105,7 +105,7 @@ aidetector                                              # inside a project: run 
 read-only into the runner and findings carry file:line citations.
 
 Every run option of `run` works here too: `--level quick|standard|deep`, `--writes` and
-`--ai`, plus the advanced pass flags (`--mutate`, `--agent`, `--zap`, …). `--writes` and
+`--ai`, plus the advanced pass flags (`--agent`, `--zap`, …). `--writes` and
 every pass stay off unless asked for; a level never turns writes on.
 
 ## aidetector.yml — the project file

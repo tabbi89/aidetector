@@ -92,7 +92,7 @@ class RaceConditionCheck:
     @staticmethod
     def inapplicable(ctx: ScanContext) -> str | None:
         if not ctx.allow_mutation:
-            return "writes to the target are off (enable 'mutate' to run it)"
+            return "writes to the target are off (turn on writes to run it)"
         if not ctx.probe.can_burst():
             return (
                 "the transport cannot fire a concurrent burst, and a race that "

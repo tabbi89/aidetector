@@ -99,7 +99,7 @@ const FIRST_RUN: TermLine[] = [
   "Identity name (empty to finish):",
   `scan ${SCAN}`,
   { text: "    0%  scanning 11 operations", tone: "accent" },
-  { text: "    0%  write_authz did not run: writes to the target are off (enable 'mutate' to run it)", tone: "dim" },
+  { text: "    0%  write_authz did not run: writes to the target are off (turn on writes to run it)", tone: "dim" },
   { text: "    0%  ssrf did not run: no url-shaped parameter in the spec — SSRF needs somewhere to put a URL", tone: "dim" },
   { text: "    4%  completed security_headers", tone: "accent" },
   { text: "   12%  completed broken_auth", tone: "accent" },
@@ -136,7 +136,7 @@ const PROJECT_FILE: TermLine[] = [
   "target: https://staging.example.com",
   { text: "spec: openapi.yaml            # relative to this file", tone: "dim" },
   "rps: 5",
-  { text: "passes: [mutate]              # any run flag, without the dashes", tone: "dim" },
+  { text: "passes: [writes]              # any run flag, without the dashes", tone: "dim" },
   "checks: [bola, bfla]",
   "fail_on: high",
   "verified_only: true",
@@ -213,7 +213,7 @@ const SHOW: TermLine[] = [
 const DIFF: TermLine[] = [
   "$ aidetector runs 4e4c",
   "RUN   STATUS     STARTED           DURATION  FINDINGS  REQUESTS  EXECUTOR  PASSES",
-  "3     completed  2026-09-25 17:29  15m22s    56        285       server    confirm,kali,mutate,zap,…",
+  "3     completed  2026-09-25 17:29  15m22s    56        285       server    confirm,kali,writes,zap,…",
   "2     completed  2026-09-22 23:20  9s        18        88        server    confirm,fuzz,kali,zap",
   "1     completed  2026-09-22 22:56  10s       18        88        server    confirm,fuzz,kali,zap",
   { text: "run 2: did not run: kali, zap", tone: "warn" },
@@ -933,7 +933,7 @@ export default function CliGuide() {
         <p className="lead">
           <code>aidetector help &lt;command&gt;</code> prints a command&apos;s
           flags, what each pass costs, and examples. Every pass flag (
-          <code>--mutate</code>, <code>--zap</code>, <code>--adjudicate</code>,
+          <code>--writes</code>, <code>--zap</code>, <code>--adjudicate</code>,
           …) is off unless you ask for it.
         </p>
         <div className="cmd-table-wrap">

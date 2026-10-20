@@ -400,13 +400,31 @@ func TestRunPromptsOnATerminalAndHonoursNo(t *testing.T) {
 	}
 }
 
+// Writes have one name. --mutate was an alias for --writes; it is gone, so a
+// pipeline still passing it fails loudly instead of quietly running read-only.
+func TestMutateIsNoLongerAFlag(t *testing.T) {
+	f := &fake{}
+	srv := httptest.NewServer(f.handler())
+	defer srv.Close()
+	h := newHarness(t, srv, "", false)
+	if code := h.run("run", fakeScanID, "--authorized", "--mutate"); code != ExitUsage {
+		t.Fatalf("exit = %d, want %d\n%s", code, ExitUsage, h.errOut.String())
+	}
+	if _, sent := f.bodies["POST "+fakeScanPath+"/local-runs"]; sent {
+		t.Fatal("a refused flag must not claim a run")
+	}
+	if !strings.Contains(h.errOut.String(), "--mutate is now --writes") {
+		t.Fatalf("the error should name the new flag:\n%s", h.errOut.String())
+	}
+}
+
 func TestRunSendsOnlyTheRequestedPasses(t *testing.T) {
 	f := &fake{}
 	srv := httptest.NewServer(f.handler())
 	defer srv.Close()
 	h := newHarness(t, srv, "", false)
 	withSiblingDocker(h)
-	code := h.run("run", fakeScanID, "--authorized", "--mutate", "--kali",
+	code := h.run("run", fakeScanID, "--authorized", "--writes", "--kali",
 		"--docker-network", "testnet", "--checks", "bola, bfla", "--rps", "5")
 	if code != ExitOK {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
@@ -1007,7 +1025,7 @@ func TestRunsShowsPassesAndGaps(t *testing.T) {
 	out := h.out.String()
 	for _, want := range []string{
 		"RUN", "STATUS", "STARTED", "DURATION", "FINDINGS", "REQUESTS", "EXECUTOR", "PASSES",
-		"mutate", "10m30s", "local",
+		"writes", "10m30s", "local",
 		"run 2: did not run: zap, kali; request budget exhausted",
 	} {
 		if !strings.Contains(out, want) {

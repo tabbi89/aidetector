@@ -46,7 +46,7 @@ export const STAGES: Stage[] = [
     n: "05",
     title: "Adapt the validation test",
     body: "Premium runs select the highest-risk spec-shaped parameter. GET query/path probes stay read-only; JSON fields on POST, PUT and PATCH are tested only when the explicit Test writes gate is on. A valid control comes first, then a bounded variant loop inspects response structure only.",
-    note: "2–3 variants · body tests need mutate:true",
+    note: "2–3 variants · body tests need writes",
   },
   {
     n: "06",
@@ -113,7 +113,7 @@ export function AdaptiveValidationGraph() {
         <g className="node gate-node">
           <rect x="404" y="196" width="190" height="56" rx="10" />
           <text x="499" y="220" className="lbl">JSON body field</text>
-          <text x="499" y="236" className="sub">needs mutate:true</text>
+          <text x="499" y="236" className="sub">needs writes</text>
         </g>
         <g className="node">
           <rect x="636" y="118" width="120" height="60" rx="10" />
@@ -156,7 +156,7 @@ export function AdaptiveValidationGraph() {
       <GraphLegend
         items={[
           { cls: "gl-read", label: "Read-only (GET)" },
-          { cls: "gl-gate", label: "Gated (mutate:true)" },
+          { cls: "gl-gate", label: "Gated (writes)" },
           { cls: "gl-tgt", label: "Engine-owned" },
           { cls: "gl-ai", label: "Optional planner" },
         ]}
@@ -195,7 +195,7 @@ export function ResourceLifecycleGraph() {
         <g className="node gate-node">
           <rect x="382" y="40" width="150" height="56" rx="10" />
           <text x="457" y="64" className="lbl">POST create</text>
-          <text x="457" y="80" className="sub">authorized + mutate</text>
+          <text x="457" y="80" className="sub">authorized + writes</text>
         </g>
         <g className="node ok-node">
           <rect x="564" y="40" width="160" height="56" rx="10" />
@@ -744,7 +744,7 @@ export const MECHANISMS: Mechanism[] = [
     key: "write-oracle",
     kicker: "Cross-identity write",
     title: "A write that outlives its writer",
-    body: "The write-side authorization checks send a write as the low-privilege identity, tagged with a unique canary, then read the object back as the owner. The canary persisting across the identity boundary is a verified BOLA/BFLA-on-write — not an inference from two look-alike bodies. Mutate-gated, and every write is restored or deleted.",
+    body: "The write-side authorization checks send a write as the low-privilege identity, tagged with a unique canary, then read the object back as the owner. The canary persisting across the identity boundary is a verified BOLA/BFLA-on-write — not an inference from two look-alike bodies. Only with writes on, and every write is restored or deleted.",
     source: "engine/checks/write_oracle.py · seeded_bola.py",
     tone: "verified",
     svg: <WriteOracleSvg />,

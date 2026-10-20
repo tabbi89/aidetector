@@ -402,7 +402,7 @@ def test_resource_refinement_requires_both_explicit_gates(client, new_scan, monk
         json={"authorized": True, "premium": True, "resource_refine": True},
     )
     assert r.status_code == 422
-    assert "mutate:true" in r.json()["detail"]
+    assert "requires writes" in r.json()["detail"]
 
     r = client.post(
         f"/scans/{sid}/run",

@@ -106,7 +106,7 @@ def test_a_default_run_says_why_the_write_checks_did_not_run(
         for e in scan.events
         if e.stage == "check_skipped"
     }
-    assert "mutate" in skipped["write_authz"]
+    assert "turn on writes" in skipped["write_authz"]
     assert "OAST_SERVER" in skipped["oob_injection"]
     # And the checks that *did* run are not in there.
     assert "bola" not in skipped

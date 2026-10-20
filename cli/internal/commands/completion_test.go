@@ -28,7 +28,7 @@ func TestCompletionScriptsMentionTheInterface(t *testing.T) {
 			if !strings.Contains(out, marker) {
 				t.Fatalf("%s script should contain %q:\n%s", shell, marker, out)
 			}
-			for _, want := range []string{"--mutate", "cancel", "--seq"} {
+			for _, want := range []string{"--writes", "cancel", "--seq"} {
 				if !strings.Contains(out, want) {
 					t.Fatalf("%s script is missing %q:\n%s", shell, want, out)
 				}

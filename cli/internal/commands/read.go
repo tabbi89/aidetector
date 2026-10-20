@@ -567,6 +567,10 @@ func passesLabel(options map[string]any) string {
 			continue
 		}
 		if v, ok := value.(bool); ok && v {
+			// Name the pass by its flag (mutate → writes), as the user typed it.
+			if flagName, ok := passFlag(key); ok {
+				key = flagName
+			}
 			on = append(on, key)
 		}
 	}

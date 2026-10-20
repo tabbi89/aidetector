@@ -50,7 +50,7 @@ def test_resource_refinement_requires_the_flags_it_depends_on(
     monkeypatch.setattr(settings, "premium_tenants", "acme")
     with pytest.raises(policy.RunOptionConflict, match="premium"):
         _authorize(options=RunOptions(resource_refine=True))
-    with pytest.raises(policy.RunOptionConflict, match="mutate"):
+    with pytest.raises(policy.RunOptionConflict, match="requires writes"):
         _authorize(options=RunOptions(resource_refine=True, premium=True))
     _authorize(options=RunOptions(resource_refine=True, premium=True, mutate=True))
 

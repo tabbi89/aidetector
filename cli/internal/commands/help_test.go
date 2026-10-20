@@ -19,8 +19,8 @@ func TestRunHelpListsThePassesAndExitsZero(t *testing.T) {
 		t.Fatalf("exit = %d, want %d; stderr = %q", got, ExitOK, h.errOut.String())
 	}
 	out := h.out.String()
-	if !strings.Contains(out, "--mutate") || !strings.Contains(out, "write to the target") {
-		t.Fatalf("help should describe --mutate:\n%s", out)
+	if !strings.Contains(out, "--writes") || !strings.Contains(out, "change target data") {
+		t.Fatalf("help should describe --writes:\n%s", out)
 	}
 	if !strings.Contains(out, "passes (every pass is off unless you set it):") {
 		t.Errorf("the passes should have their own group:\n%s", out)
@@ -89,7 +89,7 @@ func TestAnUnknownFlagIsAUsageErrorWithoutTheFlagList(t *testing.T) {
 		t.Fatalf("exit = %d, want %d", got, ExitUsage)
 	}
 	errOut := h.errOut.String()
-	if strings.Contains(errOut, "--mutate") {
+	if strings.Contains(errOut, "--writes") {
 		t.Fatalf("an unknown flag must not dump the flag list:\n%s", errOut)
 	}
 	if !strings.Contains(errOut, "flag provided but not defined") ||

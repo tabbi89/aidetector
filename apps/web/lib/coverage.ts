@@ -69,7 +69,7 @@ export const GROUPS: CheckGroup[] = [
   {
     title: "Premium adaptive validation",
     blurb:
-      "A bounded, schema-shaped loop that selects a critical parameter, sends a valid control, and inspects only response structure. GET query/path inputs are read-only; JSON body fields on POST/PUT/PATCH are available only behind mutate:true.",
+      "A bounded, schema-shaped loop that selects a critical parameter, sends a valid control, and inspects only response structure. GET query/path inputs are read-only; JSON body fields on POST/PUT/PATCH are available only with writes on.",
     checks: [
       {
         name: "Adaptive payload validation",
@@ -77,7 +77,7 @@ export const GROUPS: CheckGroup[] = [
         confidence: "heuristic",
         premium: true,
         signal:
-          "Flags a validation-gap lead when an out-of-range, enum, type, required, or max-length variant is accepted after a valid baseline. It covers GET query/path inputs by default and JSON body fields on POST/PUT/PATCH only with mutate:true; every attempt is bounded, and the finding it records carries no request values or body samples.",
+          "Flags a validation-gap lead when an out-of-range, enum, type, required, or max-length variant is accepted after a valid baseline. It covers GET query/path inputs by default and JSON body fields on POST/PUT/PATCH only with writes on; every attempt is bounded, and the finding it records carries no request values or body samples.",
         caveat:
           "Body probes can create or update target state, so they require the explicit mutation gate and are not cleaned up by this pass. The check still does not prove persistence or execution; optional database context is the newest structure-only snapshot an `aidetector` CLI run read from the tables its aidetector.yml lists — the server never connects to the database.",
         source: "engine/adaptive/runner.py · engine/adaptive/policy.py · specs/parser.py · db_schema/snapshots.py",
@@ -117,7 +117,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "Baseline-gated: first confirms an anonymous request is rejected (401/403), then tries forged credentials — a random token plus JWT alg=none/case, stripped/tampered signatures, elevated claims, and the existing kid empty-key traversal. For HS256/384/512 tokens it also tries at most 64 weak defaults for 50 ms offline. A recovered key is never retained: it is used only to sign a privilege probe and valid-signature expired/future-nbf probes. Time-claim findings additionally require the original token to succeed and an unchanged-claims bad-signature control to be rejected.",
         caveat:
-          "Genuinely public endpoints are skipped. The weak-key list is intentionally tiny and is not password cracking; strong or asymmetric keys are not searched. Supplied JWTs are deduplicated, recovered keys never enter evidence/logs, and every confirmation request consumes the normal 750-request budget. POST/PUT/PATCH/DELETE and other state-changing methods are probed only under mutate:true.",
+          "Genuinely public endpoints are skipped. The weak-key list is intentionally tiny and is not password cracking; strong or asymmetric keys are not searched. Supplied JWTs are deduplicated, recovered keys never enter evidence/logs, and every confirmation request consumes the normal 750-request budget. POST/PUT/PATCH/DELETE and other state-changing methods are probed only with writes on.",
         source: "engine/checks/auth.py · engine/jwt_forge.py · engine/jwt_hmac.py",
       },
     ],
@@ -125,7 +125,7 @@ export const GROUPS: CheckGroup[] = [
   {
     title: "Authorization on writes (opt-in — mutates the target)",
     blurb:
-      "Off by default: only runs with mutate:true, because it WRITES to the target. It pairs a write with a GET that reads the same resource back, sends the write as the low-privilege identity with a unique canary, then reads back as the high-privilege owner. A persisted canary proves a lower-privilege identity's write took effect — a verified authorization-on-write flaw, not a reflection lead. Updates are restored; created objects are deleted where the spec has a DELETE.",
+      "Off by default: only runs with writes on, because it WRITES to the target. It pairs a write with a GET that reads the same resource back, sends the write as the low-privilege identity with a unique canary, then reads back as the high-privilege owner. A persisted canary proves a lower-privilege identity's write took effect — a verified authorization-on-write flaw, not a reflection lead. Updates are restored; created objects are deleted where the spec has a DELETE.",
     checks: [
       {
         name: "BOLA on write",
@@ -156,7 +156,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "A real create-as-A → read-as-B sequence, so cross-tenant access is proven rather than inferred from identical bodies. It creates an object as one identity, tagging a string body field with a unique canary, then reads that exact object back as a DIFFERENT identity. The canary coming back means the second identity read an object it does not own — a confirmed cross-tenant read. An anonymous read is checked first as the baseline: an item read that does not enforce auth is simply public, so it is not flagged.",
         caveat:
-          "Off by default: only runs with mutate:true, because it WRITES (creates) to the target. Needs the spec to pair a POST collection with a GET of the created item, two distinct identities, and a writable string body field. Only create pairs are used — a create is what guarantees the first identity owns the object read back. Reaches NESTED resources too (POST /projects/{id}/items): it first seeds the parent (create-parent → create-child → read) so a nested create hits a real object instead of a 404, and a parent with no create endpoint is skipped rather than probed. Everything it creates — child then parent — is deleted where the spec exposes a DELETE; DELETE is never used as an attack verb.",
+          "Off by default: only runs with writes on, because it WRITES (creates) to the target. Needs the spec to pair a POST collection with a GET of the created item, two distinct identities, and a writable string body field. Only create pairs are used — a create is what guarantees the first identity owns the object read back. Reaches NESTED resources too (POST /projects/{id}/items): it first seeds the parent (create-parent → create-child → read) so a nested create hits a real object instead of a 404, and a parent with no create endpoint is skipped rather than probed. Everything it creates — child then parent — is deleted where the spec exposes a DELETE; DELETE is never used as an attack verb.",
         source: "engine/checks/seeded_bola.py · engine/sequence.py · engine/resource_map.py",
       },
       {
@@ -178,7 +178,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "The one check that fires a concurrent burst bypassing the per-host rate limiter \u2014 a serialized burst could never catch a race. On a create endpoint with a uniqueness-looking field, it first proves the constraint holds sequentially (a duplicate is rejected), then fires race_burst (default 6) identical creates at once. More than one succeeding means the check-then-act is not atomic (TOCTOU) \u2014 the shape behind double-spends, coupon reuse and duplicate accounts. Verified: the overrun is observed, not inferred.",
         caveat:
-          "Needs the async transport (it no-ops on the sync in-process client, which cannot burst) and mutate:true. Only fires where a sequential duplicate is refused first, so an endpoint with no uniqueness constraint is never flagged. Objects created by the probe are deleted where the spec exposes a DELETE on the item path.",
+          "Needs the async transport (it no-ops on the sync in-process client, which cannot burst) and writes on. Only fires where a sequential duplicate is refused first, so an endpoint with no uniqueness constraint is never flagged. Objects created by the probe are deleted where the spec exposes a DELETE on the item path.",
         source: "engine/checks/race_condition.py · engine/transport.py",
       },
     ],
@@ -186,7 +186,7 @@ export const GROUPS: CheckGroup[] = [
   {
     title: "Injection — reflection probes",
     blurb:
-      "One rotating payload per family per scan, seeded so repeated scans exercise different variants. The rotation pool is the curated in-code library plus a vendored offline corpus (PayloadsAllTheThings / FuzzDB style), and an opt-in AI pass can add re-validated variants on top — but the draw stays one payload per family per scan, so per-scan request volume is unchanged. Each payload carries a unique marker; a finding means the marker came back verbatim in the response body. Injection is spec-shaped: payloads go into GET query + path params (always) and POST/PUT/PATCH JSON body fields (only with mutate:true, since sending a body changes target state), values keep a valid prefix for typed/enum/formatted params, and the operation's other required params are filled with spec-valid baselines so the payload reaches the sink. Reflections seen ONLY in a >=400 error response are downgraded to informational (frameworks commonly echo the request path/params in 404 envelopes — that is the error handler, not the sink).",
+      "One rotating payload per family per scan, seeded so repeated scans exercise different variants. The rotation pool is the curated in-code library plus a vendored offline corpus (PayloadsAllTheThings / FuzzDB style), and an opt-in AI pass can add re-validated variants on top — but the draw stays one payload per family per scan, so per-scan request volume is unchanged. Each payload carries a unique marker; a finding means the marker came back verbatim in the response body. Injection is spec-shaped: payloads go into GET query + path params (always) and POST/PUT/PATCH JSON body fields (only with writes on, since sending a body changes target state), values keep a valid prefix for typed/enum/formatted params, and the operation's other required params are filled with spec-valid baselines so the payload reaches the sink. Reflections seen ONLY in a >=400 error response are downgraded to informational (frameworks commonly echo the request path/params in 404 envelopes — that is the error handler, not the sink).",
     checks: [
       {
         name: "Cross-Site Scripting (XSS)",
@@ -250,7 +250,7 @@ export const GROUPS: CheckGroup[] = [
   {
     title: "Injection — signature & error leads",
     blurb:
-      "A second reflection tier for query-language classes, drawing benign marker-carrying payloads from PayloadsAllTheThings and backend error regexes from FuzzDB. One payload per class per scan, seeded so repeated scans rotate. Sinks match the reflection probes above (GET query + path params always; POST/PUT/PATCH JSON body fields only with mutate:true), with the same spec-shaped values. A backend error signature is medium (the payload reached the interpreter); bare marker reflection is low.",
+      "A second reflection tier for query-language classes, drawing benign marker-carrying payloads from PayloadsAllTheThings and backend error regexes from FuzzDB. One payload per class per scan, seeded so repeated scans rotate. Sinks match the reflection probes above (GET query + path params always; POST/PUT/PATCH JSON body fields only with writes on), with the same spec-shaped values. A backend error signature is medium (the payload reached the interpreter); bare marker reflection is low.",
     checks: [
       {
         name: "XPath injection",
@@ -315,7 +315,7 @@ export const GROUPS: CheckGroup[] = [
         owasp: "API7:2023",
         confidence: "heuristic",
         signal:
-          "For query parameters named url, uri, webhook, redirect, callback, src, next and similar, injects a 169.254.169.254 metadata URL — always on reads, and also into JSON body fields on POST/PUT/PATCH under mutate:true (many real sinks are body fields: webhook URLs, return_url). Medium when the marker is reflected; low when the URL is accepted silently, and only when an OAST collector is configured.",
+          "For query parameters named url, uri, webhook, redirect, callback, src, next and similar, injects a 169.254.169.254 metadata URL — always on reads, and also into JSON body fields on POST/PUT/PATCH with writes on (many real sinks are body fields: webhook URLs, return_url). Medium when the marker is reflected; low when the URL is accepted silently, and only when an OAST collector is configured.",
         caveat:
           "A matching parameter name is not a finding by itself — a target that refuses the internal URL (>=400 with no reflection) is validating its input and is left alone. The silent-accept lead is reported only when the opt-in out-of-band (OAST) check below can confirm it: without a collector, a URL-storing endpoint is indistinguishable from a blind SSRF.",
         source: "engine/checks/ssrf.py",
@@ -325,7 +325,7 @@ export const GROUPS: CheckGroup[] = [
   {
     title: "Out-of-band confirmation (OAST)",
     blurb:
-      "Opt-in and off by default — requires a self-hosted interactsh server (OAST_SERVER) and the interactsh-client binary in the worker image. Injects a unique callback token per injection point into GET query params (always) and JSON request-body fields (only with mutate:true, since a body write changes state), then polls for interactions. A callback is definitive: the target actually reached a server we control, so these are confirmations, not reflection leads.",
+      "Opt-in and off by default — requires a self-hosted interactsh server (OAST_SERVER) and the interactsh-client binary in the worker image. Injects a unique callback token per injection point into GET query params (always) and JSON request-body fields (only with writes on, since a body write changes state), then polls for interactions. A callback is definitive: the target actually reached a server we control, so these are confirmations, not reflection leads.",
     checks: [
       {
         name: "Blind SSRF",
@@ -354,7 +354,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "Injects a shell command that curls an OAST URL; a callback confirms command execution. Critical severity.",
         caveat:
-          "Opt-in (OAST server required). Reaches GET query sinks always and JSON body sinks only with mutate:true — not headers, cookies or path params.",
+          "Opt-in (OAST server required). Reaches GET query sinks always and JSON body sinks only with writes on — not headers, cookies or path params.",
         source: "engine/checks/oob_injection.py",
       },
       {
@@ -613,7 +613,7 @@ export const GROUPS: CheckGroup[] = [
         owasp: "API8:2023",
         confidence: "heuristic",
         signal:
-          "Opt-in (fuzz:true). Schemathesis explicitly generates positive and negative inputs, fairly sharing the configured per-scan case allowance across eligible operations. Each case runs once through the budget-bounded engine probe; that same response is checked for documented status, Content-Type, required/typed headers, and body-schema conformance. A 5xx is verified unhandled input (CWE-20); contract mismatches are low-severity heuristic drift because the implementation or uploaded spec may be stale. GET by default; POST/PUT/PATCH bodies only under mutate:true. Response bodies, header values, and generated request values are never retained.",
+          "Opt-in (fuzz:true). Schemathesis explicitly generates positive and negative inputs, fairly sharing the configured per-scan case allowance across eligible operations. Each case runs once through the budget-bounded engine probe; that same response is checked for documented status, Content-Type, required/typed headers, and body-schema conformance. A 5xx is verified unhandled input (CWE-20); contract mismatches are low-severity heuristic drift because the implementation or uploaded spec may be stale. GET by default; POST/PUT/PATCH bodies only with writes on. Response bodies, header values, and generated request values are never retained.",
         source: "engine/checks/schema_fuzz.py",
       },
     ],
@@ -631,7 +631,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "Sends a burst of 6 identical requests at up to two authentication-shaped endpoints (login/token/password/reset paths). If the burst mostly succeeds and nothing throttles (429), reports low: no rate limiting observable from the outside.",
         caveat:
-          "Absence of a 429 in six requests is a weak oracle — a WAF or upstream throttle may simply not have engaged. Automatic 429 retries retain the original throttle signal, so a later 2xx cannot hide it. Safe methods run by default; POST/PUT/PATCH auth endpoints require mutate:true.",
+          "Absence of a 429 in six requests is a weak oracle — a WAF or upstream throttle may simply not have engaged. Automatic 429 retries retain the original throttle signal, so a later 2xx cannot hide it. Safe methods run by default; POST/PUT/PATCH auth endpoints require writes.",
         source: "engine/checks/enumeration.py",
       },
       {
@@ -642,7 +642,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "The response-volume half of API4, orthogonal to rate limiting: a single request that forces an unbounded response. Spec-driven — only a collection GET that DECLARES a page-size query parameter (limit/per_page/page_size/count/size/top/max/…) is probed. Sends the endpoint two above-normal sizes (1000, then 5000); if the returned record count TRACKS the requested size (grows across the two) and is large in absolute terms, there is no effective server cap, so one caller can extract the whole collection. A server capped at, say, 100 returns 100 for both sizes — no growth, no finding — which is what separates an unbounded list from a correctly capped one.",
         caveat:
-          "Read-only (GET), so no mutate gate; up to three endpoints, two requests each, inside the 750 budget. Heuristic: response volume infers cost rather than measuring the server's real work, and only list-shaped JSON responses are counted (a large single object is a different weakness). Endpoints with no declared size parameter are not probed — the check skips and says so rather than guessing.",
+          "Read-only (GET), so no writes gate; up to three endpoints, two requests each, inside the 750 budget. Heuristic: response volume infers cost rather than measuring the server's real work, and only list-shaped JSON responses are counted (a large single object is a different weakness). Endpoints with no declared size parameter are not probed — the check skips and says so rather than guessing.",
         source: "engine/checks/resource_consumption.py",
       },
       {
@@ -651,9 +651,9 @@ export const GROUPS: CheckGroup[] = [
         owasp: "API6:2023",
         confidence: "heuristic",
         signal:
-          "API6 is about a FLOW the business assumes a human drives — checkout, redemption, signup, invite — exposed to a script at machine speed. Under mutate:true, drives a bounded identical-body burst (5) at business-flow-shaped endpoints (checkout/purchase/redeem/coupon/invite/subscribe/booking/…) and flags one where every replay MINTS A DISTINCT new object with no throttle (429), no idempotency and no anti-automation control (CAPTCHA/challenge). The distinct-object oracle is what separates it from enumeration's rate probe and from a correctly idempotent flow: a flow returning the SAME id on a replay, demanding an idempotency key, or showing a challenge is treated as protected and not flagged.",
+          "API6 is about a FLOW the business assumes a human drives — checkout, redemption, signup, invite — exposed to a script at machine speed. With writes on, drives a bounded identical-body burst (5) at business-flow-shaped endpoints (checkout/purchase/redeem/coupon/invite/subscribe/booking/…) and flags one where every replay MINTS A DISTINCT new object with no throttle (429), no idempotency and no anti-automation control (CAPTCHA/challenge). The distinct-object oracle is what separates it from enumeration's rate probe and from a correctly idempotent flow: a flow returning the SAME id on a replay, demanding an idempotency key, or showing a challenge is treated as protected and not flagged.",
         caveat:
-          "Off by default: mutate:true only, because it drives a real write flow and (like the duplicate-create oracle) does not clean up the objects it creates — point it at a disposable/staging target. Authentication endpoints (login/token/reset) are excluded — enumeration owns those. Heuristic: the absence of a control across a short burst is a lead, and a response whose created-object id cannot be read is skipped rather than guessed. Up to two flows per scan.",
+          "Off by default: writes only, because it drives a real write flow and (like the duplicate-create oracle) does not clean up the objects it creates — point it at a disposable/staging target. Authentication endpoints (login/token/reset) are excluded — enumeration owns those. Heuristic: the absence of a control across a short burst is a lead, and a response whose created-object id cannot be read is skipped rather than guessed. Up to two flows per scan.",
         source: "engine/checks/business_flow.py",
       },
       {
@@ -661,9 +661,9 @@ export const GROUPS: CheckGroup[] = [
         owasp: "API2:2023",
         confidence: "verified",
         signal:
-          "Under mutate:true, creates the same object twice with a unique email/username/imei-ish value. A conflict-style rejection of the identical second attempt (409 or a duplicate/existing message) reveals whether the identifier already exists — an account/record enumeration oracle.",
+          "With writes on, creates the same object twice with a unique email/username/imei-ish value. A conflict-style rejection of the identical second attempt (409 or a duplicate/existing message) reveals whether the identifier already exists — an account/record enumeration oracle.",
         caveat:
-          "Creates one real object per candidate endpoint (mutate opt-in). Only flat top-level body fields are used; up to two create endpoints per scan.",
+          "Creates one real object per candidate endpoint (writes opt-in). Only flat top-level body fields are used; up to two create endpoints per scan.",
         source: "engine/checks/enumeration.py",
       },
     ],
@@ -717,7 +717,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "Uses one bounded, read-only query example from the uploaded OpenAPI contract. A finding requires the owner to receive data, both anonymous and low-privilege normal queries to be denied, and the same low-privilege identity to receive equivalent data only through one alias or a batch of two. Alias or batch support by itself is never reported.",
         caveat:
-          "Skips when two identities or a safe known query are unavailable. Variables, fragments, queries deeper than four and documents over 512 bytes are skipped. Mutation and subscription examples are never replayed—even with mutate:true—because safe GraphQL cleanup cannot be inferred. Deep/overload probes remain deliberately unimplemented.",
+          "Skips when two identities or a safe known query are unavailable. Variables, fragments, queries deeper than four and documents over 512 bytes are skipped. Mutation and subscription examples are never replayed—even with writes on—because safe GraphQL cleanup cannot be inferred. Deep/overload probes remain deliberately unimplemented.",
         source: "engine/checks/graphql_behavior.py",
       },
       {
@@ -741,7 +741,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "Injects gadget payloads (Python pickle, PHP unserialize, plus Java/.NET markers) into body fields and confirms execution via an OAST callback — the target reaching back proves the chain fired, not merely that the payload reflected.",
         caveat:
-          "Dangerous, so confirmation-tier and off by default (premium:true + mutate:true + OAST). The corpus is a starter set; Java/.NET entries are markers to be replaced with a curated ysoserial/.NET corpus.",
+          "Dangerous, so confirmation-tier and off by default (premium:true + writes + OAST). The corpus is a starter set; Java/.NET entries are markers to be replaced with a curated ysoserial/.NET corpus.",
         source: "engine/checks/deserialization.py",
       },
       {
@@ -751,9 +751,9 @@ export const GROUPS: CheckGroup[] = [
         confidence: "verified",
         premium: true,
         signal:
-          "The mirror of SSRF: not \"can the server be made to reach a host\" (API7) but \"does the server trust and relay what an upstream returns\". Injects an OAST callback URL into a URL/upstream-shaped parameter (url/endpoint/source/upstream/api/… — GET query always, JSON body under mutate:true) and fires only on the CONJUNCTION of two proofs: an out-of-band callback (the fetch left the server) AND the upstream-correlated token coming back in the target's own response (it relayed downstream content). A callback alone is blind SSRF (oob_injection); reflection alone is reflected_injection; only the pair is unsafe consumption, so the three never overlap.",
+          "The mirror of SSRF: not \"can the server be made to reach a host\" (API7) but \"does the server trust and relay what an upstream returns\". Injects an OAST callback URL into a URL/upstream-shaped parameter (url/endpoint/source/upstream/api/… — GET query always, JSON body with writes on) and fires only on the CONJUNCTION of two proofs: an out-of-band callback (the fetch left the server) AND the upstream-correlated token coming back in the target's own response (it relayed downstream content). A callback alone is blind SSRF (oob_injection); reflection alone is reflected_injection; only the pair is unsafe consumption, so the three never overlap.",
         caveat:
-          "Confirmation-tier and off by default (premium:true + a live OAST collector; body sinks also need mutate:true). Verified only on the callback-plus-reflection conjunction; a callback with no reflected marker is left to oob_injection. Redirect-following and TLS-downgrade variants of API10 are not yet built.",
+          "Confirmation-tier and off by default (premium:true + a live OAST collector; body sinks also need writes). Verified only on the callback-plus-reflection conjunction; a callback with no reflected marker is left to oob_injection. Redirect-following and TLS-downgrade variants of API10 are not yet built.",
         source: "engine/checks/unsafe_consumption.py",
       },
       {
@@ -765,7 +765,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "Injects three out-of-band XXE variants — external entity, parameter entity (external DTD), and an external DTD with a file declaration — into XML-facing body fields and confirms them when the target resolves the entity and calls back to our OAST server. The callback proves entity resolution, not local-file reading or exfiltration.",
         caveat:
-          "Needs a live OAST server, plus mutate:true (an XML body is a write). Premium-gated (premium:true). SSRF filter-bypass and cloud-metadata exfil variants are not yet included.",
+          "Needs a live OAST server, plus writes (an XML body is a write). Premium-gated (premium:true). SSRF filter-bypass and cloud-metadata exfil variants are not yet included.",
         source: "engine/checks/xxe_confirmation.py",
       },
       {
@@ -813,7 +813,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "Sends a sustained sequence (24 requests) to authentication-shaped endpoints and flags when all of it is served without a throttle (429) — catching limits that only engage past the free check's 6-request burst (per-minute caps, larger token buckets).",
         caveat:
-          "A stronger 'no rate limiting' claim than the free enumeration check, at a higher request cost; the 24-request sequence is exempt from per-operation fairness but still bounded by the global 750-request ceiling. Automatic retries retain any observed 429. Safe methods run by default; state-changing auth endpoints also require mutate:true. Premium-gated (premium:true).",
+          "A stronger 'no rate limiting' claim than the free enumeration check, at a higher request cost; the 24-request sequence is exempt from per-operation fairness but still bounded by the global 750-request ceiling. Automatic retries retain any observed 429. Safe methods run by default; state-changing auth endpoints also require writes. Premium-gated (premium:true).",
         source: "engine/checks/advanced_rate_limit.py",
       },
     ],
@@ -1003,9 +1003,9 @@ export const NOT_COVERED: string[] = [
 /** Structural limits of the current engine, from base.py and the checks. */
 export const LIMITS: string[] = [
   "Authorization depth depends on the credentials you upload: verified cross-identity BOLA needs two distinct identities, while BFLA additionally needs their roles to establish a low-to-high privilege boundary. With a single credential, BOLA degrades to a low-severity sibling-id probe (a lead, not proof) and the BFLA/write oracles stay inert.",
-  "The reflection checks reach GET query + path parameters always, and POST/PUT/PATCH JSON request-body fields only under mutate:true (a body write changes target state), shaped to each parameter's declared type/enum/format. The out-of-band checks reach GET query params (and JSON body fields under mutate:true), never path. Headers, cookies, query/path on mutating verbs, and non-JSON (XML/form) bodies are still never fuzzed.",
+  "The reflection checks reach GET query + path parameters always, and POST/PUT/PATCH JSON request-body fields only with writes on (a body write changes target state), shaped to each parameter's declared type/enum/format. The out-of-band checks reach GET query params (and JSON body fields with writes on), never path. Headers, cookies, query/path on mutating verbs, and non-JSON (XML/form) bodies are still never fuzzed.",
   "Every scan is capped at 750 HTTP requests; checks stop silently once the budget is spent.",
-  "mutate:true lets state-changing probes run: the write oracle (BOLA/BFLA-on-write, which restores its own updates and deletes what it creates), body-sink injection, and authentication/authorization/rate probes against unsafe HTTP methods. Injection and rate payloads written to bodies are NOT generally cleaned up, so mutate:true should target a disposable/staging environment only.",
+  "Writes let state-changing probes run: the write oracle (BOLA/BFLA-on-write, which restores its own updates and deletes what it creates), body-sink injection, and authentication/authorization/rate probes against unsafe HTTP methods. Injection and rate payloads written to bodies are NOT generally cleaned up, so writes should target a disposable/staging environment only.",
   "Out-of-band (OAST) confirmation exists but is opt-in and off by default: it needs a self-hosted interactsh server plus the interactsh-client binary in the worker. Without it, blind classes are not tested.",
   "The core engine has no timing/execution analysis, so it reports injection as reflection leads only. The opt-in confirmation adjuncts (confirm:true) promote those leads to verified findings — sqlmap (SQLi: boolean/error/UNION/stacked/time), dalfox (XSS: headless execution), commix (command injection) and tplmap (SSTI: template evaluation) — but only for parameters the engine already flagged, only when the tool is installed, and off by default because they are slow.",
   "All external adjuncts (ZAP, the confirm tools, testssl, Kali) share one wall-clock budget (default 600s) and a cancellation check between passes: once spent, the remaining passes are skipped rather than letting a scan hang for tens of minutes in a slow tool.",
@@ -1104,7 +1104,7 @@ export const OWASP_2025: OwaspMapping[] = [
     code: "A01:2025",
     name: "Broken Access Control",
     level: "strong",
-    note: "The engine's core strength: BOLA (API1) and BFLA (API5) across two identities, forged-token acceptance, and — under mutate:true — verified BOLA/BFLA-on-write via the write oracle (a write by a low-privilege identity read back by the owner). Not exhaustive: no CSRF, forced-browsing, or traversal-to-file enumeration.",
+    note: "The engine's core strength: BOLA (API1) and BFLA (API5) across two identities, forged-token acceptance, and — with writes on — verified BOLA/BFLA-on-write via the write oracle (a write by a low-privilege identity read back by the owner). Not exhaustive: no CSRF, forced-browsing, or traversal-to-file enumeration.",
   },
   {
     code: "A02:2025",
@@ -1140,13 +1140,13 @@ export const OWASP_2025: OwaspMapping[] = [
     code: "A07:2025",
     name: "Authentication Failures",
     level: "partial",
-    note: "Detects a random, never-issued token being accepted on endpoints that look protected, duplicate-create enumeration oracles (mutate:true), and unthrottled auth-shaped endpoints. No credential-stuffing, weak-password, MFA, or session-management testing.",
+    note: "Detects a random, never-issued token being accepted on endpoints that look protected, duplicate-create enumeration oracles (writes), and unthrottled auth-shaped endpoints. No credential-stuffing, weak-password, MFA, or session-management testing.",
   },
   {
     code: "A08:2025",
     name: "Software or Data Integrity Failures",
     level: "partial",
-    note: "The write oracle confirms an unauthorized write persists across identities — a data-integrity failure — under mutate:true. No deserialization, update-channel, or CI/CD integrity checks.",
+    note: "The write oracle confirms an unauthorized write persists across identities — a data-integrity failure — with writes on. No deserialization, update-channel, or CI/CD integrity checks.",
   },
   {
     code: "A09:2025",
@@ -1177,11 +1177,11 @@ export const AI_CASCADE = {
     },
     {
       k: "During — adaptive validation",
-      v: "With premium:true + adaptive:true, the planner may choose the next prevalidated variant from a fixed 2–3-attempt set. Body variants additionally require mutate:true. The engine builds and sends the request and stores value-free response structure; the run's request log additionally keeps a redacted, size-capped body sample.",
+      v: "With premium:true + adaptive:true, the planner may choose the next prevalidated variant from a fixed 2–3-attempt set. Body variants additionally require writes. The engine builds and sends the request and stores value-free response structure; the run's request log additionally keeps a redacted, size-capped body sample.",
     },
     {
       k: "During — refine a rejected create",
-      v: "With authorized + premium:true + mutate:true + the separate resource-refinement switch, only a 400, 409, or 422 create rejection can trigger a retry. The planner receives the declared request schema, the previous scanner-generated body, a redacted error excerpt, and optional read-only DB schema metadata. Its body must pass spec validation before the engine sends it; total attempts stay at 2 or 3.",
+      v: "With authorized + premium:true + writes + the separate resource-refinement switch, only a 400, 409, or 422 create rejection can trigger a retry. The planner receives the declared request schema, the previous scanner-generated body, a redacted error excerpt, and optional read-only DB schema metadata. Its body must pass spec validation before the engine sends it; total attempts stay at 2 or 3.",
     },
     {
       k: "After — adjudicate (adjudicate:true)",

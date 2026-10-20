@@ -250,7 +250,7 @@ export default function Coverage() {
                 A GET query or path variant can be tested without changing
                 server state. A JSON body variant can create, update, or trigger
                 application behavior, so the same bounded loop is available
-                only when <strong>mutate:true</strong> is explicitly authorized.
+                only when <strong>writes</strong> are explicitly turned on.
                 The planner can choose a next prevalidated variant, but the
                 engine owns the method, field, budget, and evidence.
               </p>
@@ -269,7 +269,7 @@ export default function Coverage() {
               <p className="lead">
                 Supply an existing resource ID, or let the engine try a safe,
                 deterministic body first. With <strong>authorized</strong>,{" "}
-                <strong>mutate:true</strong>, <strong>premium:true</strong>, and
+                <strong>writes</strong>, <strong>premium:true</strong>, and
                 the separate refinement switch approved, a 400, 409, or 422 can
                 feed a redacted response plus read-only DB schema metadata into
                 a maximum of two or three create attempts. A successful ID is
