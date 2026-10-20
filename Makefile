@@ -6,6 +6,8 @@
 # hides state you can't reproduce by hand.
 
 COMPOSE ?= docker compose
+# The web UI's host port (WEB_HOST_PORT in .env), for the ready banners.
+WEB_HOST_PORT ?= $(or $(shell sed -n 's/^WEB_HOST_PORT=//p' .env 2>/dev/null),3000)
 
 # Run one-off/exec commands non-interactively (-T) so they work in CI too.
 DC_EXEC := $(COMPOSE) exec -T
@@ -34,7 +36,7 @@ up: env ## Start the full stack (build) and apply all schema migrations
 	@$(MAKE) --no-print-directory wait-db
 	@$(MAKE) --no-print-directory migrate
 	@echo ""
-	@echo "stack ready:  web http://localhost:3000   api http://localhost:8000   target :9000"
+	@echo "stack ready:  web http://localhost:$(WEB_HOST_PORT)   api http://localhost:8000   target :9000"
 
 up-oob: env ## Start the stack + self-hosted interactsh (OAST) and migrate
 	$(COMPOSE) --profile oob up -d --build
@@ -67,7 +69,7 @@ up-all: env ## Start the stack + interactsh + ZAP + Kali (+ ~/.aws if present) a
 
 start: up-all ## Start everything (stack + interactsh + ZAP + Kali) and migrate
 	@echo ""
-	@echo "all services up:  web http://localhost:3000   api http://localhost:8000   target :9000"
+	@echo "all services up:  web http://localhost:$(WEB_HOST_PORT)   api http://localhost:8000   target :9000"
 	@echo "adjuncts: interactsh (oob), ZAP, Kali — stop everything with: make stop"
 
 stop: down ## Stop everything started by make start (keep the database volume)

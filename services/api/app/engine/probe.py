@@ -6,6 +6,7 @@ live here rather than in any individual check.
 """
 from __future__ import annotations
 
+import json as jsonlib
 import re
 import threading
 import time
@@ -67,6 +68,12 @@ _TEXTUAL_BODY = re.compile(
 # it is far safer to keep than a response — and it is the half that answers "why
 # was this rejected". Still redacted and capped.
 _REQUEST_BODY_LIMIT = 2000
+# A JSON shape's serialized size. The server refuses an upload whose trace holds a
+# larger one (``app/api/schemas/runner.py:_TRACE_SHAPE_CHARS``), so the probe keeps
+# under it: a wide, nested response (a job carrying its user, company and account)
+# drops depth until it fits rather than failing the whole run's upload.
+_SHAPE_CHARS = 8000
+_SHAPE_DEPTHS = (5, 3, 2, 1)
 # C0 control characters other than tab/newline/carriage-return. A gRPC-Web or
 # other binary response decodes to text with NUL bytes, which Postgres JSONB
 # refuses to store; stripping them keeps the trace JSON-safe without dropping
@@ -486,17 +493,28 @@ class HttpProbe:
         return results
 
     @staticmethod
-    def _shape(value: Any, depth: int = 0) -> Any:
-        """Describe JSON structure while discarding every scalar value."""
-        if depth >= 5:
+    def _shape(value: Any) -> Any:
+        """Describe JSON structure while discarding every scalar value.
+
+        Bounded to ``_SHAPE_CHARS`` serialized: the deepest description that fits.
+        """
+        for max_depth in _SHAPE_DEPTHS:
+            shape = HttpProbe._describe(value, 0, max_depth)
+            if len(jsonlib.dumps(shape, default=str)) <= _SHAPE_CHARS:
+                return shape
+        return {"type": "truncated"}
+
+    @staticmethod
+    def _describe(value: Any, depth: int, max_depth: int) -> Any:
+        if depth >= max_depth:
             return {"type": "truncated"}
         if isinstance(value, dict):
             return {
-                str(key)[:80]: HttpProbe._shape(item, depth + 1)
+                str(key)[:80]: HttpProbe._describe(item, depth + 1, max_depth)
                 for key, item in list(value.items())[:50]
             }
         if isinstance(value, list):
-            sample = HttpProbe._shape(value[0], depth + 1) if value else None
+            sample = HttpProbe._describe(value[0], depth + 1, max_depth) if value else None
             return {"type": "array", "items": len(value), "sample": sample}
         if isinstance(value, str):
             return {"type": "string", "length": min(len(value), 100000)}
@@ -615,8 +633,6 @@ class HttpProbe:
         sensitive: list[str] = []
         if response is not None:
             try:
-                import json as jsonlib
-
                 response_shape = self._shape(jsonlib.loads(response.text))
             except (TypeError, ValueError, RecursionError):
                 response_shape = {"type": "text", "length": len(response.text)}
@@ -706,8 +722,6 @@ class HttpProbe:
         if payload is None:
             return ""
         try:
-            import json as jsonlib
-
             raw = jsonlib.dumps(payload, separators=(",", ":"), ensure_ascii=False)
         except (TypeError, ValueError, RecursionError):
             return ""

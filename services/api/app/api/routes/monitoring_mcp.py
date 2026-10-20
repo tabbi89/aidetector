@@ -51,7 +51,7 @@ def mcp(
 ):
     if not settings.api_key_set():
         raise HTTPException(403, "MCP requires configured API authentication")
-    if request.headers.get("origin") not in {None, "http://localhost:3000"}:
+    if request.headers.get("origin") not in {None, settings.web_origin}:
         raise HTTPException(403, "origin not allowed")
     if body.id is None:
         return Response(status_code=202)

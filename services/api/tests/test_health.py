@@ -22,9 +22,15 @@ def test_root() -> None:
 
 def test_an_unhandled_error_reaches_the_browser_as_a_json_500(client, monkeypatch):
     """A 500 must carry CORS headers, or the web can only say "Failed to fetch"."""
+    from fastapi.middleware.cors import CORSMiddleware
     from fastapi.testclient import TestClient
 
     from app.main import app
+
+    # The origin the middleware was built with at import (WEB_ORIGIN), not the
+    # per-test settings defaults.
+    cors = next(m for m in app.user_middleware if m.cls is CORSMiddleware)
+    origin = cors.kwargs["allow_origins"][0]
 
     def broken():
         raise RuntimeError("synthetic failure")
@@ -33,8 +39,8 @@ def test_an_unhandled_error_reaches_the_browser_as_a_json_500(client, monkeypatc
     monkeypatch.setattr(app.router, "routes", list(app.router.routes))
     app.router.add_api_route("/__synthetic_failure", broken)
     with TestClient(app, raise_server_exceptions=False) as raw:
-        response = raw.get("/__synthetic_failure", headers={"Origin": "http://localhost:3000"})
+        response = raw.get("/__synthetic_failure", headers={"Origin": origin})
     assert response.status_code == 500
-    assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    assert response.headers.get("access-control-allow-origin") == origin
     assert response.json()["detail"].startswith("The server hit an internal error")
     assert "synthetic" not in response.text

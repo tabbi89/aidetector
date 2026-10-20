@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     env: str = "dev"
+    # The browser origin the web UI is served from (CORS, and the MCP origin check).
+    # docker compose derives it from WEB_HOST_PORT.
+    web_origin: str = "http://localhost:3000"
 
     database_url: str = "postgresql+psycopg://aidetector:aidetector@localhost:5432/aidetector"
     redis_url: str = "redis://localhost:6379/0"

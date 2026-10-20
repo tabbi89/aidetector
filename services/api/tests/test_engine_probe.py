@@ -225,6 +225,33 @@ def test_trace_drops_non_textual_bodies_but_keeps_the_row():
     assert response["body_bytes"] > 0
 
 
+def test_a_wide_nested_response_keeps_a_shape_the_upload_accepts():
+    """A job carrying its user, its company and the company's account nests four
+    wide objects deep; its full shape is over the server's cap, and one such row
+    used to fail the whole local run's upload with a 422."""
+    import json
+
+    from app.api.schemas.runner import _TRACE_SHAPE_CHARS, RunnerTraceResponse
+    from app.engine.probe import _SHAPE_CHARS
+
+    def wide(level: int) -> dict:
+        fields: dict = {f"field{n:02d}WithALongishName": "value" for n in range(40)}
+        if level:
+            fields["child"] = wide(level - 1)
+        return fields
+
+    probe = HttpProbe(_Recorder(json.dumps(wide(4))), max_requests=5)
+    assert probe.send("GET", "/jobs/1") is not None
+    shape = probe.mutations[0]["response"]["json_shape"]
+
+    assert _SHAPE_CHARS == _TRACE_SHAPE_CHARS
+    assert len(json.dumps(shape)) <= _TRACE_SHAPE_CHARS
+    RunnerTraceResponse(json_shape=shape)  # the server's own validator
+    # It degrades by depth, not to nothing: the top level is still described.
+    assert shape["field00WithALongishName"] == {"type": "string", "length": 5}
+    assert "child" in shape
+
+
 def test_trace_stops_retaining_bodies_once_the_run_budget_is_spent():
     """One run's archive is bounded; rows past the budget keep their structure."""
     from app.engine.probe import _BODY_BUDGET

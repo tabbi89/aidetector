@@ -78,7 +78,7 @@ app.add_middleware(InternalErrorResponse)
 # The Next.js dev server talks to this API from the browser.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[settings.web_origin],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
