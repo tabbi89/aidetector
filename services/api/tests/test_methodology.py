@@ -270,3 +270,50 @@ def test_paired_effectiveness_thresholds():
             assert case["outcome"] == "finding", case
         else:
             assert case["outcome"] in {"passed", "blocked"}, case
+
+
+def test_a_large_scan_keeps_its_manifest_under_the_upload_cap():
+    """A big API spends the budget early; every later case is refused, and listing
+    each refusal (plus a long operation list) used to overrun the server's cap and
+    fail the whole local run's upload with a 422."""
+    from types import SimpleNamespace
+
+    from app.api.schemas.runner import MANIFEST_MAX_CHARS as SERVER_CAP
+    from app.engine.methodology import MANIFEST_MAX_CHARS
+
+    def case(n: int, outcome: str) -> dict:
+        return {"check": "reflected_injection",
+                "label": f"PATCH /v1/webhook-endpoints/{{sid}} body:field{n} variant=" + "x" * 60,
+                "outcome": outcome, "baseline_valid": None, "requests": 0, "reserved": 3}
+
+    ran = [case(n, "passed") for n in range(1500)]
+    refused = [case(n, "budget_exhausted") for n in range(500)]
+    operations = [{"method": "GET", "path": f"/v1/resource{n}/{{sid}}/" + "y" * 80}
+                  for n in range(2000)]
+    probe = SimpleNamespace(test_cases=ran + refused, cleanup_results=[True],
+                            manifest={"version": "methodology-1", "operations": operations})
+
+    manifest = finish_manifest(probe)
+
+    assert MANIFEST_MAX_CHARS == SERVER_CAP
+    assert len(json.dumps(manifest, default=str)) <= SERVER_CAP
+    metrics = manifest["metrics"]
+    # Every case is still accounted for, even the ones no longer listed.
+    assert metrics["scheduled_cases"] == 2000
+    assert metrics["budget_exhausted_cases"] == 500
+    assert all(c["outcome"] != "budget_exhausted" for c in manifest["cases"])
+    assert len(manifest["cases"]) + metrics["cases_omitted"] == 1500
+
+
+def test_a_small_manifest_is_left_whole():
+    from types import SimpleNamespace
+
+    probe = SimpleNamespace(
+        test_cases=[{"check": "c", "label": "l", "outcome": "passed",
+                     "baseline_valid": True, "requests": 1, "reserved": 1}],
+        cleanup_results=[], manifest={"operations": [{"method": "GET", "path": "/a"}]},
+    )
+    manifest = finish_manifest(probe)
+    assert len(manifest["cases"]) == 1
+    assert "cases_omitted" not in manifest["metrics"]
+    assert manifest["operations"] == [{"method": "GET", "path": "/a"}]

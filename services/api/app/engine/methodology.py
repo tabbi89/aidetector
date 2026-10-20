@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 VERSION = "methodology-1"
+#: The server refuses an uploaded manifest larger than this
+#: (``app/api/schemas/runner.py:MANIFEST_MAX_CHARS``), so the runner keeps under it.
+MANIFEST_MAX_CHARS = 256_000
 
 
 def digest(value: Any) -> str:
@@ -47,11 +50,16 @@ def finish_manifest(probe) -> dict[str, Any]:
     cases = list(probe.test_cases)
     baselines = [r for r in cases if r.get("baseline_valid") is not None]
     cleanups = probe.cleanup_results
-    return {
+    # A case the budget refused sent nothing and observed nothing: count it, do
+    # not list it. Once a large API spends the budget, every later attempt is
+    # one of these, and listing them all overran the upload cap.
+    refused = sum(r["outcome"] == "budget_exhausted" for r in cases)
+    manifest = {
         **probe.manifest,
-        "cases": cases,
+        "cases": [r for r in cases if r["outcome"] != "budget_exhausted"],
         "metrics": {
             "scheduled_cases": len(cases),
+            "budget_exhausted_cases": refused,
             "completed_cases": sum(r["outcome"] in {"passed", "finding"} for r in cases),
             "valid_baselines": sum(bool(r["baseline_valid"]) for r in baselines),
             "attempted_baselines": len(baselines),
@@ -66,6 +74,40 @@ def finish_manifest(probe) -> dict[str, Any]:
             "scope": "instrumented cases only; live precision/recall requires ground truth",
         },
     }
+    return _bounded(manifest)
+
+
+def _size(value: Any) -> int:
+    return len(json.dumps(value, default=str))
+
+
+def _bounded(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Keep the manifest under ``MANIFEST_MAX_CHARS``, saying what was left out.
+
+    The tail of ``cases`` goes first (the metrics already summarise every case),
+    then the operation list (``spec_digest`` still identifies the spec).
+    """
+    if _size(manifest) <= MANIFEST_MAX_CHARS:
+        return manifest
+    # Room for the omission counters themselves.
+    limit = MANIFEST_MAX_CHARS - 200
+    cases = manifest["cases"]
+    manifest["cases"] = []
+    room = limit - _size(manifest)
+    kept = []
+    for case in cases:
+        cost = _size(case) + 2  # the separator
+        if cost > room:
+            break
+        kept.append(case)
+        room -= cost
+    manifest["cases"] = kept
+    manifest["metrics"]["cases_omitted"] = len(cases) - len(kept)
+    operations = manifest.get("operations")
+    if _size(manifest) > limit and isinstance(operations, list):
+        manifest["operations"] = []
+        manifest["operations_omitted"] = len(operations)
+    return manifest
 
 
 def adjudication_key(finding, *, premium: bool = False) -> str:

@@ -129,6 +129,26 @@ def test_body_injection_sends_as_a_writer_and_leaves_the_target_as_it_was():
     assert ctx.cleanup_failures == []
 
 
+def test_an_update_with_no_read_back_is_skipped_not_reported_as_a_failed_cleanup():
+    """No GET to read the original from means no restore, so nothing is written —
+    and a skipped write is not a cleanup failure."""
+    app, store = _app()
+    ops = [op for op in OPS if op.method != "GET"]
+    reader = replace(factories.credential("reader", "viewer"), tenant="a")
+    writer = replace(factories.credential("writer", "editor"), tenant="a")
+    ctx = factories.scan_context(
+        ops, spec=SPEC, allow_mutation=True, credentials=[reader, writer],
+        client=TestClient(app),
+    )
+    ctx.resource_ids["widget"] = "1"
+    ReflectedInjectionCheck().run(ctx)
+    SignatureInjectionCheck().run(ctx)
+
+    assert not [m for m in ctx.probe.mutations if m["method"] == "PATCH"]
+    assert store["1"] == {"id": "1", "name": "original", "ttl": 60}
+    assert not [f for f in ctx.cleanup_failures if "no read-back" in f]
+
+
 def test_body_injection_is_skipped_without_a_writer():
     # Only a read-only identity: nothing may create, so nothing is attempted.
     app, store = _app()

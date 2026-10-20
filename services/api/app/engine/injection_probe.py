@@ -215,8 +215,9 @@ def probe_body_point(
         if point.pointer and len(point.pointer) > 1:
             return  # a nested update field cannot be sent alone; leave it
         # Only touch a field we can put back. No read pairing, no restore → skip.
+        # Nothing was written, so this is not a cleanup failure: recording one
+        # per field and variant read as hundreds of unrestored writes.
         if read_op is None:
-            ctx.cleanup_failures.append(f"{op.method} {op.path}: no read-back to restore an update")
             return
         rpath = render_path(read_op.path, path_values(op, ctx.resource_ids))
         before = ctx.probe.send(read_op.method, rpath, headers=headers)
