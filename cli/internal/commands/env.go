@@ -1,4 +1,4 @@
-// Package commands implements the aidetector subcommands.
+// Package commands implements the runpentests subcommands.
 //
 // Everything a command touches outside its arguments — the terminal, stdin,
 // the environment, the clock, the config file — goes through Env, so the tests
@@ -20,8 +20,8 @@ import (
 
 	"golang.org/x/term"
 
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/config"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/config"
 )
 
 // Exit codes. A CI step gates on these, so they are part of the interface.
@@ -67,7 +67,7 @@ type Env struct {
 	// asks git. Tests replace it.
 	GitHead func(dir string) string
 	// Dir overrides the working directory the target form looks for
-	// aidetector.yml in (tests); empty means the process's own.
+	// runpentests.yml in (tests); empty means the process's own.
 	Dir string
 
 	in  *bufio.Reader
@@ -218,12 +218,12 @@ func (e *Env) poll() time.Duration {
 }
 
 // configPath is the config location: the test override wins, then
-// AIDETECTOR_CONFIG, then the user config directory.
+// RUNPENTESTS_CONFIG, then the user config directory.
 func (e *Env) configPath() (string, error) {
 	if e.ConfigPath != "" {
 		return config.Path(e.ConfigPath)
 	}
-	if p := e.Getenv("AIDETECTOR_CONFIG"); p != "" {
+	if p := e.Getenv("RUNPENTESTS_CONFIG"); p != "" {
 		return p, nil
 	}
 	return config.Path("")
@@ -242,7 +242,7 @@ func (e *Env) client() (*api.Client, error) {
 	if cfg.Server == "" {
 		cfg.Server = config.DefaultServer
 	}
-	server, err := config.NormalizeServer(cfg.Server, e.Getenv("AIDETECTOR_INSECURE_HTTP") == "1")
+	server, err := config.NormalizeServer(cfg.Server, e.Getenv("RUNPENTESTS_INSECURE_HTTP") == "1")
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func (e *Env) parseFailed(cmd string, fs *flag.FlagSet, err error) int {
 			return ExitUsage
 		}
 	}
-	e.errorf("error: %v\nrun 'aidetector help %s' for usage\n", err, cmd)
+	e.errorf("error: %v\nrun 'runpentests help %s' for usage\n", err, cmd)
 	return ExitUsage
 }
 
@@ -302,7 +302,7 @@ func (e *Env) exitFor(err error) int {
 	if errors.As(err, &apiErr) {
 		switch {
 		case apiErr.Status == 401:
-			e.errorf("error: %v\nhint: the API key is missing or wrong — run `aidetector login`\n", err)
+			e.errorf("error: %v\nhint: the API key is missing or wrong — run `runpentests login`\n", err)
 			return ExitUsage
 		case (apiErr.Status == 404 && apiErr.Detail == "Not Found") || apiErr.Status == 405:
 			// FastAPI's bare "Not Found" is an unknown route, not a missing

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"aidetector/cli/internal/api"
+	"runpentests/cli/internal/api"
 )
 
 const (
@@ -162,7 +162,7 @@ func cmdRunTrace(ctx context.Context, e *Env, args []string) int {
 	// as "only 5 requests were refused".
 	e.printf("%d shown · %d match · %d request(s) in the run\n", len(shown), matched, total)
 	if len(shown) > 0 {
-		e.errorf("detail: aidetector runs trace %s %d --seq <N>\n", shortID(id), run)
+		e.errorf("detail: runpentests runs trace %s %d --seq <N>\n", shortID(id), run)
 	}
 	return ExitOK
 }

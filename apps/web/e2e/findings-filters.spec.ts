@@ -83,6 +83,7 @@ test("selecting an endpoint filters on its label, loaded or not", async ({ page,
   await page.goto(`/scans/${sid}`);
   await page.getByRole("searchbox", { name: "Search findings" }).fill("Needle");
   await expect(page.locator(".finding").getByText("Needle off-page", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /More filters/ }).click();
   await page.getByRole("combobox", { name: "Filter findings by endpoint" }).selectOption("GET /other");
   await expect.poll(() => endpoints.at(-1)).toBe("GET /other");
   await expect(page.locator(".finding").getByText("Needle unrelated", { exact: true })).toHaveCount(0);

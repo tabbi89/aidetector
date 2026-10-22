@@ -1,0 +1,244 @@
+.hero {
+  padding: 64px 0 56px;
+  border-bottom: 1px solid var(--line);
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: 40px;
+}
+.copy {
+  min-width: 0;
+}
+.eyebrow {
+  font: 600 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+.copy h1 {
+  max-width: 14ch;
+  font-size: clamp(32px, 3.5vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+  margin: 0;
+}
+.copy p {
+  font-size: 15px;
+  max-width: 48ch;
+  margin-top: 22px;
+}
+.copy :global(.hero-cta) {
+  gap: 16px;
+}
+.illustration {
+  min-width: 0;
+  width: 100%;
+  padding: 22px 18px 16px;
+  margin: 0;
+}
+.tag {
+  display: block;
+  color: var(--shell-comment);
+  font: 10px var(--mono);
+  letter-spacing: 0.04em;
+}
+.diagram {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0;
+}
+.input,
+.output {
+  min-width: 0;
+  padding: 14px 10px;
+  border: 1px solid var(--shell-line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--shell-violet) 10%, var(--shell-bg));
+}
+.output {
+  border-color: color-mix(in srgb, var(--shell-ok) 30%, var(--shell-line));
+}
+.panelTitle {
+  display: block;
+  color: var(--shell-ink);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.route {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+  font: 9px var(--mono);
+}
+.route b {
+  color: var(--shell-accent);
+}
+.route code {
+  color: var(--shell-ink);
+  overflow-wrap: anywhere;
+}
+.accounts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+}
+.accounts > span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--shell-bg);
+  background: var(--shell-accent);
+  font: 10px var(--mono);
+}
+.accounts > span:last-of-type {
+  background: var(--shell-violet);
+}
+.accounts i {
+  color: var(--shell-comment);
+  font-style: normal;
+}
+.accounts small {
+  flex-basis: 100%;
+  font-size: 9px;
+  color: var(--shell-comment);
+}
+.scanner {
+  position: relative;
+}
+.scanner::before,
+.scanner::after {
+  content: "";
+  position: absolute;
+  top: 48%;
+  width: 18px;
+  border-top: 1px dashed var(--shell-accent);
+}
+.scanner::before {
+  left: -9px;
+}
+.scanner::after {
+  right: -9px;
+  border-color: var(--shell-ok);
+}
+.scanner :global(.bot) {
+  display: block;
+  width: 100%;
+}
+.result + .result {
+  margin-top: 14px;
+}
+.result > span {
+  display: block;
+  font-size: 11px;
+  color: var(--shell-accent);
+  font-weight: 600;
+}
+.result > .proof {
+  color: var(--shell-ok);
+}
+.result > .lead {
+  color: var(--shell-warn);
+}
+.result small {
+  display: block;
+  color: var(--shell-comment);
+  font-size: 9px;
+  margin-top: 4px;
+}
+.command {
+  font: 10px/1.8 var(--mono);
+  color: var(--shell-ink);
+  overflow-wrap: anywhere;
+}
+.command > span {
+  color: var(--shell-accent);
+}
+.file {
+  font: 9px var(--mono);
+  color: var(--shell-violet);
+  margin-top: 14px;
+  overflow-wrap: anywhere;
+}
+.local {
+  display: block;
+  margin-top: 12px;
+  font-size: 9px;
+  color: var(--shell-comment);
+}
+.foot {
+  padding-top: 14px;
+  border-top: 1px solid var(--shell-line);
+  text-align: center;
+  color: var(--shell-comment);
+  font: 10px var(--mono);
+}
+@media (max-width: 960px) {
+  .hero {
+    padding: 40px 0;
+  }
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .copy h1 {
+    max-width: 20ch;
+  }
+  .copy p {
+    max-width: 62ch;
+  }
+  .illustration {
+    max-width: 600px;
+  }
+  .diagram {
+    grid-template-columns: minmax(0, 1fr) 130px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .route {
+    font-size: 11px;
+  }
+}
+@media (max-width: 480px) {
+  .illustration {
+    padding: 18px 14px 14px;
+  }
+  .diagram {
+    grid-template-columns: minmax(0, 1fr) 100px;
+    gap: 12px;
+    margin: 18px 0;
+  }
+  .input {
+    padding: 14px;
+  }
+  .output {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .output .panelTitle {
+    grid-column: 1 / -1;
+    margin: 0 0 4px;
+  }
+  .result + .result {
+    margin-top: 0;
+  }
+  .scanner::after {
+    display: none;
+  }
+  .local,
+  .accounts small,
+  .result small {
+    font-size: 10px;
+  }
+}

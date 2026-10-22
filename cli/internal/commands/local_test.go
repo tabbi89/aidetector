@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/project"
 )
 
 // dockerCall is what the CLI asked Docker to do.
@@ -72,8 +72,8 @@ func parseConfig(t *testing.T, stdin string) (cfg struct {
 func TestLocalRunKeepsSecretsOffTheCommandLineAndOffTheServer(t *testing.T) {
 	f := &fake{apiKey: secretKey}
 	h, calls := localHarness(t, f, "completed", nil, map[string]string{
-		"AIDETECTOR_SECRET_ALICE": "alice-secret-value",
-		"AIDETECTOR_SECRET_ADMIN": "admin-secret-value",
+		"RUNPENTESTS_SECRET_ALICE": "alice-secret-value",
+		"RUNPENTESTS_SECRET_ADMIN": "admin-secret-value",
 	})
 	if code := h.run("run", fakeScanID, "--authorized"); code != ExitOK {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
@@ -134,8 +134,8 @@ func sharedUserClaim() []any {
 func TestLocalRunKeepsSameRoleSecretsDistinctByName(t *testing.T) {
 	f := &fake{claimCredentials: sharedUserClaim()}
 	h, calls := localHarness(t, f, "completed", nil, map[string]string{
-		"AIDETECTOR_SECRET_ALICE": "alice-secret-value",
-		"AIDETECTOR_SECRET_BOB":   "bob-secret-value",
+		"RUNPENTESTS_SECRET_ALICE": "alice-secret-value",
+		"RUNPENTESTS_SECRET_BOB":   "bob-secret-value",
 	})
 	if code := h.run("run", fakeScanID, "--authorized"); code != ExitOK {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
@@ -155,7 +155,7 @@ func TestLocalRunKeepsSameRoleSecretsDistinctByName(t *testing.T) {
 func TestLocalRunRefusesARoleSecretWhenTheRoleIsShared(t *testing.T) {
 	f := &fake{claimCredentials: sharedUserClaim()}
 	h, calls := localHarness(t, f, "completed", nil, map[string]string{
-		"AIDETECTOR_SECRET_USER": "one-secret-for-both",
+		"RUNPENTESTS_SECRET_USER": "one-secret-for-both",
 	})
 	if code := h.run("run", fakeScanID, "--authorized"); code != ExitUsage {
 		t.Fatalf("exit = %d, want %d\n%s", code, ExitUsage, h.errOut.String())
@@ -234,25 +234,25 @@ func TestLocalRunRoleEnvFallbackNeverTakesANamedIdentitysKey(t *testing.T) {
 		{
 			name:  "role names another identity",
 			claim: claimOf("alice", "user", "user", "admin"),
-			env:   map[string]string{"AIDETECTOR_SECRET_USER": "user-token", "AIDETECTOR_REFRESH_SECRET_USER": "user-refresh"},
+			env:   map[string]string{"RUNPENTESTS_SECRET_USER": "user-token", "RUNPENTESTS_REFRESH_SECRET_USER": "user-refresh"},
 			want:  map[string]map[string]string{"user": {"secret": "user-token", "refresh_secret": "user-refresh"}},
 		},
 		{
 			name:  "shared role, one identity named after it",
 			claim: claimOf("user", "user", "bob", "user"),
-			env:   map[string]string{"AIDETECTOR_SECRET_USER": "user-token"},
+			env:   map[string]string{"RUNPENTESTS_SECRET_USER": "user-token"},
 			want:  map[string]map[string]string{"user": {"secret": "user-token", "refresh_secret": ""}},
 		},
 		{
 			name:  "role normalises onto another identity's name",
 			claim: claimOf("alice", "user-a", "user_a", "admin"),
-			env:   map[string]string{"AIDETECTOR_SECRET_USER_A": "user-a-token"},
+			env:   map[string]string{"RUNPENTESTS_SECRET_USER_A": "user-a-token"},
 			want:  map[string]map[string]string{"user_a": {"secret": "user-a-token", "refresh_secret": ""}},
 		},
 		{
 			name:  "unique role still falls back",
 			claim: claimOf("alice", "user", "root", "admin"),
-			env:   map[string]string{"AIDETECTOR_SECRET_USER": "alice-token", "AIDETECTOR_SECRET_ROOT": "root-token"},
+			env:   map[string]string{"RUNPENTESTS_SECRET_USER": "alice-token", "RUNPENTESTS_SECRET_ROOT": "root-token"},
 			want: map[string]map[string]string{
 				"alice": {"secret": "alice-token", "refresh_secret": ""},
 				"root":  {"secret": "root-token", "refresh_secret": ""},
@@ -282,11 +282,11 @@ func TestLocalRunRoleEnvFallbackNeverTakesANamedIdentitysKey(t *testing.T) {
 // `user-a` and `user_a` are distinct names with one environment key: reading
 // it for either would give both the same token, so the run refuses.
 func TestLocalRunRefusesAnEnvKeyTwoNamesNormaliseTo(t *testing.T) {
-	for _, key := range []string{"AIDETECTOR_SECRET_USER_A", "AIDETECTOR_REFRESH_SECRET_USER_A"} {
+	for _, key := range []string{"RUNPENTESTS_SECRET_USER_A", "RUNPENTESTS_REFRESH_SECRET_USER_A"} {
 		t.Run(key, func(t *testing.T) {
 			f := &fake{claimCredentials: claimOf("user-a", "user", "user_a", "admin")}
-			env := map[string]string{"AIDETECTOR_SECRET_USER_A": "one-token"}
-			if key != "AIDETECTOR_SECRET_USER_A" {
+			env := map[string]string{"RUNPENTESTS_SECRET_USER_A": "one-token"}
+			if key != "RUNPENTESTS_SECRET_USER_A" {
 				env = map[string]string{key: "one-refresh"}
 			}
 			h, calls := localHarness(t, f, "completed", nil, env)
@@ -500,7 +500,7 @@ func TestLocalRunAbandonsTheClaimOnABadSecretsFile(t *testing.T) {
 
 func TestLocalRunWithoutASecretWarnsAndDropsOnlyThatIdentity(t *testing.T) {
 	f := &fake{}
-	h, calls := localHarness(t, f, "completed", nil, map[string]string{"AIDETECTOR_SECRET_USER": "u"})
+	h, calls := localHarness(t, f, "completed", nil, map[string]string{"RUNPENTESTS_SECRET_USER": "u"})
 	if code := h.run("run", fakeScanID, "--authorized"); code != ExitOK {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
 	}
@@ -838,7 +838,7 @@ func TestAMissingRunnerImageIsCaughtBeforeTheClaim(t *testing.T) {
 func TestReleaseRunnerImageSelectionAndPull(t *testing.T) {
 	saved := RunnerImage
 	t.Cleanup(func() { RunnerImage = saved })
-	image := "ghcr.io/example/aidetector-runner@sha256:" + strings.Repeat("a", 64)
+	image := "ghcr.io/example/runpentests-runner@sha256:" + strings.Repeat("a", 64)
 	RunnerImage = image
 	for _, tc := range []struct {
 		name string
@@ -847,8 +847,8 @@ func TestReleaseRunnerImageSelectionAndPull(t *testing.T) {
 		want string
 	}{
 		{"release default", nil, "", image},
-		{"environment override", map[string]string{"AIDETECTOR_RUNNER_IMAGE": "custom:env"}, "", "custom:env"},
-		{"flag override", map[string]string{"AIDETECTOR_RUNNER_IMAGE": "custom:env"}, "custom:flag", "custom:flag"},
+		{"environment override", map[string]string{"RUNPENTESTS_RUNNER_IMAGE": "custom:env"}, "", "custom:env"},
+		{"flag override", map[string]string{"RUNPENTESTS_RUNNER_IMAGE": "custom:env"}, "custom:flag", "custom:flag"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &fake{}

@@ -119,7 +119,7 @@ def test_a_run_that_left_identities_out_does_not_call_their_findings_fixed(
     # A check that needs no identity still counts as re-tested.
     assert not unperformed("security_headers", gaps)
     message = next(e.message for e in scan.events if e.stage == "identities_unavailable")
-    assert "a CLI run (`aidetector run`)" in message
+    assert "a CLI run (`runpentests run`)" in message
 
 
 def test_the_local_only_flag_is_in_the_audit_trail(client, new_scan):

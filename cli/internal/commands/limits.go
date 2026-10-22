@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"aidetector/cli/internal/api"
+	"runpentests/cli/internal/api"
 )
 
 // runLimits is what the run's events say limited it, in the order a person

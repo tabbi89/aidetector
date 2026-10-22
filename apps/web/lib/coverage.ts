@@ -95,7 +95,7 @@ export const GROUPS: CheckGroup[] = [
         signal:
           "Flags a validation-gap lead when an out-of-range, enum, type, required, or max-length variant is accepted after a valid baseline. It covers GET query/path inputs by default and JSON body fields on POST/PUT/PATCH only with writes on; every attempt is bounded, and the finding it records carries no request values or body samples.",
         caveat:
-          "Body probes can create or update target state, so they require the explicit mutation gate and are not cleaned up by this pass. The check still does not prove persistence or execution; optional database context is the newest structure-only snapshot an `aidetector` CLI run read from the tables its aidetector.yml lists — the server never connects to the database.",
+          "Body probes can create or update target state, so they require the explicit mutation gate and are not cleaned up by this pass. The check still does not prove persistence or execution; optional database context is the newest structure-only snapshot a `runpentests` CLI run read from the tables its runpentests.yml lists — the server never connects to the database.",
         source: "engine/adaptive/runner.py · engine/adaptive/policy.py · specs/parser.py · db_schema/snapshots.py",
       },
     ],

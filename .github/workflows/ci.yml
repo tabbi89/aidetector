@@ -88,7 +88,7 @@ jobs:
       - name: Cross-compile
         run: |
           for t in darwin/arm64 linux/amd64 windows/amd64; do
-            GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/aidetector
+            GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/runpentests
           done
 
   web:

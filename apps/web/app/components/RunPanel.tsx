@@ -1,5 +1,7 @@
 "use client";
 
+import { ExpandingTextarea } from "./ExpandingTextarea";
+
 import { memo, useEffect, useId, useState, type ReactNode } from "react";
 import { type CheckKey, type RunOptions } from "@/lib/api";
 import {
@@ -16,13 +18,23 @@ import {
   type ScopeGroup,
 } from "./checkScope";
 import { SCAN_LEVELS } from "./scanLevels";
+import {
+  AI_PASSES,
+  hasAiPasses,
+  levelPasses,
+  withAiPass,
+  withoutAi,
+} from "./runPasses";
 import { useCapabilities } from "./useCapabilities";
+import { PlanBadge } from "./PlanBadge";
+import { WebRunNotice } from "./WebRunNotice";
 
 const PRESETS: { id: string; title: string; blurb: string }[] = [
   {
     id: "all",
     title: "Full scan",
-    blurb: "Every engine check. Ones that need writes or premium report as skipped.",
+    blurb:
+      "Every engine check. Ones that need writes or premium report as skipped.",
   },
   ...SCOPE_GROUPS.map(({ id, title, blurb }) => ({ id, title, blurb })),
   { id: "custom", title: "Custom", blurb: "Pick individual checks." },
@@ -37,6 +49,7 @@ function Opt({
   danger = false,
   wide = false,
   describedBy,
+  premium,
 }: {
   label: string;
   hint?: ReactNode;
@@ -47,35 +60,44 @@ function Opt({
   wide?: boolean;
   /** Lets a reason block elsewhere describe the control. */
   describedBy?: string;
+  premium?: boolean;
 }) {
+  const hintId = useId();
   return (
-    <label className={`opt${danger ? " opt-danger" : ""}${wide ? " opt-wide" : ""}`}>
+    <label
+      className={`opt${danger ? " opt-danger" : ""}${wide ? " opt-wide" : ""}${premium ? " opt-premium" : ""}`}
+    >
       <input
         type="checkbox"
         checked={checked}
         disabled={disabled}
-        aria-describedby={describedBy}
+        aria-label={label}
+        aria-describedby={
+          [hint ? hintId : null, describedBy].filter(Boolean).join(" ") ||
+          undefined
+        }
         onChange={(e) => onChange(e.target.checked)}
       />
       <span>
-        <span className="opt-label">{label}</span>
-        {hint && <span className="opt-hint">{hint}</span>}
+        <span className="opt-label">{label}{premium !== undefined && <PlanBadge premium={premium} />}</span>
+        {hint && (
+          <span className="opt-hint" id={hintId}>
+            {hint}
+          </span>
+        )}
       </span>
     </label>
   );
 }
 
 /**
- * The "Run now" panel — the web **fast lane**: a scan level (quick or
- * standard), the two explicit switches (writes and AI), the checks to run, and
- * the authorization gate.
+ * The shared web run panel: every scan level, explicit writes/AI, optional
+ * premium detections and individual AI passes, scope, and fresh authorization.
  *
  * The level is a name only. The server expands quick/standard/deep into the
  * passes they imply, with the tenant's entitlement and the deployment's
- * capabilities in view; this panel never sets `fuzz`, `premium` or the heavy
- * passes itself. Deep is shown but disabled: ZAP, the Kali adjuncts and the
- * injection-confirm tools run from the `aidetector` CLI heavy lane, where they
- * also get whitebox source access.
+ * capabilities in view. Individual AI and premium flags are also supported;
+ * a source-mounted whitebox agent remains a local CLI feature.
  *
  * The authorization checkbox is a product requirement, not decoration: the API
  * refuses a run without it and this panel keeps the Run button disabled until
@@ -127,7 +149,9 @@ function RunPanelImpl({
   const radioName = useId();
   const levelName = useId();
   const [authorized, setAuthorized] = useState(false);
-  const [customising, setCustomising] = useState(() => presetOf(options.checks) === "custom");
+  const [customising, setCustomising] = useState(
+    () => presetOf(options.checks) === "custom",
+  );
   const [customiseOpen, setCustomiseOpen] = useState(
     () => presetOf(options.checks) !== "all",
   );
@@ -137,7 +161,8 @@ function RunPanelImpl({
       : "",
   );
   const [resourceIdsError, setResourceIdsError] = useState("");
-  const set = (patch: Partial<RunOptions>) => onChange({ ...options, ...patch });
+  const set = (patch: Partial<RunOptions>) =>
+    onChange({ ...options, ...patch });
 
   // Availability is advisory; the run still enforces its own gates.
   const capabilities = useCapabilities();
@@ -155,15 +180,23 @@ function RunPanelImpl({
   // excludes it; the level alone asks the server for premium now.
   useEffect(() => {
     if (capabilities.loading) return;
-    if (entitlement && !entitlement.available && options.premium) {
-      onChange({ ...options, premium: false });
+    if (
+      entitlement &&
+      !entitlement.available &&
+      (options.premium || options.adaptive || options.resource_refine)
+    ) {
+      onChange({
+        ...options,
+        premium: false,
+        adaptive: false,
+        resource_refine: false,
+      });
     }
   }, [capabilities.loading, entitlement, options, onChange]);
 
   const unavailablePass = (key: string) =>
     passes[key]?.available === false ? passes[key] : undefined;
   const fuzzUnavailable = unavailablePass("fuzz");
-  const writesUnavailable = unavailablePass("mutate");
 
   // The Standard level asks the server for fuzzing and premium; say up front
   // which of those the deployment or the tenant's plan leaves out.
@@ -177,26 +210,67 @@ function RunPanelImpl({
     standardNotes.push(
       `Premium detections are skipped: ${
         premiumLocked
-          ? entitlement?.reason ?? "not in this tenant's plan"
-          : passes.premium?.reason ?? "not available on this deployment"
+          ? (entitlement?.reason ?? "not in this tenant's plan")
+          : (passes.premium?.reason ?? "not available on this deployment")
       }.`,
     );
   }
 
   const level = options.level ?? "quick";
+  const included = levelPasses(options, !premiumDisabled);
+  const aiSelected = hasAiPasses(options);
+  const selectedAi = AI_PASSES.filter(
+    ({ key }) => options[key] || included.has(key),
+  );
   const preset = customising ? "custom" : presetOf(options.checks);
-  const chosen = new Set(options.checks.length ? options.checks : ALL_SCOPE_KEYS);
-  const selected = SCOPE_GROUPS.flatMap((g) => g.checks).filter((c) => chosen.has(c.key));
+  const chosen = new Set(
+    options.checks.length ? options.checks : ALL_SCOPE_KEYS,
+  );
+  const selected = SCOPE_GROUPS.flatMap((g) => g.checks).filter((c) =>
+    chosen.has(c.key),
+  );
   // The level enables fuzzing and premium server-side; score the picker
   // against that, not the (always-false) individual flags.
   // A pass the deployment or the plan leaves out stays off here too, so the
   // picker still says which checks will not run.
   const effectiveOptions: RunOptions = {
     ...options,
-    fuzz: options.fuzz || (level !== "quick" && !fuzzUnavailable),
-    premium: options.premium || (level !== "quick" && !premiumDisabled),
+    fuzz: options.fuzz || (included.has("fuzz") && !fuzzUnavailable),
+    premium: options.premium || included.has("premium"),
   };
-  const aiUnavailable = unavailablePass("plan");
+  const aiCapability = (key: string) => passes[key] ?? passes.plan;
+  const aiUnavailable = AI_PASSES.every(
+    ({ key }) => aiCapability(key)?.available === false,
+  )
+    ? passes.plan
+    : undefined;
+  const featureRows = [
+    {
+      key: "mutate",
+      title: "Write testing",
+      capability: passes.mutate ?? { available: true, reason: null },
+    },
+    {
+      key: "premium",
+      title: "Premium plan",
+      capability: entitlement ?? undefined,
+    },
+    ...selectedAi.map((pass) => ({
+      key: pass.key,
+      title: pass.title,
+      capability: aiCapability(pass.key),
+    })),
+    ...(
+      [
+        ["zap", "OWASP ZAP"],
+        ["kali", "Kali tools"],
+        ["confirm", "Lead confirmation"],
+        ["testssl", "Deep TLS audit"],
+      ] as const
+    )
+      .filter(([key]) => options[key] || included.has(key))
+      .map(([key, title]) => ({ key, title, capability: passes[key] })),
+  ];
 
   const choosePreset = (id: string) => {
     if (id === "custom") {
@@ -245,8 +319,12 @@ function RunPanelImpl({
     try {
       const parsed: unknown = JSON.parse(text || "{}");
       if (
-        !parsed || Array.isArray(parsed) || typeof parsed !== "object" ||
-        Object.entries(parsed).some(([key, value]) => !key || typeof value !== "string" || !value)
+        !parsed ||
+        Array.isArray(parsed) ||
+        typeof parsed !== "object" ||
+        Object.entries(parsed).some(
+          ([key, value]) => !key || typeof value !== "string" || !value,
+        )
       ) {
         throw new Error("invalid map");
       }
@@ -264,16 +342,32 @@ function RunPanelImpl({
       ? `All ${ALL_SCOPE_KEYS.length} checks`
       : `${selected.length} of ${ALL_SCOPE_KEYS.length} checks`,
     options.mutate ? "writes to target" : "read-only",
-    options.ai && "AI",
-  ].filter(Boolean).join(" · ");
+    aiSelected && `${selectedAi.length} AI passes`,
+    effectiveOptions.premium && "premium",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (premiumLocked) {
+    return (
+      <div className="specbox">
+        <WebRunNotice />
+        <div className="actions">
+          <button type="button" className="btn quiet sm" onClick={onClose} disabled={busy}>{closeLabel}</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="specbox">
+      <div className="run-access-label"><PlanBadge premium /><span>Web execution · Premium workspace required</span></div>
       {!verifiedHost && (
         <label className="gate">
           <input
             type="checkbox"
             checked={authorized}
+            disabled={busy}
             onChange={(e) => setAuthorized(e.target.checked)}
           />
           <span>
@@ -285,27 +379,92 @@ function RunPanelImpl({
 
       <section className="run-section">
         <h3 className="run-section-title">Scan level</h3>
-        <div className="scope-presets" role="radiogroup" aria-label="Scan level">
+        <div
+          className="scope-presets level-presets"
+          role="radiogroup"
+          aria-label="Scan level"
+        >
           {SCAN_LEVELS.map((l) => (
             <label key={l.id} className="scope-preset">
               <input
                 type="radio"
                 name={levelName}
+                aria-label={l.title}
+                aria-describedby={`${levelName}-${l.id}-description${l.id !== "quick" && standardNotes.length ? ` ${levelName}-${l.id}-availability` : ""}`}
                 checked={level === l.id}
-                disabled={l.cliOnly}
+                disabled={busy}
                 onChange={() => set({ level: l.id })}
               />
-              <span className="scope-preset-title">{l.title}</span>
-              <span className="scope-preset-blurb">{l.blurb}</span>
-              {l.cliOnly && (
-                <span className="opt-hint">CLI only: aidetector URL --level deep</span>
-              )}
-              {l.id === "standard" && standardNotes.length > 0 && (
-                <span className="opt-hint">{standardNotes.join(" ")}</span>
+              <span className="level-top">
+                <span className="scope-preset-title">{l.title}</span>
+                <span className="level-state" aria-hidden="true">
+                  {level === l.id ? "✓ Selected" : "Select"}
+                </span>
+              </span>
+              <span className="level-bars" aria-hidden="true">
+                {[0, 1, 2].map((index) => (
+                  <i
+                    key={index}
+                    className={
+                      index <= SCAN_LEVELS.indexOf(l) ? "filled" : undefined
+                    }
+                  />
+                ))}
+              </span>
+              <span className="level-plan">
+                {l.id === "quick" ? <span className="plan-included">Core checks</span> : <><PlanBadge premium /><span>detections included</span></>}
+              </span>
+              <span
+                className="scope-preset-blurb"
+                id={`${levelName}-${l.id}-description`}
+              >
+                {l.blurb}
+              </span>
+              {l.id !== "quick" && standardNotes.length > 0 && (
+                <span className="opt-hint" id={`${levelName}-${l.id}-availability`}>
+                  {standardNotes.join(" ")}
+                </span>
               )}
             </label>
           ))}
         </div>
+        <p className="level-footnote">
+          All levels are available in the CLI on Free. Web execution requires Premium. Levels never enable writes or AI.
+        </p>
+        {level === "deep" && (
+          <p className="opt-warn run-traffic-warning">
+            Deep requests ZAP, Kali, confirmation tools and a TLS audit from
+            this server. These can add traffic beyond the core 750-request
+            budget and take several minutes. Unavailable tools are reported as
+            skipped.
+          </p>
+        )}
+      </section>
+
+      <section className="run-section" aria-label="Premium detections">
+        <h3 className="run-section-title">Premium detections <PlanBadge premium /></h3>
+        <p className="run-plan-note">An addition to core checks. Standard and Deep include these only when your workspace has Premium access.</p>
+        <Opt
+          wide
+          premium
+          label="Include premium detections"
+          checked={effectiveOptions.premium}
+          disabled={busy || premiumDisabled || included.has("premium")}
+          hint={
+            premiumDisabled
+              ? ((premiumLocked ? entitlement?.reason : passes.premium?.reason) ??
+                "Requires a Premium workspace plan.")
+              : included.has("premium")
+                ? "Included by this scan level. Choose Quick to control this separately."
+                : "Add the paid detection checks to this run. Writes and AI stay separate."
+          }
+          onChange={(premium) =>
+            set({
+              premium,
+              ...(!premium ? { adaptive: false, resource_refine: false } : {}),
+            })
+          }
+        />
       </section>
 
       <section className="run-section">
@@ -316,31 +475,113 @@ function RunPanelImpl({
           <Opt
             wide
             danger
+            premium={false}
             label="Test writes — mutates target data"
             hint="BOLA/BFLA-on-write, mass assignment, races and body-sink injection."
             checked={options.mutate}
-            onChange={(mutate) => set({ mutate })}
+            disabled={busy}
+            onChange={(mutate) =>
+              set({ mutate, ...(!mutate ? { resource_refine: false } : {}) })
+            }
           />
           <Opt
             wide
+            premium={false}
             label="Use AI — spends tokens"
             hint={
               aiUnavailable
                 ? `Skipped on this run — ${aiUnavailable.reason ?? "AI is not available on this deployment"}.`
-                : "AI risk plan, verdicts on BOLA/BFLA/SSRF findings and a security design review."
+                : "Enable the AI passes for this level, or choose individual passes below."
             }
-            checked={options.ai}
-            onChange={(ai) => set({ ai })}
+            checked={aiSelected}
+            disabled={busy || Boolean(aiUnavailable && !aiSelected)}
+            onChange={(ai) =>
+              onChange(ai ? { ...options, ai: true } : withoutAi(options))
+            }
           />
         </div>
         {options.mutate && (
           <p className="opt-warn">
-            The write oracle restores its updates and deletes what it creates, but
-            injection payloads sent to POST/PUT/PATCH bodies are <strong>not</strong>{" "}
-            cleaned up. Use only against a disposable or staging target.
+            The write oracle restores its updates and deletes what it creates,
+            but injection payloads sent to POST/PUT/PATCH bodies are{" "}
+            <strong>not</strong> cleaned up. Use only against a disposable or
+            staging target.
           </p>
         )}
       </section>
+
+      <details className="run-advanced" open={aiSelected}>
+        <summary>
+          Choose AI passes{aiSelected ? ` · ${selectedAi.length} selected` : ""}
+        </summary>
+        <p className="muted-sm">
+          Each selected pass can spend tokens against the scan’s AI budget.
+          Changing an individual pass switches to a custom selection.
+          {" "}Included passes are available on Free and Premium; a configured AI provider is required.
+        </p>
+        <div className="opt-grid ai-pass-grid">
+          {AI_PASSES.map((pass) => {
+            const checked = options[pass.key] || included.has(pass.key);
+            const capability = aiCapability(pass.key);
+            const unavailable =
+              capability?.available === false ? capability : undefined;
+            const reason =
+              pass.premium && premiumDisabled
+                ? (entitlement?.reason ?? "Requires a Premium workspace plan.")
+                : pass.writes && !options.mutate
+                  ? "Enable Test writes first; this can create target data."
+                  : unavailable
+                    ? (unavailable.reason ??
+                      "AI is unavailable on this deployment.")
+                    : null;
+            return (
+              <Opt
+                key={pass.key}
+                label={pass.title}
+                premium={Boolean(pass.premium)}
+                hint={reason ?? pass.hint}
+                checked={checked}
+                disabled={busy || Boolean(reason && !checked)}
+                onChange={(on) =>
+                  onChange(withAiPass(options, pass.key, on, !premiumDisabled))
+                }
+              />
+            );
+          })}
+        </div>
+        <div className="ai-attempts">
+          {(options.adaptive || included.has("adaptive")) && (
+            <label>
+              Validation attempts per test
+              <select
+                value={options.adaptive_attempts}
+                disabled={busy}
+                onChange={(event) =>
+                  set({ adaptive_attempts: Number(event.target.value) })
+                }
+              >
+                <option value={2}>2 attempts</option>
+                <option value={3}>3 attempts</option>
+              </select>
+            </label>
+          )}
+          {(options.resource_refine || included.has("resource_refine")) && (
+            <label>
+              Create attempts per resource
+              <select
+                value={options.resource_attempts}
+                disabled={busy}
+                onChange={(event) =>
+                  set({ resource_attempts: Number(event.target.value) })
+                }
+              >
+                <option value={2}>2 attempts</option>
+                <option value={3}>3 attempts</option>
+              </select>
+            </label>
+          )}
+        </div>
+      </details>
 
       <details
         className="run-advanced"
@@ -348,12 +589,17 @@ function RunPanelImpl({
         onToggle={(e) => setCustomiseOpen(e.currentTarget.open)}
       >
         <summary>Customise checks</summary>
-        <div className="scope-presets" role="radiogroup" aria-label="Scan scope">
+        <div
+          className="scope-presets"
+          role="radiogroup"
+          aria-label="Scan scope"
+        >
           {PRESETS.map((p) => (
             <label key={p.id} className="scope-preset">
               <input
                 type="radio"
                 name={radioName}
+                disabled={busy}
                 checked={preset === p.id}
                 onChange={() => choosePreset(p.id)}
               />
@@ -374,22 +620,32 @@ function RunPanelImpl({
                       <input
                         type="checkbox"
                         checked={on === group.checks.length}
+                        disabled={busy}
                         ref={(el) => {
-                          if (el) el.indeterminate = on > 0 && on < group.checks.length;
+                          if (el)
+                            el.indeterminate =
+                              on > 0 && on < group.checks.length;
                         }}
                         onChange={() => toggleGroup(group)}
                       />
                       {group.title}
                     </label>
-                    <span className="muted-sm">{on}/{group.checks.length}</span>
+                    <span className="muted-sm">
+                      {on}/{group.checks.length}
+                    </span>
                   </legend>
                   {group.checks.map((check) => {
                     const unmet = unmetNeeds(check, effectiveOptions);
                     return (
-                      <label key={check.key} className="scope-check" title={check.key}>
+                      <label
+                        key={check.key}
+                        className="scope-check"
+                        title={check.key}
+                      >
                         <input
                           type="checkbox"
                           checked={chosen.has(check.key)}
+                          disabled={busy}
                           onChange={() => toggleCheck(check.key)}
                         />
                         <span>{check.label}</span>
@@ -400,7 +656,9 @@ function RunPanelImpl({
                           >
                             {/* abbr so the tag explains itself on hover, for a reader who
                                 has not met the acronym. */}
-                            <abbr title={NEED_HINT[need]}>{NEED_TAG[need]}</abbr>
+                            <abbr title={NEED_HINT[need]}>
+                              {NEED_TAG[need]}
+                            </abbr>
                           </span>
                         ))}
                       </label>
@@ -419,7 +677,10 @@ function RunPanelImpl({
               <span className="is-warn">
                 {" — "}
                 {[...blocked]
-                  .map(([need, n]) => `${n} need${n === 1 ? "s" : ""} ${NEED_OPTION[need]}`)
+                  .map(
+                    ([need, n]) =>
+                      `${n} need${n === 1 ? "s" : ""} ${NEED_OPTION[need]}`,
+                  )
                   .join(", ")}
                 {" and will be skipped."}
               </span>
@@ -428,28 +689,58 @@ function RunPanelImpl({
         )}
       </details>
 
-      <section className="run-section" aria-labelledby={featureTitleId}>
-        <h3 className="run-section-title" id={featureTitleId}>
-          Feature availability
-        </h3>
+      <details
+        className="run-advanced"
+        open={
+          Boolean(capabilities.error) ||
+          featureRows.some((feature) => feature.capability?.available === false)
+        }
+      >
+        <summary id={featureTitleId}>
+          Feature availability{" "}
+          <span className="muted-sm">
+            ·{" "}
+            {
+              featureRows.filter((feature) => feature.capability?.available)
+                .length
+            }{" "}
+            available
+            {featureRows.some((feature) => !feature.capability)
+              ? " · some not checked"
+              : ""}
+            {featureRows.some(
+              (feature) => feature.capability?.available === false,
+            )
+              ? " · review unavailable features"
+              : ""}
+          </span>
+        </summary>
         <ul className="feat-list">
-          <li className="feat-row">
-            <span className="feat-name">Test writes</span>
-            <span className={`feat-chip ${writesUnavailable ? "unavailable" : "available"}`}>
-              {writesUnavailable ? "Unavailable" : "Available"}
-            </span>
-            {writesUnavailable?.reason && (
-              <span className="feat-reason">{writesUnavailable.reason}</span>
-            )}
-          </li>
+          {featureRows.map((feature) => (
+            <li className="feat-row" key={feature.key}>
+              <span className="feat-name">{feature.title}</span>
+              <span
+                className={`feat-chip ${!feature.capability ? "unknown" : feature.capability.available ? "available" : "unavailable"}`}
+              >
+                {feature.capability
+                  ? feature.capability.available
+                    ? "Available"
+                    : "Unavailable"
+                  : "Not checked"}
+              </span>
+              {feature.capability?.reason && (
+                <span className="feat-reason">{feature.capability.reason}</span>
+              )}
+            </li>
+          ))}
         </ul>
         {capabilities.error && (
           <p className="muted-sm">
-            Could not check feature availability: {capabilities.error}. Planned work
-            will be reported as skipped after the run.
+            Could not check feature availability: {capabilities.error}. Planned
+            work will be reported as skipped after the run.
           </p>
         )}
-      </section>
+      </details>
 
       {(showSeed || showRequestRate || showResourceIds) && (
         <details className="run-advanced">
@@ -463,15 +754,17 @@ function RunPanelImpl({
                   min={0}
                   max={2147483647}
                   value={options.seed ?? ""}
+                  disabled={busy}
                   onChange={(e) => {
-                    const value = e.target.value === "" ? null : Number(e.target.value);
+                    const value =
+                      e.target.value === "" ? null : Number(e.target.value);
                     set({ seed: Number.isInteger(value) ? value : null });
                   }}
                   aria-label="Reproducibility seed"
                 />
                 <span className="muted-sm">
-                  Keep the run manifest seed to replay payload selection. Target state
-                  and credentials can still vary.
+                  Keep the run manifest seed to replay payload selection. Target
+                  state and credentials can still vary.
                 </span>
               </span>
             </label>
@@ -482,7 +775,10 @@ function RunPanelImpl({
                 Request rate for this scan:{" "}
                 <select
                   value={options.requests_per_second}
-                  onChange={(e) => set({ requests_per_second: Number(e.target.value) })}
+                  disabled={busy}
+                  onChange={(e) =>
+                    set({ requests_per_second: Number(e.target.value) })
+                  }
                   aria-label="Requests per second"
                 >
                   <option value={1}>1 request/second</option>
@@ -494,9 +790,10 @@ function RunPanelImpl({
                   <option value={100}>100 requests/second</option>
                 </select>{" "}
                 <span className="muted-sm">
-                  Caps the core scanner; above 10/second only against targets you know
-                  can take it. The deployment may enforce a lower ceiling. The write-only
-                  race check may send one bounded 6-request burst.
+                  Caps the core scanner; above 10/second only against targets
+                  you know can take it. The deployment may enforce a lower
+                  ceiling. The write-only race check may send one bounded
+                  6-request burst.
                 </span>
               </span>
             </label>
@@ -504,11 +801,13 @@ function RunPanelImpl({
           {showResourceIds && (
             <label className="gate">
               <span>
-                Predefined resource IDs. Use singular resource names matching path
-                parameters, for example <code>{'{"merchant":"merchant_123"}'}</code>.
-                Values are used for dependent paths and are not written to reports.
-                <textarea
+                Predefined resource IDs. Use singular resource names matching
+                path parameters, for example{" "}
+                <code>{'{"merchant":"merchant_123"}'}</code>. Values are used
+                for dependent paths and are not written to reports.
+                <ExpandingTextarea
                   value={resourceIdsText}
+                  disabled={busy}
                   onChange={(e) => updateResourceIds(e.target.value)}
                   rows={3}
                   spellCheck={false}
@@ -516,7 +815,9 @@ function RunPanelImpl({
                   aria-label="Predefined resource IDs as JSON"
                   aria-invalid={Boolean(resourceIdsError)}
                 />
-                {resourceIdsError && <span className="field-error">{resourceIdsError}</span>}
+                {resourceIdsError && (
+                  <span className="field-error">{resourceIdsError}</span>
+                )}
               </span>
             </label>
           )}
@@ -525,9 +826,10 @@ function RunPanelImpl({
 
       {replacesFindings > 0 && (
         <p className="opt-warn run-replaces">
-          Running again replaces the current {replacesFindings} finding{replacesFindings === 1 ? "" : "s"} with
-          this run&apos;s results. Your verdicts carry over to findings that come back, and the
-          previous run stays in Run history for comparison.
+          Running again replaces the current {replacesFindings} finding
+          {replacesFindings === 1 ? "" : "s"} with this run&apos;s results. Your
+          verdicts carry over to findings that come back, and the previous run
+          stays in Run history for comparison.
         </p>
       )}
       <div className="actions">
@@ -535,7 +837,10 @@ function RunPanelImpl({
         <button
           className="btn"
           onClick={onRun}
-          disabled={busy || !(authorized || verifiedHost) || Boolean(resourceIdsError)}
+          aria-busy={busy}
+          disabled={
+            busy || capabilities.loading || !(authorized || verifiedHost) || Boolean(resourceIdsError)
+          }
         >
           {busy && <span className="spinner" aria-hidden="true" />}
           {busy

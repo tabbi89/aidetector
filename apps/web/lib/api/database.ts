@@ -1,4 +1,4 @@
-// A scan's read-only schema snapshot, captured by an `aidetector` CLI run.
+// A scan's read-only schema snapshot, captured by an `runpentests` CLI run.
 import { request } from "./transport";
 
 export interface SchemaAttempt {

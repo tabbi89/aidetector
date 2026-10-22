@@ -8,7 +8,7 @@ import { TITLE_SUFFIX } from "./title";
 const holders: object[] = [];
 
 /**
- * Sets the tab title in the root metadata template's shape (`<label> · aidetector`).
+ * Sets the tab title in the root metadata template's shape (`<label> · runpentests`).
  * Client pages cannot export `metadata`; call this once the label is known.
  * Pass null while the label is still loading so the route layout's title stands.
  *

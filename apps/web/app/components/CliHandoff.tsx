@@ -31,7 +31,7 @@ function secretEnv(cred: Credential, used: Set<string>): string {
 }
 
 /**
- * The CLI is the heavy lane: this generates the two forms of the same handoff
+ * The CLI supports local networks, source and CI: two forms of the same handoff
  * — reuse the scan this wizard configured, or write a committed project file.
  * The project file never holds a secret; it names environment variables, which
  * is also why the generated file has no `authorized` key.
@@ -52,8 +52,8 @@ export function CliHandoff({
   const { serverUrl } = useConnection();
 
   const runCommand =
-    `AIDETECTOR_SERVER=${serverUrl} AIDETECTOR_API_KEY=<your-api-key> ` +
-    `aidetector run ${scanId} --authorized --fail-on high --verified-only`;
+    `RUNPENTESTS_SERVER=${serverUrl} RUNPENTESTS_API_KEY=<your-api-key> ` +
+    `runpentests run ${scanId} --authorized --fail-on high --verified-only`;
 
   // The CLI requires unique identity *names*, not unique roles: two profiles
   // may both be "admin" and still be legitimate (one basic, one bearer).
@@ -89,7 +89,7 @@ export function CliHandoff({
   });
 
   const projectFile = [
-    "# aidetector.yml — project file for this scan.",
+    "# runpentests.yml — project file for this scan.",
     "# Committed files never hold secrets: each identity names the environment",
     "# variable that holds its secret. There is no `authorized` key — consent is",
     "# answered by the command that runs the scan.",
@@ -112,8 +112,8 @@ export function CliHandoff({
   ].join("\n");
 
   const projectCommand =
-    `AIDETECTOR_SERVER=${serverUrl} AIDETECTOR_API_KEY=<your-api-key> ` +
-    `aidetector ${target} --config ./aidetector.yml --authorized`;
+    `RUNPENTESTS_SERVER=${serverUrl} RUNPENTESTS_API_KEY=<your-api-key> ` +
+    `runpentests ${target} --config ./runpentests.yml --authorized`;
 
   return (
     <section className="cli-handoff" aria-labelledby={`${baseId}-title`}>
@@ -121,8 +121,9 @@ export function CliHandoff({
         Continue from the CLI
       </h3>
       <p className="cli-intro">
-        The CLI is the heavy lane — it adds the slow passes and the AI review.
-        Both forms reuse this scan&apos;s target, scope and identities.{" "}
+        Use the CLI for local network access, source context or CI. Both forms
+        reuse this scan&apos;s target, scope and identities. Local CLI runs are
+        available on Free; running from the web requires Premium.{" "}
         <Link href="/cli">CLI guide →</Link>
       </p>
 
@@ -163,9 +164,9 @@ export function CliHandoff({
             <CopyButton value={runCommand} label="Copy run command" />
           </div>
           <p className="cli-note">
-            <code>AIDETECTOR_SERVER</code> is this deployment&apos;s API; the key
-            comes from <code>AIDETECTOR_API_KEY</code> or a prior{" "}
-            <code>aidetector login</code>. The run sends its traffic from your
+            <code>RUNPENTESTS_SERVER</code> is this deployment&apos;s API; the key
+            comes from <code>RUNPENTESTS_API_KEY</code> or a prior{" "}
+            <code>runpentests login</code>. The run sends its traffic from your
             machine (Docker and the runner image needed), waits for the
             service&apos;s analysis, and exits non-zero on findings at or above{" "}
             <code>high</code>.

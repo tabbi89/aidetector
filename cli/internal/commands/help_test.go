@@ -67,7 +67,7 @@ func TestVersionIsPrintedByEverySpelling(t *testing.T) {
 		if got := h.run(args...); got != ExitOK {
 			t.Fatalf("%v: exit = %d, want %d", args, got, ExitOK)
 		}
-		if out := h.out.String(); !strings.Contains(out, "aidetector dev") {
+		if out := h.out.String(); !strings.Contains(out, "runpentests dev") {
 			t.Fatalf("%v: out = %q, want the version", args, out)
 		}
 	}
@@ -93,7 +93,7 @@ func TestAnUnknownFlagIsAUsageErrorWithoutTheFlagList(t *testing.T) {
 		t.Fatalf("an unknown flag must not dump the flag list:\n%s", errOut)
 	}
 	if !strings.Contains(errOut, "flag provided but not defined") ||
-		!strings.Contains(errOut, "aidetector help run") {
+		!strings.Contains(errOut, "runpentests help run") {
 		t.Fatalf("stderr should name the error and where the usage is:\n%s", errOut)
 	}
 }
@@ -133,7 +133,7 @@ func TestTopLevelHelpNamesOnlyRealCommands(t *testing.T) {
 	for _, name := range names {
 		h := newHelpHarness(t)
 		if got := h.run("help", name); got != ExitOK {
-			t.Errorf("helpText lists %q, but `aidetector help %s` exits %d: %s",
+			t.Errorf("helpText lists %q, but `runpentests help %s` exits %d: %s",
 				name, name, got, h.errOut.String())
 		}
 	}

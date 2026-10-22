@@ -612,12 +612,7 @@ function MutationTableImpl({
 
   const formatResponse = (entry: MutationRow) => {
     const r = entry.response;
-    const meta = [
-      `status: ${r.status == null ? `no response (${entry.error || "transport error"})` : r.status}`,
-      `content-type: ${r.content_type || "—"}`,
-      `body bytes: ${r.body_bytes}`,
-    ];
-    if (entry.elapsed_ms != null) meta.push(`took: ${entry.elapsed_ms} ms`);
+    if (r.status == null) return `No response received (${entry.error || "transport error"}).`;
     let body: string;
     if (r.body_omitted) {
       body = r.body_bytes
@@ -629,17 +624,13 @@ function MutationTableImpl({
     } else {
       body = "(empty body)";
     }
-    return `${meta.join("\n")}\n\n${body}`;
+    return body;
   };
 
   const formatRequestBody = (entry: MutationRow) =>
     entry.request.json_body ? prettyJson(entry.request.json_body) : "";
 
   const payloadNotice = "Values omitted; typed placeholders preserve the request fields without retaining data.";
-
-  const requestBodyNotice = "The payload this scan generated, with secrets and PII masked.";
-
-  const responseNotice = "Redacted sample — secrets and PII are masked, and long bodies are cut.";
 
   function HeaderList({
     headers,
@@ -789,7 +780,7 @@ function MutationTableImpl({
                 <span className="mutation-number">{entry.sequence}</span>
                 <span className={`method ${entry.method.toLowerCase()}`}>{entry.method}</span>
                 <code className="mutation-route">{entry.route}</code>
-                <span className="mutation-check">{entry.check}</span>
+                <span className="mutation-check">{entry.check && entry.check !== "?" ? entry.check : "Check not recorded"}</span>
                 <span className="mutation-identity" title="Identity whose credentials were sent">
                   {entry.identity}
                 </span>
@@ -802,38 +793,53 @@ function MutationTableImpl({
                   {status == null ? entry.error || "transport error" : status}
                 </span>
                 <span className="mutation-summary">
-                  {Object.keys(requestHeaders).length} sent · {Object.keys(responseHeaders).length} received
+                  {entry.elapsed_ms != null ? `${entry.elapsed_ms} ms · ` : ""}{entry.response.body_bytes} B received
                 </span>
               </summary>
+              <p className="mutation-privacy-note"><span className="mutation-mobile-context">Identity: <strong>{entry.identity || "not recorded"}</strong> · Check: {entry.check && entry.check !== "?" ? entry.check : "not recorded"}. </span>Bodies are redacted. Secrets and personal data are masked; long responses may be truncated.</p>
               <div className="mutation-detail">
                 <section className="mutation-pane">
                   <div className="mutation-pane-head">
                     <h3>Request sent</h3>
-                    <span>{Object.keys(requestHeaders).length} headers</span>
+                    <span>{entry.request.content_bytes} B</span>
                   </div>
-                  <HeaderList headers={entry.request.headers} empty="No request headers recorded." />
                   {formatRequestBody(entry) && (
                     <>
                       <div className="mutation-subhead">Payload sent</div>
-                      <p className="mutation-note">{requestBodyNotice}</p>
-                      <pre className="mutation-code">{formatRequestBody(entry)}</pre>
+                      <pre className="mutation-code" tabIndex={0} aria-label="Request payload">{formatRequestBody(entry)}</pre>
                     </>
                   )}
-                  <div className="mutation-subhead">Payload · structure</div>
-                  <p className="mutation-note">{payloadNotice}</p>
-                  <pre className="mutation-code">{formatPayload(entry)}</pre>
+                  {!formatRequestBody(entry) && (
+                    entry.request.content_bytes > 0 || entry.request.json_shape != null || entry.request.query_fields.length > 0
+                      ? <><p className="mutation-note">Only query and body structure was retained; values are omitted.</p><pre className="mutation-code" tabIndex={0} aria-label="Request structure">{formatPayload(entry)}</pre></>
+                      : <p className="mutation-empty">No request body recorded.</p>
+                  )}
+                  <details className="mutation-inspect">
+                    <summary>Request headers <span>{Object.keys(requestHeaders).length}</span></summary>
+                    <HeaderList headers={entry.request.headers} empty="No request headers recorded." />
+                  </details>
+                  {formatRequestBody(entry) && (
+                    <details className="mutation-inspect">
+                      <summary>Payload structure</summary>
+                      <p className="mutation-note">{payloadNotice}</p>
+                      <pre className="mutation-code" tabIndex={0} aria-label="Request structure">{formatPayload(entry)}</pre>
+                    </details>
+                  )}
                 </section>
                 <section className="mutation-pane">
                   <div className="mutation-pane-head">
                     <h3>Response received</h3>
-                    <span>
-                      {status == null ? "transport error" : `${status} · ${entry.response.content_type || "no content-type"}`}
-                    </span>
+                    <span>{entry.response.body_bytes} B</span>
                   </div>
-                  <HeaderList headers={entry.response.headers} empty="No response headers recorded." />
-                  <div className="mutation-subhead">Response body</div>
-                  <p className="mutation-note">{responseNotice}</p>
-                  <pre className="mutation-code">{formatResponse(entry)}</pre>
+                  <div className="mutation-response-meta">
+                    <span className={`mutation-status ${statusClass}`}>{status ?? "No response"}</span>
+                    <span>{entry.response.content_type || "No content type recorded"}</span>
+                  </div>
+                  <pre className="mutation-code" tabIndex={0} aria-label="Response body">{formatResponse(entry)}</pre>
+                  <details className="mutation-inspect">
+                    <summary>Response headers <span>{Object.keys(responseHeaders).length}</span></summary>
+                    <HeaderList headers={entry.response.headers} empty="No response headers recorded." />
+                  </details>
                 </section>
               </div>
             </details>

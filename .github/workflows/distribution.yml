@@ -46,7 +46,7 @@ jobs:
           release = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(release)
           version = os.environ['RELEASE_VERSION']
-          image = os.environ['RUNNER_IMAGE'] or ('ghcr.io/' + os.environ['GITHUB_REPOSITORY_OWNER'].lower() + '/aidetector-runner')
+          image = os.environ['RUNNER_IMAGE'] or ('ghcr.io/' + os.environ['GITHUB_REPOSITORY_OWNER'].lower() + '/runpentests-runner')
           release.validate(version, image + '@sha256:' + '0' * 64)
           repository = os.environ['DISTRIBUTION_REPOSITORY']
           if os.environ['PUBLISH'] == 'true':
@@ -167,5 +167,5 @@ jobs:
           test "$(gh api "repos/$RELEASE_REPOSITORY" --jq .visibility)" = public
           cd release
           sha256sum --check SHA256SUMS
-          printf '%s\n' 'CLI binaries include the MCP setup helper (aidetector mcp).' 'runner.json records the immutable runner image for this release.' > /tmp/release-notes.md
-          gh release create "$RELEASE_VERSION" ./* --repo "$RELEASE_REPOSITORY" --draft --title "aidetector $RELEASE_VERSION" --notes-file /tmp/release-notes.md
+          printf '%s\n' 'CLI binaries include the MCP setup helper (runpentests mcp).' 'runner.json records the immutable runner image for this release.' > /tmp/release-notes.md
+          gh release create "$RELEASE_VERSION" ./* --repo "$RELEASE_REPOSITORY" --draft --title "runpentests $RELEASE_VERSION" --notes-file /tmp/release-notes.md

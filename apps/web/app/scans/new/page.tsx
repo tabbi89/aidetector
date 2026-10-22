@@ -1,5 +1,8 @@
 "use client";
 
+import { ExpandingTextarea } from "../../components/ExpandingTextarea";
+import { useConfirmation } from "../../components/Confirmation";
+
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +24,7 @@ import { OwnershipNotice } from "../../components/OwnershipNotice";
 import { ScanReadiness } from "../../components/ScanReadiness";
 import { withPresetPasses } from "../../components/checkScope";
 import { SCAN_LEVELS } from "../../components/scanLevels";
+import { hasAiPasses } from "../../components/runPasses";
 import { SpecReportView } from "../../components/SpecReportView";
 import { type CredForm } from "../../components/scanShared";
 import { ErrorBanner } from "../../components/ui";
@@ -126,6 +130,7 @@ function localhostWarning(value: string): string | null {
 }
 
 export default function NewScan() {
+  const confirmAction = useConfirmation();
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [busy, setBusy] = useState(false);
@@ -274,10 +279,10 @@ export default function NewScan() {
   }
 
   /** Start over: drop the draft and, for an untouched one, the abandoned scan. */
-  function startOver() {
+  async function startOver() {
     if (!scanId) return;
     const hasContent = Boolean(spec.trim()) || ops.length > 0 || creds.length > 0;
-    if (hasContent && !window.confirm("Start over? This scan's spec and credentials are discarded.")) {
+    if (hasContent && !await confirmAction({ title: "Start setup over?", description: "Clear this setup and return to the first step. The existing scan with its spec and credentials remains in Scans.", actionLabel: "Start over", intent: "warning", action: () => undefined })) {
       return;
     }
     // Same rule as a superseded target: delete only an empty, unrun draft.
@@ -407,14 +412,12 @@ export default function NewScan() {
 
   async function removeCred(credId: string) {
     if (!scanId) return;
-    if (!window.confirm("Remove this credential profile?")) return;
-    setErr(null);
-    try {
+    const profile = creds.find((credential) => credential.id === credId);
+    await confirmAction({ title: "Remove credential profile?", description: `Remove ${profile?.name ?? "this profile"} from this scan? Checks needing this account may no longer run.`, actionLabel: "Remove profile", action: async () => {
+      setErr(null);
       await api.deleteCredential(scanId, credId);
       setCreds((prev) => prev.filter((c) => c.id !== credId));
-    } catch (e) {
-      setErr((e as Error).message);
-    }
+    } });
   }
 
   async function runScan() {
@@ -443,7 +446,8 @@ export default function NewScan() {
   const enabledPasses = [
     levelTitle,
     runOptions.mutate && "writes",
-    runOptions.ai && "AI",
+    hasAiPasses(runOptions) && "AI",
+    runOptions.premium && "premium",
   ].filter(Boolean);
   const selectedCount = ops.filter((o) => o.enabled).length;
   const targetWarning = localhostWarning(target);
@@ -629,7 +633,7 @@ export default function NewScan() {
             <span>
               Spec contents <span className="opt">— editable</span>
             </span>
-            <textarea
+            <ExpandingTextarea
               value={spec}
               onChange={(e) => {
                 setSpec(e.target.value);
@@ -822,7 +826,9 @@ export default function NewScan() {
 
           <div className="actions">
             <span className="muted-sm">
-              Runs in the background — live progress on the next screen.
+              {capabilities.premium?.available === false
+                ? "Ready for a local CLI run. Review results on this scan’s page."
+                : "Runs in the background — live progress on the next screen."}
             </span>
           </div>
         </div>

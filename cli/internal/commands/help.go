@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"aidetector/cli/internal/config"
+	"runpentests/cli/internal/config"
 )
 
 // commandDoc is one command's help: the invocation, a one-line synopsis, a
@@ -14,7 +14,7 @@ import (
 // here — the command builds its own flag set and help.go prints that, so a
 // flag added to a command shows up in its help without a second list.
 type commandDoc struct {
-	Invocation  string   // the command line, without the leading "aidetector"
+	Invocation  string   // the command line, without the leading "runpentests"
 	Synopsis    string   // one line, under the invocation
 	Description string   // one to three sentences
 	Examples    []string // complete command lines
@@ -23,16 +23,16 @@ type commandDoc struct {
 var commandDocs = map[string]commandDoc{
 	"init": {
 		Invocation: "init [URL] [--spec FILE] [--force] [--yes]",
-		Synopsis:   "write an aidetector.yml that fits the API",
+		Synopsis:   "write a runpentests.yml that fits the API",
 		Description: "Find a spec on this machine (--spec, else openapi.* / swagger.* in the " +
 			"current directory), ask the server what it says about authentication, and write " +
-			"one of three shorthands: auth: public, token_env: AIDETECTOR_TOKEN, or one identity " +
+			"one of three shorthands: auth: public, token_env: RUNPENTESTS_TOKEN, or one identity " +
 			"per role. It never calls the target and never writes a secret, only the environment " +
 			"variables to export.",
 		Examples: []string{
-			"aidetector init https://api.example.com",
-			"aidetector init --spec docs/openapi.yaml --yes",
-			"aidetector init --force",
+			"runpentests init https://api.example.com",
+			"runpentests init --spec docs/openapi.yaml --yes",
+			"runpentests init --force",
 		},
 	},
 	"login": {
@@ -41,11 +41,11 @@ var commandDocs = map[string]commandDoc{
 		Description: "Check that the server answers and the key works, then save both in a " +
 			"profile (--profile, else the current one, else \"default\") and make it current. " +
 			"Without --server it logs in to " + config.DefaultServer + ". " +
-			"The key is never a flag: it comes from a hidden prompt, stdin or AIDETECTOR_API_KEY.",
+			"The key is never a flag: it comes from a hidden prompt, stdin or RUNPENTESTS_API_KEY.",
 		Examples: []string{
-			"aidetector login",
-			"aidetector login --server https://scan.internal.example --profile self-hosted",
-			`echo "$KEY" | aidetector login --key-stdin`,
+			"runpentests login",
+			"runpentests login --server https://scan.internal.example --profile self-hosted",
+			`echo "$KEY" | runpentests login --key-stdin`,
 		},
 	},
 	"logout": {
@@ -53,26 +53,26 @@ var commandDocs = map[string]commandDoc{
 		Synopsis:   "remove the current profile",
 		Description: "Delete the current profile — its server and key — and leave the others " +
 			"alone. No profile is current afterwards. Environment variables are untouched.",
-		Examples: []string{"aidetector logout"},
+		Examples: []string{"runpentests logout"},
 	},
 	"status": {
 		Invocation: "status",
 		Synopsis:   "show the selected profile, its server and whether it is reachable",
 		Description: "Print the CLI version, the selected profile, the configured server, " +
 			"whether a key is saved (never the key) and whether the server answers. An " +
-			"AIDETECTOR_PROFILE or AIDETECTOR_SERVER override is marked as such.",
-		Examples: []string{"aidetector status", "AIDETECTOR_PROFILE=staging aidetector status"},
+			"RUNPENTESTS_PROFILE or RUNPENTESTS_SERVER override is marked as such.",
+		Examples: []string{"runpentests status", "RUNPENTESTS_PROFILE=staging runpentests status"},
 	},
 	"profile": {
 		Invocation: "profile list | profile use NAME | profile rm NAME [--yes]",
 		Synopsis:   "manage saved server profiles",
 		Description: "A profile is one server and its key, so one machine can talk to several. " +
-			"`login --profile NAME` saves one; `use` makes it current; AIDETECTOR_PROFILE " +
+			"`login --profile NAME` saves one; `use` makes it current; RUNPENTESTS_PROFILE " +
 			"selects one for a single command. `list` shows whether a key is set, never the key.",
 		Examples: []string{
-			"aidetector profile list",
-			"aidetector profile use staging",
-			"aidetector profile rm staging --yes",
+			"runpentests profile list",
+			"runpentests profile use staging",
+			"runpentests profile rm staging --yes",
 		},
 	},
 	"scans": {
@@ -80,11 +80,11 @@ var commandDocs = map[string]commandDoc{
 		Synopsis:   "list, show and delete scans",
 		Description: "Manage the scans on the server: list them, show one, or delete one and " +
 			"all of its data. Deleting is permanent and asks first. An ID may be its first 4+ " +
-			"characters; where it is optional, aidetector.yml picks the scan.",
+			"characters; where it is optional, runpentests.yml picks the scan.",
 		Examples: []string{
-			"aidetector scans list",
-			"aidetector scans show 3f0c1a2b",
-			"aidetector scans rm 3f0c1a2b --yes",
+			"runpentests scans list",
+			"runpentests scans show 3f0c1a2b",
+			"runpentests scans rm 3f0c1a2b --yes",
 		},
 	},
 	"scan": {
@@ -92,7 +92,7 @@ var commandDocs = map[string]commandDoc{
 		Synopsis:   "create a scan and ingest a spec",
 		Description: "Create a scan for a target and ingest its OpenAPI, Swagger, HAR or " +
 			"Postman spec. Prints the new scan's ID for the other commands.",
-		Examples: []string{"aidetector scan create --target https://api.example.com --spec openapi.json"},
+		Examples: []string{"runpentests scan create --target https://api.example.com --spec openapi.json"},
 	},
 	"cred": {
 		Invocation: "cred add ID --name N --role R --auth-type T [--header-name H] | cred list [ID] | cred rm ID NAME --yes",
@@ -101,9 +101,9 @@ var commandDocs = map[string]commandDoc{
 			"a normal user and an admin. The secret is never a flag: it comes from a hidden " +
 			"prompt or --secret-stdin.",
 		Examples: []string{
-			"aidetector cred add 3f0c1a2b --name alice --role user --auth-type bearer",
-			"aidetector cred list 3f0c1a2b",
-			`echo "$ADMIN_TOKEN" | aidetector cred add 3f0c1a2b --name admin --role admin --secret-stdin`,
+			"runpentests cred add 3f0c1a2b --name alice --role user --auth-type bearer",
+			"runpentests cred list 3f0c1a2b",
+			`echo "$ADMIN_TOKEN" | runpentests cred add 3f0c1a2b --name admin --role admin --secret-stdin`,
 		},
 	},
 	"run": {
@@ -117,12 +117,12 @@ var commandDocs = map[string]commandDoc{
 			"off unless you ask for it. With --fail-on, --output picks the gate format: table, " +
 			"json, github workflow commands, or junit XML.",
 		Examples: []string{
-			"aidetector run 3f0c1a2b --authorized",
-			"aidetector run 3f0c1a2b --authorized --level standard",
-			"aidetector run 3f0c1a2b --authorized --writes --ai",
-			"aidetector run 3f0c1a2b --authorized --fail-on high --verified-only",
-			"aidetector run 3f0c1a2b --authorized --fail-on high --output github",
-			"aidetector run 3f0c1a2b --authorized --source . --docker-network app_internal,app_egress",
+			"runpentests run 3f0c1a2b --authorized",
+			"runpentests run 3f0c1a2b --authorized --level standard",
+			"runpentests run 3f0c1a2b --authorized --writes --ai",
+			"runpentests run 3f0c1a2b --authorized --fail-on high --verified-only",
+			"runpentests run 3f0c1a2b --authorized --fail-on high --output github",
+			"runpentests run 3f0c1a2b --authorized --source . --docker-network app_internal,app_egress",
 		},
 	},
 	"wait": {
@@ -133,8 +133,8 @@ var commandDocs = map[string]commandDoc{
 			"the one that already finished, and gate on it. Ctrl-C detaches and leaves the run " +
 			"going. --output picks the gate format: table, json, github workflow commands, or junit XML.",
 		Examples: []string{
-			"aidetector wait 3f0c1a2b --fail-on high",
-			"aidetector wait 3f0c1a2b --fail-on high --output junit > aidetector.xml",
+			"runpentests wait 3f0c1a2b --fail-on high",
+			"runpentests wait 3f0c1a2b --fail-on high --output junit > runpentests.xml",
 		},
 	},
 	"cost": {
@@ -143,8 +143,8 @@ var commandDocs = map[string]commandDoc{
 		Description: "Print the scan's AI total, a per-model table and a per-phase total " +
 			"aggregated from the call ledger. A scan that ran no AI step says so.",
 		Examples: []string{
-			"aidetector cost 3f0c1a2b",
-			"aidetector cost 3f0c1a2b --json",
+			"runpentests cost 3f0c1a2b",
+			"runpentests cost 3f0c1a2b --json",
 		},
 	},
 	"coverage": {
@@ -154,8 +154,8 @@ var commandDocs = map[string]commandDoc{
 			"exercised it. A row with no requests was in scope but never probed; --untested " +
 			"shows only those.",
 		Examples: []string{
-			"aidetector coverage 3f0c1a2b",
-			"aidetector coverage 3f0c1a2b --untested",
+			"runpentests coverage 3f0c1a2b",
+			"runpentests coverage 3f0c1a2b --untested",
 		},
 	},
 	"runs": {
@@ -167,16 +167,16 @@ var commandDocs = map[string]commandDoc{
 			"the run's redacted request/response log, filterable and pageable; `--seq N` shows " +
 			"one request in full.",
 		Examples: []string{
-			"aidetector runs 3f0c1a2b",
-			"aidetector runs trace 3f0c1a2b --status 4xx --identity alice",
-			"aidetector runs trace 3f0c1a2b 2 --seq 41",
+			"runpentests runs 3f0c1a2b",
+			"runpentests runs trace 3f0c1a2b --status 4xx --identity alice",
+			"runpentests runs trace 3f0c1a2b 2 --seq 41",
 		},
 	},
 	"cancel": {
 		Invocation:  "cancel ID",
 		Synopsis:    "stop a scan at its next check boundary",
 		Description: "Ask the server to stop a scan. The run ends cancelled rather than failed.",
-		Examples:    []string{"aidetector cancel 3f0c1a2b"},
+		Examples:    []string{"runpentests cancel 3f0c1a2b"},
 	},
 	"findings": {
 		Invocation: "findings [ID] [flags] | findings show [ID] FINDING [--json] | " +
@@ -188,28 +188,28 @@ var commandDocs = map[string]commandDoc{
 			"and `reopen` set a finding's verdict; the server remembers it against the " +
 			"fingerprint, so it carries to later runs. `reopen` makes it unreviewed.",
 		Examples: []string{
-			"aidetector findings show 3f0c1a2b 9d41",
-			"aidetector findings dismiss 3f0c1a2b 9d41 --yes",
-			"aidetector findings confirm 3f0c1a2b 9d41",
-			"aidetector findings reopen 3f0c1a2b 9d41",
-			"aidetector findings 3f0c1a2b --min-severity high",
+			"runpentests findings show 3f0c1a2b 9d41",
+			"runpentests findings dismiss 3f0c1a2b 9d41 --yes",
+			"runpentests findings confirm 3f0c1a2b 9d41",
+			"runpentests findings reopen 3f0c1a2b 9d41",
+			"runpentests findings 3f0c1a2b --min-severity high",
 		},
 	},
 	"diff": {
 		Invocation:  "diff [ID] [flags]",
 		Synopsis:    "compare the two latest runs of a scan",
 		Description: "Show what is new, fixed, not retested and unchanged between the two latest runs.",
-		Examples:    []string{"aidetector diff 3f0c1a2b", "aidetector diff 3f0c1a2b --json"},
+		Examples:    []string{"runpentests diff 3f0c1a2b", "runpentests diff 3f0c1a2b --json"},
 	},
 	"report": {
 		Invocation: "report [ID] --format FORMAT [-o FILE]",
 		Synopsis:   "download a report",
 		Description: "Download the scan's report in one of the server's formats. A report lists " +
 			"weaknesses in an API, so the file is written owner-only. Without -o it is " +
-			"aidetector-<id8>.<ext>, and an existing file is never overwritten.",
+			"runpentests-<id8>.<ext>, and an existing file is never overwritten.",
 		Examples: []string{
-			"aidetector report 3f0c1a2b --format sarif -o results.sarif",
-			"aidetector report 3f0c1a2b --format html -o -",
+			"runpentests report 3f0c1a2b --format sarif -o results.sarif",
+			"runpentests report 3f0c1a2b --format html -o -",
 		},
 	},
 	"completion": {
@@ -219,9 +219,9 @@ var commandDocs = map[string]commandDoc{
 			"from this build's commands and flags, so install it after upgrading the binary. " +
 			"Source it or write it where your shell looks for completions.",
 		Examples: []string{
-			`aidetector completion zsh > "${fpath[1]}/_aidetector"`,
-			"aidetector completion bash > /etc/bash_completion.d/aidetector",
-			"aidetector completion fish > ~/.config/fish/completions/aidetector.fish",
+			`runpentests completion zsh > "${fpath[1]}/_runpentests"`,
+			"runpentests completion bash > /etc/bash_completion.d/runpentests",
+			"runpentests completion fish > ~/.config/fish/completions/runpentests.fish",
 		},
 	},
 	"mcp": {
@@ -229,12 +229,12 @@ var commandDocs = map[string]commandDoc{
 		Synopsis:   "serve the setup tools and guides to a coding agent (MCP over stdio)",
 		Description: "Run a Model Context Protocol server on stdin/stdout for Claude Code, Cursor " +
 			"or another agent, started in the project's directory. It serves the setup guides " +
-			"and tools that find the spec, draft and validate aidetector.yml, and list the " +
+			"and tools that find the spec, draft and validate runpentests.yml, and list the " +
 			"commands to run. It cannot start a scan and never handles a secret value; it reads " +
 			"only inside the directory it was started in.",
 		Examples: []string{
-			"claude mcp add aidetector -- aidetector mcp",
-			"claude mcp add --scope project aidetector -- aidetector mcp",
+			"claude mcp add runpentests -- runpentests mcp",
+			"claude mcp add --scope project runpentests -- runpentests mcp",
 		},
 	},
 	"version": {
@@ -242,29 +242,29 @@ var commandDocs = map[string]commandDoc{
 		Synopsis:   "print the CLI version",
 		Description: "Print the CLI version, the platform it runs on and the Go toolchain " +
 			"that built it.",
-		Examples: []string{"aidetector version", "aidetector --version"},
+		Examples: []string{"runpentests version", "runpentests --version"},
 	},
 	"target": {
 		Invocation: "[URL] [DIR] [flags]",
 		Synopsis:   "scan an API in one step — the everyday form",
 		Description: "Scan an API: reuse or create its scan, find a spec and identities, run it " +
 			"and print what it found. A directory also reads that code in a local run; no " +
-			"argument runs what ./aidetector.yml describes. With --fail-on, --output picks " +
+			"argument runs what ./runpentests.yml describes. With --fail-on, --output picks " +
 			"the gate format: table, json, github workflow commands, or junit XML.",
 		Examples: []string{
-			"aidetector https://api.example.com",
-			"aidetector https://api.example.com ./my-project",
-			"aidetector --authorized      # inside a project: run what aidetector.yml says",
-			"aidetector --authorized --fail-on high --output github",
+			"runpentests https://api.example.com",
+			"runpentests https://api.example.com ./my-project",
+			"runpentests --authorized      # inside a project: run what runpentests.yml says",
+			"runpentests --authorized --fail-on high --output github",
 		},
 	},
 }
 
-// commandHelp implements `aidetector help CMD`. Asking the command itself for
+// commandHelp implements `runpentests help CMD`. Asking the command itself for
 // -h is what builds the flag set, so there is one list of flags, not two.
 func commandHelp(ctx context.Context, e *Env, name string) int {
 	if _, ok := commandDocs[name]; !ok {
-		return e.usage("unknown command %q (try `aidetector help`)", name)
+		return e.usage("unknown command %q (try `runpentests help`)", name)
 	}
 	if name == "target" {
 		return cmdTarget(ctx, e, []string{"-h"})
@@ -273,7 +273,7 @@ func commandHelp(ctx context.Context, e *Env, name string) int {
 }
 
 // wantsHelp reports whether args ask for help before any subcommand, as in
-// `aidetector scans -h`.
+// `runpentests scans -h`.
 func wantsHelp(args []string) bool {
 	return len(args) > 0 && (args[0] == "-h" || args[0] == "--help")
 }
@@ -282,9 +282,9 @@ func wantsHelp(args []string) bool {
 func (e *Env) printCommandHelp(cmd string, fs *flag.FlagSet) int {
 	doc, ok := commandDocs[cmd]
 	if !ok {
-		return e.usage("unknown command %q (try `aidetector help`)", cmd)
+		return e.usage("unknown command %q (try `runpentests help`)", cmd)
 	}
-	e.printf("aidetector %s\n  %s\n\n%s\n", doc.Invocation, doc.Synopsis, doc.Description)
+	e.printf("runpentests %s\n  %s\n\n%s\n", doc.Invocation, doc.Synopsis, doc.Description)
 	if len(doc.Examples) > 0 {
 		e.printf("\nexamples:\n")
 		for _, ex := range doc.Examples {

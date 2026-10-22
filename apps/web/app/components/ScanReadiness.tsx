@@ -3,12 +3,13 @@
 import type { Credential, Operation, RunOptions } from "@/lib/api";
 import { ALL_SCOPE_KEYS, SCOPE_GROUPS, type ScopeCheck } from "./checkScope";
 import type { TenantEntitlement } from "./useCapabilities";
+import { levelPasses } from "./runPasses";
 
 type SkipReason = "premium-plan" | "premium-off" | "writes" | "fuzzing";
 
 const SKIP_TEXT: Record<SkipReason, string> = {
   "premium-plan": "premium checks are not in this tenant's plan",
-  "premium-off": "premium checks need the Standard scan level",
+  "premium-off": "enable premium detections or choose Standard/Deep",
   writes: 'checks that modify the target need "Test writes"',
   fuzzing: "need the Standard scan level (schema fuzzing)",
 };
@@ -22,11 +23,11 @@ function skipReason(
   const needs = check.needs ?? [];
   const level = options.level ?? "quick";
   if (needs.includes("premium")) {
-    if (level === "quick") return "premium-off";
     if (!entitled) return "premium-plan";
+    if (!options.premium && level === "quick") return "premium-off";
   }
   if (needs.includes("mutate") && !options.mutate) return "writes";
-  if (needs.includes("fuzz") && level === "quick") return "fuzzing";
+  if (needs.includes("fuzz") && !options.fuzz && level === "quick") return "fuzzing";
   return null;
 }
 
@@ -70,8 +71,9 @@ export function ScanReadiness({
   const skippedCount = [...skipped.values()].reduce((a, b) => a + b, 0);
   const runnable = checks.length - skippedCount;
 
-  const premiumNote = (options.level ?? "quick") === "quick"
-    ? "Not in a Quick scan"
+  const premiumRequested = options.premium || levelPasses(options, true).has("premium");
+  const premiumNote = !premiumRequested
+    ? "Not selected"
     : entitlement && !entitlement.available
       ? "Requested — locked by this tenant's plan; premium checks will be skipped"
       : "Included";
@@ -102,7 +104,7 @@ export function ScanReadiness({
           {localOnly > 0 && (
             <span className="muted">
               {" "}· {localOnly} local-only — a web run leaves {localOnly === 1 ? "it" : "them"} out;
-              use <code>aidetector run</code>
+              use <code>runpentests run</code>
             </span>
           )}
         </dd>
@@ -110,7 +112,7 @@ export function ScanReadiness({
       <div className="readiness-row">
         <dt>Checks</dt>
         <dd>
-          <strong>{runnable}</strong> of {checks.length} engine checks
+          <strong>{runnable}</strong> of {checks.length} engine checks allowed by run options
           {skippedCount > 0 ? (
             <>
               {" · "}
@@ -132,6 +134,7 @@ export function ScanReadiness({
               server (a deployment setting); without one they report as skipped.
             </p>
           )}
+          <p className="readiness-maybe">Endpoint and account prerequisites are checked during the run. Endpoint coverage shows what actually ran.</p>
         </dd>
       </div>
       <div className="readiness-row">

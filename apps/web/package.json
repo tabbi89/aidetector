@@ -1,5 +1,5 @@
 {
-  "name": "aidetector-web",
+  "name": "runpentests-web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,7 +12,8 @@
     "test:contracts": "openapi-typescript contracts/openapi.json --default-non-nullable false --empty-objects-unknown -o contracts/generated.ts && tsc -p contracts/tsconfig.json"
   },
   "dependencies": {
-    "next": "15.5.25",
+    "@radix-ui/react-select": "^2.4.1",
+    "next": "15.5.28",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
@@ -22,7 +23,7 @@
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
     "eslint": "9.17.0",
-    "eslint-config-next": "15.5.25",
+    "eslint-config-next": "15.5.28",
     "openapi-typescript": "7.13.0",
     "typescript": "5.7.2"
   },

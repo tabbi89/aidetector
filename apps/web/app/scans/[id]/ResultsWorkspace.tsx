@@ -228,6 +228,7 @@ export function ResultsWorkspace({
                 {
                   id: "work",
                   label: "Work queue",
+                  premium: true,
                   meta: `${workQueue.length} assigned`,
                   content: <WorkQueue rows={workQueue} />,
                 },
@@ -307,7 +308,7 @@ export function ResultsWorkspace({
               </EmptyResult>
             ) : (
               <EmptyResult title="No AI plan available">
-                {"AI pre-scan planning is a heavy-lane pass: run it from the aidetector CLI with `aidetector <target-url> --plan` (add your project folder to also read its code). The web lane stays fast."}
+                {"Open Run now and enable Use AI or select Risk plan under Choose AI passes. The next run will record its plan here when the AI runtime is available."}
               </EmptyResult>
             ),
           },

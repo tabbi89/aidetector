@@ -497,7 +497,7 @@ def _record_left_out_identities(
         (
             "credential_local_only",
             f"identity '{c.name}' is local-only: its secret stays on the machine that runs "
-            "`aidetector run` (every CLI run is local), so this server run left it out",
+            "`runpentests run` (every CLI run is local), so this server run left it out",
         )
         for c in scan.credential_profiles
         if c.local_only
@@ -551,8 +551,8 @@ def _attach_schema_snapshot(
         journal.event(
             "schema_context_unavailable",
             0,
-            "no schema snapshot on this scan — add a schema: block to aidetector.yml "
-            "and run `aidetector` from the CLI to give the AI passes table structure",
+            "no schema snapshot on this scan — add a schema: block to runpentests.yml "
+            "and run `runpentests` from the CLI to give the AI passes table structure",
         )
         return
     ctx.schema_context = snap.context

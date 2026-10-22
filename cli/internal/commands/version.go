@@ -3,7 +3,7 @@ package commands
 import "runtime"
 
 // Version is this build's version: "dev" unless the Makefile stamps it with
-// -ldflags "-X aidetector/cli/internal/commands.Version=...".
+// -ldflags "-X runpentests/cli/internal/commands.Version=...".
 var Version = "dev"
 
 // RunnerImage is stamped into release binaries alongside Version. Releases
@@ -17,6 +17,6 @@ func cmdVersion(e *Env, args []string) int {
 	if _, err := parse(fs, args); err != nil {
 		return e.parseFailed("version", fs, err)
 	}
-	e.printf("aidetector %s (%s/%s, %s)\n", Version, runtime.GOOS, runtime.GOARCH, runtime.Version())
+	e.printf("runpentests %s (%s/%s, %s)\n", Version, runtime.GOOS, runtime.GOARCH, runtime.Version())
 	return ExitOK
 }

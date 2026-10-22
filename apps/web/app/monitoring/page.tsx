@@ -1,4 +1,9 @@
 "use client";
+
+import { ExpandingTextarea } from "../components/ExpandingTextarea";
+
+import { ValidatedForm } from "../components/ValidatedForm";
+import { useConfirmation } from "../components/Confirmation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -42,6 +47,7 @@ function newestRapid(runs: MonitoringRapidRun[]) {
 }
 
 export default function MonitoringIndex() {
+  const confirmAction = useConfirmation();
   const router = useRouter();
   const [sources, setSources] = useState<EvidenceSource[]>([]);
   const [monitors, setMonitors] = useState<InfrastructureMonitor[]>([]);
@@ -110,7 +116,7 @@ export default function MonitoringIndex() {
     {error && <p className="monitor-error" role="alert">{error}</p>}
 
     <h2>Monitors</h2>
-    {!monitors.length && <p>No monitors yet.</p>}
+    {!monitors.length && <p>No monitors yet. Create one below to start reviewing passive traffic evidence.</p>}
     {monitors.length > 0 && <div className="bot-table-wrap"><table className="bot-table">
       <thead><tr><th>Monitor</th><th>Open alerts</th><th>Last 5 minutes</th><th>Last day collected</th><th>Collection</th></tr></thead>
       <tbody>{ordered.map(m => {
@@ -138,7 +144,7 @@ export default function MonitoringIndex() {
     </table></div>}
 
     <details className="monitor-card" open={loaded && !monitors.length}><summary>New monitor</summary>
-    <form className="monitor-setup" onSubmit={e => {
+    <ValidatedForm className="monitor-setup" onSubmit={e => {
       e.preventDefault(); const data = new FormData(e.currentTarget);
       const value = (name: string) => String(data.get(name) || "").trim();
       void open(() => api.setupMonitor({
@@ -148,7 +154,7 @@ export default function MonitoringIndex() {
         scan_id: contract === "scan" ? value("scan") : null,
         waf_log_group_arn: value("arn"),
         alb_arn: value("alb") || null,
-        // Repository source comes from where the aidetector CLI runs now, not
+        // Repository source comes from where the runpentests CLI runs now, not
         // a remote GitHub connector, so the web no longer collects one.
         github_repository: null,
         github_ref: "main",
@@ -174,7 +180,7 @@ export default function MonitoringIndex() {
         {contract === "none" && <p>Routes are grouped by URL shape. Add a spec to name routes exactly and to enable the shadow-route and bot-on-authenticated-route leads.</p>}
         {contract === "spec" && <>
           <label>Spec file<input type="file" accept=".json,.yaml,.yml,application/json,text/yaml" onChange={async e => { const file = e.target.files?.[0]; if (file) setSpec(await file.text()); }} /></label>
-          <label>Spec contents<textarea value={spec} onChange={e => setSpec(e.target.value)} required spellCheck={false} placeholder={'{ "openapi": "3.0.0", "paths": { ... } }'} /></label>
+          <label>Spec contents<ExpandingTextarea value={spec} onChange={e => setSpec(e.target.value)} required spellCheck={false} placeholder={'{ "openapi": "3.0.0", "paths": { ... } }'} /></label>
         </>}
         {contract === "scan" && <label>Scan<select name="scan" required defaultValue="" onChange={e => { const scan = scans.find(s => s.id === e.target.value); if (scan) setTarget(scan.target_base_url); }}>
           <option value="" disabled>Select a scan</option>
@@ -184,12 +190,12 @@ export default function MonitoringIndex() {
       <label className="monitor-check"><input type="checkbox" name="daily" defaultChecked /> Collect the previous UTC day every day after 02:00 UTC</label>
       <p>Seven complete days build the baseline before leads are raised. The AI and bot view needs AWS WAF Bot Control labels in the logs.</p>
       <button className="btn" disabled={busy}>{busy ? "Creating…" : "Create monitor"}</button>
-    </form></details>
+    </ValidatedForm></details>
 
     <details className="monitor-advanced">
       <summary>Advanced: individual evidence sources</summary>
       <div className="monitor-grid"><SourceForm onSaved={() => void load()} onError={setError} />
-        <form className="monitor-card" onSubmit={e => {
+        <ValidatedForm className="monitor-card" onSubmit={e => {
           e.preventDefault(); const form = e.currentTarget; const data = new FormData(form);
           const source = sources.find(s => s.id === data.get("source")); if (!source) return;
           void action(async () => { await api.createMonitor({ name: String(data.get("name")), target_binding: source.target_binding,
@@ -200,14 +206,18 @@ export default function MonitoringIndex() {
           <label className="monitor-check"><input type="checkbox" name="daily" /> Enable daily collection</label>
           <p>JSON sources need an uploaded snapshot per day. AWS collection starts after 02:00 UTC and rechecks three days for late logs.</p>
           <button className="btn" disabled={busy}>Create monitor</button>
-        </form>
+        </ValidatedForm>
       </div>
       <h2>Evidence sources</h2>{!sources.length && <p>No sources yet.</p>}
       {sources.map(s => <article className="monitor-card" key={s.id}>
         <h3>{s.name}</h3><p>{s.connector} · {s.status} · revision {s.revision}{s.connector === "aws_cloudwatch" && !s.has_credentials ? " · worker credentials" : ""}</p><p>{s.target_binding}</p>
         {s.error_code && <p role="status">Source unavailable: {s.error_code}</p>}
         <div className="monitor-actions"><button className="btn quiet" disabled={busy || s.status === "revoked"} onClick={() => void action(() => api.revokeEvidenceSource(s.id))}>Revoke source</button>
-        <button className="btn quiet" disabled={busy} onClick={() => { if (window.confirm(`Delete ${s.name} and its retained monitoring evidence?`)) void action(() => api.deleteEvidenceSource(s.id)); }}>Delete source and evidence</button></div>
+        <button className="btn quiet" disabled={busy} onClick={() => void confirmAction({ title: "Delete source and evidence?", description: `Delete ${s.name} and its retained monitoring evidence?`, actionLabel: "Delete source and evidence", action: async () => {
+          setBusy(true);
+          try { await api.deleteEvidenceSource(s.id); await load(); }
+          finally { setBusy(false); }
+        } })}>Delete source and evidence</button></div>
       </article>)}
     </details>
   </section>;

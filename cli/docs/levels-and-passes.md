@@ -10,7 +10,7 @@ The everyday choices are three words:
   spends tokens. The AI passes need `DEEPSEEK_API_KEY` set on the server; without it they
   are skipped (the scan still runs).
 
-In `aidetector.yml` the same choices are `level:` and `passes:` (pass names without the
+In `runpentests.yml` the same choices are `level:` and `passes:` (pass names without the
 dashes):
 
 ```yaml
@@ -48,5 +48,5 @@ Every AI pass spends tokens. `--checks a,b` scopes the engine to some checks and
 `--writes` changes target data, `--zap/--kali/--confirm` fire far more traffic
 than the budget allows, and `--testssl` can take five minutes.
 
-`aidetector status` lists which passes this server can run and why the others cannot. A
+`runpentests status` lists which passes this server can run and why the others cannot. A
 pass the server cannot run is recorded on the run as not run, never as a clean result.

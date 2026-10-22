@@ -1,21 +1,21 @@
-# Setting up aidetector for a project
+# Setting up runpentests for a project
 
 This guide is for a coding agent (or a person) preparing a repository so that running
-`aidetector` inside it scans the project's API. The result is a committed
-`aidetector.yml` and a short list of commands for the person who will run the scan.
+`runpentests` inside it scans the project's API. The result is a committed
+`runpentests.yml` and a short list of commands for the person who will run the scan.
 
-**You prepare; a person runs.** aidetector sends real attack payloads to a live API. The
+**You prepare; a person runs.** runpentests sends real attack payloads to a live API. The
 person who runs the scan must confirm they are authorized to test the target, so do not
-run `aidetector` with `--authorized` on their behalf, and never claim authorization for
+run `runpentests` with `--authorized` on their behalf, and never claim authorization for
 them. Hand them the command instead.
 
 ## 1. Find the spec
 
-Call `find_spec`. aidetector reads OpenAPI 3, Swagger 2, a HAR capture or a Postman
+Call `find_spec`. runpentests reads OpenAPI 3, Swagger 2, a HAR capture or a Postman
 collection. If the repository has none:
 
 - the framework may serve one at run time (FastAPI `/openapi.json`, springdoc
-  `/v3/api-docs`, NestJS or drf-spectacular): leave `spec:` out and aidetector fetches it
+  `/v3/api-docs`, NestJS or drf-spectacular): leave `spec:` out and runpentests fetches it
   from the target;
 - a Postman collection or a HAR recorded against staging works as the spec;
 - do not write a spec by hand from the routes. A guessed spec scans guessed endpoints.
@@ -50,13 +50,13 @@ OAuth client is `client_credentials`. Read the login handler to fill `token_url`
 `username_field`, `password_field`, `format` and `access_token_field`.
 
 Call `suggest_config` with the `kind` you chose (`public`, `single` or `roles`) for a draft
-in exactly the shape `aidetector init` writes; it also asks the aidetector server what the
+in exactly the shape `runpentests init` writes; it also asks the runpentests server what the
 spec's `securitySchemes` say when the person is logged in. Edit the draft with what the
 code told you: real role names, the grant, the right header.
 
 ## 4. Never write a secret
 
-`aidetector.yml` is committed. It names environment variables (`secret_env`,
+`runpentests.yml` is committed. It names environment variables (`secret_env`,
 `token_env`, `password_env`) and never holds a value: a key such as `token:` or
 `password:` is refused. Do not put secret values in the file, in commands you suggest,
 in `.env` files you create, or in your reply. The person exports them.
@@ -64,7 +64,7 @@ in `.env` files you create, or in your reply. The person exports them.
 ## 5. Validate, then write
 
 Call `validate_config` with the draft's text. It runs the CLI's own loader and returns
-the exact error, or a summary and warnings. Write `aidetector.yml` at the repository root
+the exact error, or a summary and warnings. Write `runpentests.yml` at the repository root
 only when it is valid, then call `validate_config` with no arguments to check the file on
 disk.
 
@@ -85,7 +85,7 @@ flag the person adds, never a file key.
 
 ## Reference
 
-- `project-file` — every key in `aidetector.yml`
+- `project-file` — every key in `runpentests.yml`
 - `levels-and-passes` — what each level and pass does and costs
 - `local-runs` — scanning from this machine, and reading the code
 - `ci-gate` — gating a pipeline on the findings

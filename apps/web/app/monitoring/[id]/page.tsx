@@ -1,4 +1,9 @@
 "use client";
+
+import { ExpandingTextarea } from "../../components/ExpandingTextarea";
+
+import { ValidatedForm } from "../../components/ValidatedForm";
+import { useConfirmation } from "../../components/Confirmation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
@@ -577,7 +582,7 @@ function SetupEditor({ monitorId, onSaved }: { monitorId: string; onSaved: () =>
 
   return <details className="monitor-card setup-editor" onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) void open(); }}>
     <summary>Monitor settings</summary>
-    {!view ? <p className="muted-sm">{error ?? "Loading…"}</p> : <form key={JSON.stringify(view)} onSubmit={(e) => { e.preventDefault(); void save(e.currentTarget); }}>
+    {!view ? <p className="muted-sm">{error ?? "Loading…"}</p> : <ValidatedForm key={JSON.stringify(view)} onSubmit={(e) => { e.preventDefault(); void save(e.currentTarget); }}>
       <label>Name<input name="name" defaultValue={view.name} required maxLength={160} /></label>
       {/* The baseline compares one traffic stream day to day. A different target or WAF
           log group is a different stream, so it needs a new monitor, not an edit. */}
@@ -608,14 +613,14 @@ function SetupEditor({ monitorId, onSaved }: { monitorId: string; onSaved: () =>
         </div>
         {contract === "replace" && <>
           <label>Spec file<input type="file" accept=".json,.yaml,.yml,application/json,text/yaml" onChange={async (e) => { const file = e.target.files?.[0]; if (file) setSpec(await file.text()); }} /></label>
-          <label>Spec contents<textarea value={spec} onChange={(e) => setSpec(e.target.value)} required spellCheck={false} /></label>
+          <label>Spec contents<ExpandingTextarea value={spec} onChange={(e) => setSpec(e.target.value)} required spellCheck={false} /></label>
         </>}
       </fieldset>
       <label className="monitor-check"><input type="checkbox" name="daily" defaultChecked={view.schedule_enabled} /> Collect the previous UTC day every day after 02:00 UTC</label>
       <label className="monitor-check"><input type="checkbox" name="rapid" defaultChecked={view.rapid_enabled} /> Refresh every 5 minutes: publish an exact five-minute pulse and evaluate the rolling hour for slower reconnaissance</label>
       {error && <p className="monitor-error" role="alert">{error}</p>}
       <button className="btn" disabled={saving}>{saving ? "Saving…" : "Save settings"}</button>
-    </form>}
+    </ValidatedForm>}
   </details>;
 }
 
@@ -624,6 +629,7 @@ function SetupEditor({ monitorId, onSaved }: { monitorId: string; onSaved: () =>
 function MonitorLifecycle({ monitor, onChanged, onDeleted }: {
   monitor: InfrastructureMonitor; onChanged: () => void; onDeleted: () => void;
 }) {
+  const confirmAction = useConfirmation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const paused = monitor.status === "paused";
@@ -651,8 +657,13 @@ function MonitorLifecycle({ monitor, onChanged, onDeleted }: {
       <label>Keep evidence for
         <select value={monitor.retention_days} disabled={busy} onChange={(e) => {
           const days = Number(e.target.value);
-          if (days < monitor.retention_days && !window.confirm(`Delete every day, alert and five-minute window older than ${days} days now? This cannot be undone.`)) return;
-          void patch({ retention_days: days });
+          if (days < monitor.retention_days) {
+            void confirmAction({ title: "Delete older monitoring evidence?", description: `Delete every day, alert and five-minute window older than ${days} days for ${monitor.name} now? This cannot be undone.`, actionLabel: "Delete older evidence", action: async () => {
+              setBusy(true); setError(null);
+              try { await api.updateMonitor(monitor.id, { status: monitor.status, schedule_enabled: monitor.schedule_enabled, retention_days: days }); onChanged(); }
+              finally { setBusy(false); }
+            } });
+          } else void patch({ retention_days: days });
         }}>
           {[...new Set([31, 45, 60, 90, monitor.retention_days])].sort((a, b) => a - b).map((d) => <option key={d} value={d}>{d} days</option>)}
         </select>
@@ -664,10 +675,11 @@ function MonitorLifecycle({ monitor, onChanged, onDeleted }: {
         <strong>Delete monitor</strong>
         <p className="muted-sm">Removes the monitor with its collected days, alerts, triage and AI commentary.</p>
       </div>
-      <button className="btn quiet danger" disabled={busy} onClick={() => {
-        if (window.prompt(`Type the monitor name to delete it and all of its evidence:`)?.trim() !== monitor.name) return;
-        void run(() => api.deleteMonitor(monitor.id), onDeleted);
-      }}>Delete monitor</button>
+      <button className="btn quiet danger" disabled={busy} onClick={() => void confirmAction({ title: "Delete monitor permanently?", description: `Delete ${monitor.name} with all collected days, alerts, triage and AI commentary. This cannot be undone.`, actionLabel: "Delete monitor", confirmText: monitor.name, action: async () => {
+        setBusy(true); setError(null);
+        try { await api.deleteMonitor(monitor.id); onDeleted(); }
+        finally { setBusy(false); }
+      } })}>Delete monitor</button>
     </div>
     {error && <p className="monitor-error" role="alert">{error}</p>}
   </div>;
@@ -1721,7 +1733,7 @@ export default function MonitoringDetail({ params }: { params: Promise<{ id: str
     <Link href="/monitoring">← Monitoring</Link>
     <header className="oncall-head">
       <div>
-        <div className="eyebrow">Monitoring v2 · WAF + ALB + OpenAPI</div>
+        <div className="eyebrow">Passive traffic evidence</div>
         <h1>{monitor.name}</h1>
         <p className="lead">{monitor.target_binding}{monitor.scan_id && <> · <Link href={`/scans/${monitor.scan_id}`}>API contract</Link></>}
           {monitor.status === "paused" && <> · <span className="st-chip degraded">paused</span></>}</p>

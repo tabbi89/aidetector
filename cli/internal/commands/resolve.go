@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/project"
 )
 
 // A scan ID is a UUID; a prefix of at least four hex characters is enough to
@@ -53,7 +53,7 @@ func resolveScan(ctx context.Context, e *Env, c *api.Client, ref string, allowDe
 	}
 	if file != nil {
 		if file.Scan != "" {
-			e.errorf("scan %s (from aidetector.yml)\n", shortID(file.Scan))
+			e.errorf("scan %s (from runpentests.yml)\n", shortID(file.Scan))
 			return file.Scan, ExitOK
 		}
 		if file.Target != "" {
@@ -63,12 +63,12 @@ func resolveScan(ctx context.Context, e *Env, c *api.Client, ref string, allowDe
 			}
 			scan, _, ok := latestScanFor(all, file.Target)
 			if ok {
-				e.errorf("scan %s (from aidetector.yml)\n", shortID(scan.ID))
+				e.errorf("scan %s (from runpentests.yml)\n", shortID(scan.ID))
 				return scan.ID, ExitOK
 			}
 		}
 	}
-	return "", e.usage("give a scan ID (or run inside a project with aidetector.yml)")
+	return "", e.usage("give a scan ID (or run inside a project with runpentests.yml)")
 }
 
 func resolvePrefix(ctx context.Context, e *Env, c *api.Client, ref, lower string) (string, int) {
@@ -84,7 +84,7 @@ func resolvePrefix(ctx context.Context, e *Env, c *api.Client, ref, lower string
 	}
 	switch len(matches) {
 	case 0:
-		return "", e.usage("no scan matches %q (aidetector scans list)", ref)
+		return "", e.usage("no scan matches %q (runpentests scans list)", ref)
 	case 1:
 		return matches[0].ID, ExitOK
 	}

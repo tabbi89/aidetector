@@ -95,4 +95,22 @@ test("monitoring v2 leads with a five-minute pulse and daily evidence", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // Retention and permanent deletion use the same in-app confirmation owner.
+  const lifecycle = page.locator(".monitor-lifecycle");
+  await lifecycle.getByRole("combobox").selectOption("31");
+  const retention = page.getByRole("dialog", { name: "Delete older monitoring evidence?" });
+  await expect(retention).toContainText("This cannot be undone.");
+  await retention.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(lifecycle.getByRole("combobox")).toHaveValue("90");
+  await lifecycle.getByRole("button", { name: "Delete monitor", exact: true }).click();
+  const deletion = page.getByRole("dialog", { name: "Delete monitor permanently?" });
+  const confirm = deletion.getByRole("button", { name: "Delete monitor", exact: true });
+  await expect(confirm).toBeDisabled();
+  await deletion.getByRole("textbox").fill("wrong name");
+  await expect(confirm).toBeDisabled();
+  await deletion.getByRole("textbox").fill("Production API");
+  await expect(confirm).toBeEnabled();
+  await deletion.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(lifecycle.getByRole("button", { name: "Delete monitor", exact: true })).toBeFocused();
 });

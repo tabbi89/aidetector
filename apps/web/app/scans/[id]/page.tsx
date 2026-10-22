@@ -22,6 +22,7 @@ import {
 import { useUrlState } from "@/lib/useUrlState";
 import { usePageTitle } from "../../components/usePageTitle";
 import { ErrorBanner, Skel } from "../../components/ui";
+import { useConfirmation } from "../../components/Confirmation";
 import { ActivityLog, stageLabel } from "./ActivityLog";
 import { AiCostPanel } from "./AiCostPanel";
 import { CredentialsPanel } from "../../components/CredentialsPanel";
@@ -40,6 +41,7 @@ import { useCapabilities } from "../../components/useCapabilities";
 import { AttentionSummary } from "./AttentionSummary";
 import { RequestRatePanel } from "./RequestRatePanel";
 import { ScanHeader } from "./ScanHeader";
+import { ScanPlanSummary } from "./ScanPlanSummary";
 import { useFindings, useRunResources, useScanProgress } from "./useScanData";
 import { SchedulePanel } from "./SchedulePanel";
 import { SpecPanel } from "./SpecPanel";
@@ -186,6 +188,7 @@ export default function ScanDetail({
   }, [running, refreshFindings, refreshResources]);
 
   const [err, setErr] = useState<string | null>(null);
+  const confirmAction = useConfirmation();
   useEffect(() => {
     if (progress.error) setErr(progress.error);
   }, [progress.error]);
@@ -373,29 +376,23 @@ export default function ScanDetail({
       await reload();
     } catch (e) {
       setCancelling(false);
-      fail(e);
+      throw e;
     }
-  }, [id, reload, fail]);
+  }, [id, reload]);
 
   const destroy = useCallback(async () => {
     // Irreversible: the scan's spec, credentials, findings and run history go
     // with it. The API refuses this while the scan is active.
-    const n = findings.length;
     const msg =
-      `Delete this scan permanently?\n\n${scan?.target_base_url ?? ""}\n\n` +
-      `Its spec, credential profiles, ${n} finding${n === 1 ? "" : "s"} and run ` +
+      `${scan?.target_base_url ?? ""}\n\n` +
+      `Its spec, credential profiles, all findings and run ` +
       `history are removed. This cannot be undone.`;
-    if (!window.confirm(msg)) return;
-    setDeleting(true);
-    setErr(null);
-    try {
-      await api.deleteScan(id);
-      router.push("/scans");
-    } catch (e) {
-      setDeleting(false);
-      fail(e);
-    }
-  }, [id, findings.length, scan?.target_base_url, router, fail]);
+    await confirmAction({ title: "Delete scan permanently?", description: msg, actionLabel: "Delete scan", action: async () => {
+      setDeleting(true); setErr(null);
+      try { await api.deleteScan(id); router.push("/scans"); }
+      finally { setDeleting(false); }
+    } });
+  }, [id, scan?.target_base_url, router, confirmAction]);
 
   const saveSpec = useCallback(
     async (text: string) => {
@@ -476,16 +473,14 @@ export default function ScanDetail({
 
   const removeCred = useCallback(
     async (credId: string) => {
-      if (!window.confirm("Remove this credential profile?")) return;
-      setErr(null);
-      try {
+      const profile = scan?.credential_profiles.find((credential) => credential.id === credId);
+      await confirmAction({ title: "Remove credential profile?", description: `Remove ${profile?.name ?? "this profile"} from this scan? Checks needing this account may no longer run.`, actionLabel: "Remove profile", action: async () => {
+        setErr(null);
         await api.deleteCredential(id, credId);
         setScan(await api.getScan(id));
-      } catch (e) {
-        fail(e);
-      }
+      } });
     },
-    [id, fail, setScan],
+    [id, scan?.credential_profiles, confirmAction, setScan],
   );
 
   const doRun = useCallback(async () => {
@@ -543,23 +538,12 @@ export default function ScanDetail({
   const handBack = useCallback(async () => {
     // The CLI owns these settings again the moment it runs from the file, so
     // the handover is confirmed rather than fired by a stray click.
-    if (
-      !window.confirm(
-        "Let the web own these settings again?\n\nThe next CLI run from that file will manage them once more.",
-      )
-    ) {
-      return;
-    }
-    setErr(null);
-    setHandingBack(true);
-    try {
-      setScan(await api.clearManagedConfig(id));
-    } catch (e) {
-      fail(e);
-    } finally {
-      setHandingBack(false);
-    }
-  }, [id, fail, setScan]);
+    await confirmAction({ title: "Manage these settings in the web?", description: "The next CLI run from the project file will manage them once more.", actionLabel: "Manage in web", intent: "warning", action: async () => {
+      setErr(null); setHandingBack(true);
+      try { setScan(await api.clearManagedConfig(id)); }
+      finally { setHandingBack(false); }
+    } });
+  }, [id, confirmAction, setScan]);
 
   const toggleRunPanel = useCallback(() => setRunPanelOpen((v) => !v), []);
   const closeRunPanel = useCallback(() => setRunPanelOpen(false), []);
@@ -731,6 +715,8 @@ export default function ScanDetail({
 
           <ActivityLog events={events} status={scan.status} />
 
+          <ScanPlanSummary capabilities={capabilities} />
+
           {scan.status !== "draft" && (
             <AttentionSummary
               findings={findings}
@@ -826,7 +812,8 @@ export default function ScanDetail({
               {
                 id: "schema",
                 label: "Schema context",
-                meta: "Premium · local runs",
+                meta: "Local CLI runs",
+                premium: true,
                 content: <DatabaseSchemaPanel scanId={id} running={running} />,
               },
               {
@@ -844,6 +831,7 @@ export default function ScanDetail({
               {
                 id: "schedule",
                 label: "Schedule",
+                premium: true,
                 meta: scheduleSummary(scan.schedule_minutes),
                 content: (
                   <SchedulePanel

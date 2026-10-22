@@ -13,10 +13,10 @@ export function BrandLink() {
   const { authenticated } = useConnection();
   return (
     <Link href={authenticated ? APP_HOME : "/"} className="brand"
-      // A flex link splits its name at the dot ("aidetector ."); say it whole.
-      aria-label="aidetector."
+      // A flex link splits its name at the dot ("runpentests ."); say it whole.
+      aria-label="runpentests."
     >
-      aidetector<span className="dot">.</span>
+      runpentests<span className="dot">.</span>
     </Link>
   );
 }

@@ -12,13 +12,13 @@ reports — graded, fingerprinted, diffable and triaged like any other run.
 make runner-image                                   # once: build the runner image
 # and on the server: LOCAL_RUNNER_ENABLED=true (off by default; the claim 404s otherwise)
 
-export AIDETECTOR_SECRET_ALICE=...  AIDETECTOR_SECRET_ADMIN=...   # or --secrets-file / a prompt
-aidetector run "$ID" --authorized --fail-on high --verified-only
+export RUNPENTESTS_SECRET_ALICE=...  RUNPENTESTS_SECRET_ADMIN=...   # or --secrets-file / a prompt
+runpentests run "$ID" --authorized --fail-on high --verified-only
 ```
 
 With `--ai`, the CLI waits after the upload while the service adjudicates the findings
 ("results uploaded; the service is running the AI analysis"); Ctrl-C stops waiting, the
-analysis carries on, and `aidetector wait ID` picks it up again.
+analysis carries on, and `runpentests wait ID` picks it up again.
 
 ## The heavy tools (ZAP, Kali)
 
@@ -38,10 +38,10 @@ findings, authenticated by that token alone.
 
 - **Secrets stay local.** Each identity's secret is found on this machine, in order: a
   `--secrets-file` (JSON `{name: secret}`, must be mode `0600`), a `secret_env` value from
-  `aidetector.yml`, `AIDETECTOR_SECRET_<NAME>` (and `AIDETECTOR_REFRESH_SECRET_<NAME>`),
+  `runpentests.yml`, `RUNPENTESTS_SECRET_<NAME>` (and `RUNPENTESTS_REFRESH_SECRET_<NAME>`),
   then a hidden prompt. Secrets are keyed by credential **name**, so two identities with
   the same role keep distinct secrets. A role key (`{role: secret}`, or
-  `AIDETECTOR_SECRET_<ROLE>`) is accepted only when that role is unique; a shared role must
+  `RUNPENTESTS_SECRET_<ROLE>`) is accepted only when that role is unique; a shared role must
   be keyed by name, and using a role key for it is a usage error naming the identities.
   Secrets go to the container on **stdin** — never argv, never its environment, never the
   server. An identity with no secret is dropped from the run with a named reason; the rest
@@ -84,8 +84,8 @@ progress log that change what the findings mean, worst first:
   the budget ran out); one last line counts the checks with nothing to test in this API.
 
 The runner image is built by hand, so it can fall behind the CLI. A run warns when
-`aidetector-runner:latest` was built from another version — rebuild it with
-`make runner-image`. An old image is why `aidetector runs trace` can show no requests.
+`runpentests-runner:latest` was built from another version — rebuild it with
+`make runner-image`. An old image is why `runpentests runs trace` can show no requests.
 
 Release binaries pull a digest-pinned GHCR runner image, with a confirmation in
 a terminal; CI needs to pull the image in the release's `runner.json` first.

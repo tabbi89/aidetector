@@ -97,7 +97,7 @@ def build_report(scan: Scan) -> bytes:
         buf, pagesize=A4,
         leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=18 * mm, bottomMargin=18 * mm,
-        title=f"aidetector scan {scan.id}",
+        title=f"runpentests scan {scan.id}",
     )
     styles = getSampleStyleSheet()
     h1 = ParagraphStyle("h1", parent=styles["Heading1"], fontSize=20, spaceAfter=2)
@@ -286,7 +286,7 @@ def build_report_html(scan: Scan) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>aidetector report — {e(scan.target_base_url)}</title>
+<title>runpentests report — {e(scan.target_base_url)}</title>
 <style>
   :root {{
     --bg:#f7f8fa; --surface:#fff; --ink:#17202b; --dim:#697485; --line:#e2e6ec;

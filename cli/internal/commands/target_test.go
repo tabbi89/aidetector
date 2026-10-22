@@ -424,7 +424,7 @@ func TestProjectFileDrivesTheRunAndRecordsWhatItOwns(t *testing.T) {
 	h, target, _ := targetHarness(t, s, "", false, map[string]string{
 		"ALICE_TOKEN": "alice-secret-value", "ADMIN_TOKEN": "admin-secret-value",
 	})
-	writeFile(t, h.env.Dir, "aidetector.yml", fmt.Sprintf(projectFile, target))
+	writeFile(t, h.env.Dir, "runpentests.yml", fmt.Sprintf(projectFile, target))
 	writeFile(t, h.env.Dir, "api/openapi.json", testSpec)
 	s.scans = []map[string]any{{
 		"id": "s9", "target_base_url": target, "status": "completed", "spec_text": nil,
@@ -432,7 +432,7 @@ func TestProjectFileDrivesTheRunAndRecordsWhatItOwns(t *testing.T) {
 		"credential_profiles": []any{map[string]any{"id": "c1", "name": "alice", "role": "user", "auth_type": "bearer"}},
 	}}
 
-	// A bare `aidetector` in the project: the file says what to do. --fail-on
+	// A bare `runpentests` in the project: the file says what to do. --fail-on
 	// on the command line beats the file's fail_on.
 	code := h.run("--authorized", "--fail-on", "high")
 	if code != ExitOK {
@@ -444,7 +444,7 @@ func TestProjectFileDrivesTheRunAndRecordsWhatItOwns(t *testing.T) {
 		t.Errorf("rps from the file should reach the run: %v", run)
 	}
 	src, _ := run["config_source"].(map[string]any)
-	if src["path"] != "aidetector.yml" || len(fmt.Sprint(src["digest"])) != 64 || src["commit"] != "0123abcd" {
+	if src["path"] != "runpentests.yml" || len(fmt.Sprint(src["digest"])) != 64 || src["commit"] != "0123abcd" {
 		t.Errorf("the run should record where its settings came from: %v", src)
 	}
 
@@ -480,7 +480,7 @@ func TestProjectFileDrivesTheRunAndRecordsWhatItOwns(t *testing.T) {
 func TestProjectFileMutatePassNamesItsNewName(t *testing.T) {
 	s := &stateful{}
 	h, target, _ := targetHarness(t, s, "", false, nil)
-	writeFile(t, h.env.Dir, "aidetector.yml", fmt.Sprintf(
+	writeFile(t, h.env.Dir, "runpentests.yml", fmt.Sprintf(
 		"target: %s\nspec: api/openapi.json\npasses: [mutate]\n", target))
 	writeFile(t, h.env.Dir, "api/openapi.json", testSpec)
 
@@ -498,7 +498,7 @@ func TestProjectFileMutatePassNamesItsNewName(t *testing.T) {
 func TestProjectFileLevelAndWritesReachTheRunAndAFlagWins(t *testing.T) {
 	s := &stateful{}
 	h, target, _ := targetHarness(t, s, "", false, nil)
-	writeFile(t, h.env.Dir, "aidetector.yml", fmt.Sprintf(
+	writeFile(t, h.env.Dir, "runpentests.yml", fmt.Sprintf(
 		"target: %s\nspec: api/openapi.json\nlevel: standard\npasses: [writes, ai]\n", target))
 	writeFile(t, h.env.Dir, "api/openapi.json", testSpec)
 
@@ -524,7 +524,7 @@ func TestProjectFileFailOnAppliesWhenNoFlagOverridesIt(t *testing.T) {
 		{"check": "headers", "severity": "low", "confidence": "verified", "title": "Missing HSTS", "verdict": "unreviewed"},
 	}}
 	h, target, _ := targetHarness(t, s, "", false, map[string]string{"ALICE_TOKEN": "a", "ADMIN_TOKEN": "b"})
-	writeFile(t, h.env.Dir, "aidetector.yml", fmt.Sprintf(projectFile, target))
+	writeFile(t, h.env.Dir, "runpentests.yml", fmt.Sprintf(projectFile, target))
 	writeFile(t, h.env.Dir, "api/openapi.json", testSpec)
 	if code := h.run("--authorized"); code != ExitFindings {
 		t.Fatalf("exit = %d, want %d: fail_on: low in the file", code, ExitFindings)
@@ -534,7 +534,7 @@ func TestProjectFileFailOnAppliesWhenNoFlagOverridesIt(t *testing.T) {
 func TestProjectFileWithASecretIsRefusedBeforeAnyRequest(t *testing.T) {
 	s := &stateful{}
 	h, target, hits := targetHarness(t, s, "", false, nil)
-	writeFile(t, h.env.Dir, "aidetector.yml",
+	writeFile(t, h.env.Dir, "runpentests.yml",
 		"target: "+target+"\nidentities:\n  - { name: a, role: user, token: hunter2 }\n")
 	if code := h.run("--authorized"); code != ExitUsage {
 		t.Fatalf("exit = %d, want usage", code)
@@ -552,7 +552,7 @@ func TestAPinnedScanFollowsTheFilesTarget(t *testing.T) {
 	h, target, _ := targetHarness(t, s, "", false, nil)
 	s.scans = []map[string]any{{"id": "pin", "target_base_url": "https://old.example.com",
 		"spec_text": testSpec, "credential_profiles": []any{}, "managed_config": map[string]any{}}}
-	writeFile(t, h.env.Dir, "aidetector.yml", "target: "+target+"\nscan: pin\n")
+	writeFile(t, h.env.Dir, "runpentests.yml", "target: "+target+"\nscan: pin\n")
 	if code := h.run("--authorized"); code != ExitOK {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
 	}
@@ -582,7 +582,7 @@ func TestADirectoryRunsLocallyWithTheCodeAndKeepsSecretsOffTheServer(t *testing.
 	s := &stateful{}
 	h, target, _ := targetHarness(t, s, "", false, map[string]string{"ALICE_TOKEN": "alice-secret-value"})
 	proj := t.TempDir()
-	writeFile(t, proj, "aidetector.yml",
+	writeFile(t, proj, "runpentests.yml",
 		"target: "+target+"\nidentities:\n  - { name: alice, role: user, secret_env: ALICE_TOKEN }\n")
 	writeFile(t, proj, "docs/openapi.json", testSpec)
 	s.scans = []map[string]any{{"id": "loc", "target_base_url": target, "spec_text": nil,
@@ -635,7 +635,7 @@ func TestALocalRunCreatesIdentitiesLocalOnly(t *testing.T) {
 	s := &stateful{}
 	h, target, _ := targetHarness(t, s, "", false, map[string]string{"ALICE_TOKEN": "alice-secret-value"})
 	proj := t.TempDir()
-	writeFile(t, proj, "aidetector.yml",
+	writeFile(t, proj, "runpentests.yml",
 		"target: "+target+"\nidentities:\n  - { name: alice, role: user, secret_env: ALICE_TOKEN }\n")
 	writeFile(t, proj, "docs/openapi.json", testSpec)
 	s.scans = []map[string]any{{"id": "loc", "target_base_url": target, "spec_text": nil,
@@ -670,7 +670,7 @@ func TestATenantFromTheFileIsSentAndAChangeUpdatesTheIdentity(t *testing.T) {
 	s := &stateful{}
 	h, target, _ := targetHarness(t, s, "", false, map[string]string{"A": "a", "B": "b"})
 	proj := t.TempDir()
-	writeFile(t, proj, "aidetector.yml", "target: "+target+"\nidentities:\n"+
+	writeFile(t, proj, "runpentests.yml", "target: "+target+"\nidentities:\n"+
 		"  - { name: a-write, role: editor, tenant: a, secret_env: A }\n"+
 		"  - { name: b-write, role: editor, tenant: b, secret_env: B }\n")
 	writeFile(t, proj, "docs/openapi.json", testSpec)
@@ -701,7 +701,7 @@ func TestPromptedIdentitiesForALocalRunStayLocal(t *testing.T) {
 	s := &stateful{}
 	h, target, _ := targetHarness(t, s, "alice\nuser\n\n\n", true, nil)
 	proj := t.TempDir()
-	writeFile(t, proj, "aidetector.yml", "target: "+target+"\n")
+	writeFile(t, proj, "runpentests.yml", "target: "+target+"\n")
 	writeFile(t, proj, "docs/openapi.json", testSpec)
 	s.scans = []map[string]any{{"id": "loc", "target_base_url": target, "spec_text": nil,
 		"managed_config": map[string]any{}, "credential_profiles": []any{}}}
@@ -742,7 +742,7 @@ func TestScanPageURLPointsAtTheWebUI(t *testing.T) {
 			t.Errorf("scanPageURL(%q) = %q, want %q", server, got, want)
 		}
 	}
-	env["AIDETECTOR_WEB_URL"] = "https://app.example.com/"
+	env["RUNPENTESTS_WEB_URL"] = "https://app.example.com/"
 	if got := scanPageURL(e, "https://api.example.com", "abc"); got != "https://app.example.com/scans/abc" {
 		t.Errorf("override ignored: %q", got)
 	}

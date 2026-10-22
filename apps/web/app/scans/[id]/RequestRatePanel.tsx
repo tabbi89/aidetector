@@ -39,14 +39,14 @@ function RequestRatePanelImpl({
           aria-pressed={rate === value}
           disabled={busy || running || managed}
           onClick={() => choose(rate)}
-          title={managed ? "Set by aidetector.yml" : undefined}
+          title={managed ? "Set by runpentests.yml" : undefined}
         >
           {rate} req/s
         </button>
       ))}
       {managed && (
         <span className="muted-sm" title="The request rate comes from the project file">
-          set by aidetector.yml
+          set by runpentests.yml
         </span>
       )}
       <span className="grow" />

@@ -93,7 +93,7 @@ func TestJUnitGateOutputIsValidXMLWithTheFailureCount(t *testing.T) {
 	}
 	suite := doc.Suites[0]
 	// The dismissed finding is not considered; the high and low are.
-	if suite.Name != "aidetector" || suite.Tests != 2 || suite.Failures != 1 {
+	if suite.Name != "runpentests" || suite.Tests != 2 || suite.Failures != 1 {
 		t.Fatalf("suite = %+v; want 2 tests, 1 failure", suite)
 	}
 	if len(suite.Cases) != 2 {

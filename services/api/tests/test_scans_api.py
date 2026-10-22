@@ -375,7 +375,7 @@ def test_premium_run_requires_a_premium_tenant(client, new_scan, monkeypatch):
     monkeypatch.setattr(settings, "premium_tenants", "")
     r = client.post(f"/scans/{sid}/run", json={"authorized": True, "premium": True})
     assert r.status_code == 402
-    assert "premium" in r.json()["detail"]
+    assert "premium" in r.json()["detail"].lower()
 
     monkeypatch.setattr(settings, "premium_tenants", "default")
     # Premium now passes, so the next gate (no spec) answers instead.

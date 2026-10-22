@@ -3,7 +3,7 @@ package commands
 import (
 	"strings"
 
-	"aidetector/cli/internal/config"
+	"runpentests/cli/internal/config"
 )
 
 // cmdProfile manages the saved server profiles: one machine can talk to

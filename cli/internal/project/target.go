@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"aidetector/cli/internal/config"
+	"runpentests/cli/internal/config"
 )
 
 // hostish matches a bare host[:port][/path] typed without a scheme:

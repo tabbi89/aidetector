@@ -7,7 +7,6 @@ export interface ScanLevelSpec {
   blurb: string;
   passes: string[];
   aiPasses: string[];
-  cliOnly: boolean;
 }
 
 /**
@@ -19,25 +18,22 @@ export const SCAN_LEVELS: ScanLevelSpec[] = [
   {
     id: "quick",
     title: "Quick",
-    blurb: "Engine checks only — the fastest pass, inside the request budget.",
+    blurb: "Core checks for access, risky input and security settings. The fastest pass.",
     passes: [],
     aiPasses: ["plan", "adjudicate", "security_review"],
-    cliOnly: false,
   },
   {
     id: "standard",
     title: "Standard",
-    blurb: "Adds schema fuzzing and premium detections where the plan includes them.",
+    blurb: "Quick + tests of schema rules. Adds deeper detections when your plan includes them.",
     passes: ["fuzz", "premium"],
     aiPasses: ["plan", "adjudicate", "security_review"],
-    cliOnly: false,
   },
   {
     id: "deep",
     title: "Deep",
-    blurb: "Adds ZAP, Kali tools, lead confirmation and a deep TLS audit — slow; runs from the CLI",
+    blurb: "Standard + external scanners and lead confirmation. More traffic and time; needs configured tools.",
     passes: ["fuzz", "premium", "zap", "kali", "confirm", "testssl"],
     aiPasses: ["plan", "adjudicate", "security_review", "genai_payloads", "adaptive", "resource_refine"],
-    cliOnly: true,
   },
 ];

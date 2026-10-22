@@ -7,8 +7,8 @@ via an injected callable so it is testable without Celery.
 A schedule is a standing run request, so it carries the options it was
 authorized with (``Scan.schedule_options``) and every scheduled run uses exactly
 those. The one thing re-decided at dispatch is entitlement: a tenant that has
-since lost the premium tier gets its premium passes dropped rather than a run it
-is no longer entitled to.
+since lost the premium tier is not dispatched. Server execution, including a
+standing scheduled run, requires Premium; Free tenants can run the local CLI.
 """
 from __future__ import annotations
 
@@ -65,6 +65,8 @@ def dispatch_due(
         # Always advance the schedule so a busy/absent run doesn't wedge it.
         scan.next_run_at = now + timedelta(minutes=scan.schedule_minutes or 0)
         if scan.status in _BUSY or not scan.operations:
+            continue
+        if not workspace.is_premium(db, scan.tenant_id):
             continue
         # A schedule is a standing run request, so it answers the same
         # admission gate as a manual run. A refused dispatch leaves the scan

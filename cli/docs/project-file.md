@@ -1,7 +1,7 @@
-# aidetector.yml — the project file
+# runpentests.yml — the project file
 
-Commit this at the root of the repository, and `aidetector` alone (or
-`aidetector --authorized` in CI) does the right thing:
+Commit this at the root of the repository, and `runpentests` alone (or
+`runpentests --authorized` in CI) does the right thing:
 
 ```yaml
 target: https://staging.example.com
@@ -89,7 +89,7 @@ A `schema` block takes `host`, `port`, `database`, `username`, `password_env`,
 
 ## Describing how the API authenticates
 
-`aidetector init [URL] [--spec FILE]` writes a starting file. It reads a spec from this
+`runpentests init [URL] [--spec FILE]` writes a starting file. It reads a spec from this
 directory (`openapi.yaml`, `openapi.json`, `swagger.json`, … or `--spec`), never from the
 target, asks the server what the spec's `securitySchemes` say, and asks one question —
 public, one key, or several roles — with the spec's answer as the default (`--yes` takes
@@ -144,10 +144,10 @@ lowest is refused; a middle-tier hit is reported as a lead, not a verified findi
 
 ## Precedence and ownership
 
-**Precedence is per setting:** CLI flags > `aidetector.yml` > the web's saved settings >
+**Precedence is per setting:** CLI flags > `runpentests.yml` > the web's saved settings >
 defaults. A key the file leaves out stays the web's. Each run tells the server which
 settings the file owns (target, spec, identities, request rate, run options). The web then
-shows those controls read-only, marked "set by aidetector.yml", until someone clicks
+shows those controls read-only, marked "set by runpentests.yml", until someone clicks
 **Hand back to the web**. Each run also records the file's digest and commit, so a diff
 between runs whose settings came from different places says so (`config_changed`).
 
@@ -155,7 +155,7 @@ between runs whose settings came from different places says so (`config_changed`
 only in the web is left alone. A secret never leaves this machine: an identity the CLI has
 to create is created **local-only** — the server stores its name, role and auth shape, and
 nothing else — and each run reads the secret from its `secret_env` here.
-`aidetector cred add ID --name N --role R --local-only` does the same by hand; add
+`runpentests cred add ID --name N --role R --local-only` does the same by hand; add
 `--privilege N` for an explicit rank, and `--update` to change an identity that already
 exists instead of failing on the name.
 

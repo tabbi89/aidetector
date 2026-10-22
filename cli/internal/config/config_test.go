@@ -11,6 +11,53 @@ import (
 
 func noEnv(string) string { return "" }
 
+func TestBrandEnvironmentCompatibilityKeepsKeysWithTheirServer(t *testing.T) {
+	get := CompatibleEnv(env(map[string]string{
+		"AIDETECTOR_SERVER":       "https://old.example",
+		"AIDETECTOR_API_KEY":      "old-key",
+		"AIDETECTOR_SECRET_ALICE": "old-token",
+	}))
+	if get("RUNPENTESTS_SERVER") != "https://old.example" || get("RUNPENTESTS_API_KEY") != "old-key" || get("RUNPENTESTS_SECRET_ALICE") != "old-token" {
+		t.Fatal("legacy environment must remain usable")
+	}
+	get = CompatibleEnv(env(map[string]string{
+		"RUNPENTESTS_SERVER": "https://new.example",
+		"AIDETECTOR_SERVER":  "https://old.example",
+		"AIDETECTOR_API_KEY": "old-key",
+	}))
+	if get("RUNPENTESTS_SERVER") != "https://new.example" || get("RUNPENTESTS_API_KEY") != "" {
+		t.Fatal("new server must not inherit an old namespace key")
+	}
+	get = CompatibleEnv(env(map[string]string{"RUNPENTESTS_API_KEY": "new-key", "AIDETECTOR_API_KEY": "old-key"}))
+	if get("RUNPENTESTS_API_KEY") != "new-key" {
+		t.Fatal("new namespace must win")
+	}
+}
+
+func TestBrandConfigReusesSavedProfilesWithoutCreatingSecretCopies(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("XDG config layout is Unix-specific")
+	}
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	legacy := filepath.Join(dir, "aidetector", "config.json")
+	if err := Save(legacy, twoProfiles()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Path("")
+	if err != nil || got != legacy {
+		t.Fatalf("existing profiles: %q, %v", got, err)
+	}
+	current := filepath.Join(dir, "runpentests", "config.json")
+	if err := Save(current, Store{}); err != nil {
+		t.Fatal(err)
+	}
+	got, err = Path("")
+	if err != nil || got != current {
+		t.Fatalf("new config must win: %q, %v", got, err)
+	}
+}
+
 func env(values map[string]string) func(string) string {
 	return func(k string) string { return values[k] }
 }
@@ -91,8 +138,8 @@ func TestProfileSelectionPrefersEnvThenCurrentThenDefault(t *testing.T) {
 		t.Fatalf("current profile: Load = %+v, %v", got, err)
 	}
 
-	// AIDETECTOR_PROFILE wins for this invocation.
-	got, err = Load(path, env(map[string]string{"AIDETECTOR_PROFILE": "default"}))
+	// RUNPENTESTS_PROFILE wins for this invocation.
+	got, err = Load(path, env(map[string]string{"RUNPENTESTS_PROFILE": "default"}))
 	if err != nil || got.Profile != "default" || !got.ProfileFromEnv ||
 		got.Server != "https://prod.example" {
 		t.Fatalf("env profile: Load = %+v, %v", got, err)
@@ -115,9 +162,9 @@ func TestUnknownProfileNamesTheKnownOnes(t *testing.T) {
 	if err := Save(path, twoProfiles()); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Load(path, env(map[string]string{"AIDETECTOR_PROFILE": "qa"}))
+	_, err := Load(path, env(map[string]string{"RUNPENTESTS_PROFILE": "qa"}))
 	if err == nil {
-		t.Fatal("an unknown AIDETECTOR_PROFILE must be an error")
+		t.Fatal("an unknown RUNPENTESTS_PROFILE must be an error")
 	}
 	for _, want := range []string{`"qa"`, "default", "staging"} {
 		if !strings.Contains(err.Error(), want) {
@@ -132,8 +179,8 @@ func TestEnvironmentServerOverridesTheSelectedProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := Load(path, env(map[string]string{
-		"AIDETECTOR_SERVER":  "https://ci.example",
-		"AIDETECTOR_API_KEY": "ci-key",
+		"RUNPENTESTS_SERVER":  "https://ci.example",
+		"RUNPENTESTS_API_KEY": "ci-key",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -177,8 +224,8 @@ func TestSaveTightensAnExistingLooseFile(t *testing.T) {
 func TestEnvironmentWorksWithNoFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "none.json")
 	got, err := Load(path, env(map[string]string{
-		"AIDETECTOR_SERVER":  "https://ci.example",
-		"AIDETECTOR_API_KEY": "ci-key",
+		"RUNPENTESTS_SERVER":  "https://ci.example",
+		"RUNPENTESTS_API_KEY": "ci-key",
 	}))
 	if err != nil || got.Server != "https://ci.example" || got.APIKey != "ci-key" {
 		t.Fatalf("Load = %+v, %v", got, err)
@@ -216,7 +263,7 @@ func TestNormalizeServer(t *testing.T) {
 	}
 }
 
-// A saved key must not follow AIDETECTOR_SERVER to a different host.
+// A saved key must not follow RUNPENTESTS_SERVER to a different host.
 func TestASavedKeyStaysWithItsServer(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "c.json")
 	if err := Save(path, Store{Current: "default", Profiles: map[string]Profile{
@@ -226,16 +273,16 @@ func TestASavedKeyStaysWithItsServer(t *testing.T) {
 	}
 	env := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
 
-	c, err := Load(path, env(map[string]string{"AIDETECTOR_SERVER": "https://other.example.net"}))
+	c, err := Load(path, env(map[string]string{"RUNPENTESTS_SERVER": "https://other.example.net"}))
 	if err != nil || c.APIKey != "" {
 		t.Fatalf("key = %q, err = %v: a saved key must not go to another server", c.APIKey, err)
 	}
-	c, _ = Load(path, env(map[string]string{"AIDETECTOR_SERVER": "https://SCAN.example.com/"}))
+	c, _ = Load(path, env(map[string]string{"RUNPENTESTS_SERVER": "https://SCAN.example.com/"}))
 	if c.APIKey != "saved-key" {
 		t.Fatalf("the same server (case, slash) keeps its key, got %q", c.APIKey)
 	}
 	c, _ = Load(path, env(map[string]string{
-		"AIDETECTOR_SERVER": "https://other.example.net", "AIDETECTOR_API_KEY": "ci-key",
+		"RUNPENTESTS_SERVER": "https://other.example.net", "RUNPENTESTS_API_KEY": "ci-key",
 	}))
 	if c.APIKey != "ci-key" {
 		t.Fatalf("an explicit key goes with an explicit server, got %q", c.APIKey)

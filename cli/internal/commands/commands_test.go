@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"aidetector/cli/internal/config"
+	"runpentests/cli/internal/config"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 	fakeScanPath = "/scans/" + fakeScanID
 )
 
-// fake is a stand-in aidetector server that records what it was asked.
+// fake is a stand-in runpentests server that records what it was asked.
 type fake struct {
 	mu       sync.Mutex
 	requests []string          // "METHOD /path"
@@ -330,9 +330,9 @@ func newHarness(t *testing.T, srv *httptest.Server, stdin string, tty bool) *har
 		ReadSecret: func(string) (string, error) { return "typed-secret", nil },
 		Getenv: func(k string) string {
 			switch k {
-			case "AIDETECTOR_SERVER":
+			case "RUNPENTESTS_SERVER":
 				return srv.URL
-			case "AIDETECTOR_API_KEY":
+			case "RUNPENTESTS_API_KEY":
 				return secretKey
 			}
 			return ""
@@ -556,7 +556,7 @@ func TestAnUnauthorizedKeyGetsAHint(t *testing.T) {
 	if got := h.run("scans", "list"); got != ExitUsage {
 		t.Fatalf("exit = %d, want %d", got, ExitUsage)
 	}
-	if !strings.Contains(h.errOut.String(), "aidetector login") {
+	if !strings.Contains(h.errOut.String(), "runpentests login") {
 		t.Fatalf("a 401 should point at login: %q", h.errOut.String())
 	}
 	h.assertNoSecretPrinted(t)
@@ -875,7 +875,7 @@ func TestFindingsDismissWithYesSendsTheVerdict(t *testing.T) {
 	if out := h.out.String(); !strings.Contains(out, "dismissed  11111111  high  BOLA on /orders") {
 		t.Fatalf("result line = %q", out)
 	}
-	if !strings.Contains(h.errOut.String(), "undo: aidetector findings reopen 11111111 11111111") {
+	if !strings.Contains(h.errOut.String(), "undo: runpentests findings reopen 11111111 11111111") {
 		t.Fatalf("dismiss should print the undo line: %q", h.errOut.String())
 	}
 
@@ -1173,7 +1173,7 @@ func TestFindingsShowUsesTheProjectScan(t *testing.T) {
 	defer srv.Close()
 	h := newHarness(t, srv, "", false)
 	h.env.Dir = t.TempDir()
-	writeFile(t, h.env.Dir, "aidetector.yml", "target: http://t\n")
+	writeFile(t, h.env.Dir, "runpentests.yml", "target: http://t\n")
 	if got := h.run("findings", "show", "9d41"); got != ExitOK {
 		t.Fatalf("exit = %d\n%s", got, h.errOut.String())
 	}
@@ -1371,7 +1371,7 @@ func TestUnknownEnvProfileIsAUsageError(t *testing.T) {
 		"default": {Server: srv.URL},
 	}})
 	h.env.Getenv = func(k string) string {
-		if k == "AIDETECTOR_PROFILE" {
+		if k == "RUNPENTESTS_PROFILE" {
 			return "qa"
 		}
 		return ""
@@ -1482,7 +1482,7 @@ func TestStatusMarksEnvironmentOverrides(t *testing.T) {
 	srv := httptest.NewServer(f.handler())
 	defer srv.Close()
 
-	// AIDETECTOR_SERVER beats the saved profile's server.
+	// RUNPENTESTS_SERVER beats the saved profile's server.
 	h := newHarness(t, srv, "", false)
 	saveProfiles(t, h.cfg, config.Store{Current: "default", Profiles: map[string]config.Profile{
 		"default": {Server: "https://profile.example", APIKey: "profile-key"},
@@ -1490,18 +1490,18 @@ func TestStatusMarksEnvironmentOverrides(t *testing.T) {
 	if got := h.run("status"); got != ExitOK {
 		t.Fatalf("exit = %d\n%s", got, h.errOut.String())
 	}
-	if out := h.out.String(); !strings.Contains(out, "server: "+srv.URL+" (from AIDETECTOR_SERVER)") {
+	if out := h.out.String(); !strings.Contains(out, "server: "+srv.URL+" (from RUNPENTESTS_SERVER)") {
 		t.Fatalf("status should mark the env server override:\n%s", out)
 	}
 
-	// AIDETECTOR_PROFILE selects the profile for this command.
+	// RUNPENTESTS_PROFILE selects the profile for this command.
 	h = newHarness(t, srv, "", false)
 	saveProfiles(t, h.cfg, config.Store{Current: "default", Profiles: map[string]config.Profile{
 		"default": {Server: srv.URL},
 		"staging": {Server: srv.URL},
 	}})
 	h.env.Getenv = func(k string) string {
-		if k == "AIDETECTOR_PROFILE" {
+		if k == "RUNPENTESTS_PROFILE" {
 			return "staging"
 		}
 		return ""
@@ -1510,12 +1510,12 @@ func TestStatusMarksEnvironmentOverrides(t *testing.T) {
 	if got := h.run("status"); got != ExitOK {
 		t.Fatalf("exit = %d\n%s", got, h.errOut.String())
 	}
-	if out := h.out.String(); !strings.Contains(out, "profile: staging (from AIDETECTOR_PROFILE)") {
+	if out := h.out.String(); !strings.Contains(out, "profile: staging (from RUNPENTESTS_PROFILE)") {
 		t.Fatalf("status should mark the env profile:\n%s", out)
 	}
 }
 
-func TestAIDETECTOR_CONFIGOverridesThePathButTheHarnessWins(t *testing.T) {
+func TestRUNPENTESTS_CONFIGOverridesThePathButTheHarnessWins(t *testing.T) {
 	f := &fake{}
 	srv := httptest.NewServer(f.handler())
 	defer srv.Close()
@@ -1525,9 +1525,9 @@ func TestAIDETECTOR_CONFIGOverridesThePathButTheHarnessWins(t *testing.T) {
 	}})
 
 	h := newHarness(t, srv, "", false)
-	h.env.ConfigPath = "" // let AIDETECTOR_CONFIG choose the file
+	h.env.ConfigPath = "" // let RUNPENTESTS_CONFIG choose the file
 	h.env.Getenv = func(k string) string {
-		if k == "AIDETECTOR_CONFIG" {
+		if k == "RUNPENTESTS_CONFIG" {
 			return other
 		}
 		return ""
@@ -1536,7 +1536,7 @@ func TestAIDETECTOR_CONFIGOverridesThePathButTheHarnessWins(t *testing.T) {
 		t.Fatalf("exit = %d\n%s", got, h.errOut.String())
 	}
 	if out := h.out.String(); !strings.Contains(out, "profile: staging\n") {
-		t.Fatalf("status should read AIDETECTOR_CONFIG:\n%s", out)
+		t.Fatalf("status should read RUNPENTESTS_CONFIG:\n%s", out)
 	}
 
 	// Env.ConfigPath (the test harness) still wins over the environment.
@@ -1545,7 +1545,7 @@ func TestAIDETECTOR_CONFIGOverridesThePathButTheHarnessWins(t *testing.T) {
 		"default": {Server: srv.URL},
 	}})
 	h.env.Getenv = func(k string) string {
-		if k == "AIDETECTOR_CONFIG" {
+		if k == "RUNPENTESTS_CONFIG" {
 			return other
 		}
 		return ""
@@ -1555,7 +1555,7 @@ func TestAIDETECTOR_CONFIGOverridesThePathButTheHarnessWins(t *testing.T) {
 		t.Fatalf("exit = %d\n%s", got, h.errOut.String())
 	}
 	if out := h.out.String(); !strings.Contains(out, "profile: default\n") {
-		t.Fatalf("Env.ConfigPath must win over AIDETECTOR_CONFIG:\n%s", out)
+		t.Fatalf("Env.ConfigPath must win over RUNPENTESTS_CONFIG:\n%s", out)
 	}
 }
 

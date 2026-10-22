@@ -1,4 +1,4 @@
-module aidetector/cli
+module runpentests/cli
 
 go 1.23
 

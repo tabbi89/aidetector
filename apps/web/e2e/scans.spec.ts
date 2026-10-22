@@ -43,14 +43,14 @@ test("wizard retains input after failure, forwards credentials and every opt-in"
   // against; a punned scan id is meaningless on another server.
   await page.getByRole("tab", { name: "Project file" }).click();
   await expect(
-    page.getByText(/AIDETECTOR_SERVER=http:\/\/api\.test AIDETECTOR_API_KEY=<your-api-key>/),
+    page.getByText(/RUNPENTESTS_SERVER=http:\/\/api\.test RUNPENTESTS_API_KEY=<your-api-key>/),
   ).toBeVisible();
   const run = page.getByRole("button", { name: "Run scan", exact: true });
   await expect(run).toBeDisabled();
   await page.locator("summary", { hasText: "Advanced" }).click();
   await page.getByLabel("Requests per second").selectOption("2");
   await expect(page.getByRole("radio", { name: /Quick/ })).toBeChecked();
-  await expect(page.getByRole("radio", { name: /Deep/ })).toBeDisabled();
+  await expect(page.getByRole("radio", { name: /Deep/ })).toBeEnabled();
   // Neither switch is pre-ticked.
   for (const label of Object.values(flags)) {
     await expect(page.getByRole("checkbox", { name: label })).not.toBeChecked();
@@ -232,7 +232,6 @@ test("scan configuration saves the request rate", async ({ page, api }) => {
 });
 
 test("polling shows progress and cancellation recovers from API errors", async ({ page, api }) => {
-  page.on("dialog", (dialog) => void dialog.accept()); // Cancel asks first
   api.scan.status = "running";
   api.scan.progress = 10;
   await page.goto(`/scans/${sid}`);
@@ -241,15 +240,18 @@ test("polling shows progress and cancellation recovers from API errors", async (
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "65");
   api.failNext = `/scans/${sid}/cancel`;
   await page.getByRole("button", { name: "Cancel scan" }).click();
+  const confirmation = page.getByRole("dialog", { name: "Cancel this scan?" });
+  await expect(confirmation.getByRole("button", { name: "Keep scanning" })).toBeFocused();
+  await confirmation.getByRole("button", { name: "Cancel scan" }).click();
   await expect(page.getByText("Temporary fixture failure")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Cancel scan" })).toBeEnabled();
-  await page.getByRole("button", { name: "Cancel scan" }).click();
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole("button", { name: "Cancel scan" }).click();
+  await expect(confirmation).not.toBeVisible();
   await expect(page.getByRole("button", { name: /Run now/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cancel scan" })).toHaveCount(0);
 });
 
 test("pending cancellation survives polling and reload until the worker stops", async ({ page, api }) => {
-  page.on("dialog", (dialog) => void dialog.accept()); // Cancel asks first
   api.scan.status = "running";
   api.deferCancellation = true;
   // Other live regions (the findings summary's "Counting every finding…")
@@ -257,6 +259,7 @@ test("pending cancellation survives polling and reload until the worker stops", 
   const pending = page.getByRole("status").filter({ hasText: "Cancellation requested" });
   await page.goto(`/scans/${sid}`);
   await page.getByRole("button", { name: "Cancel scan" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel scan" }).click();
   await expect(page.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
   await expect(pending).toBeVisible();
   await page.reload();
@@ -274,7 +277,8 @@ test("completed findings export downloads readable JSON", async ({ page, api }) 
   await page.goto(`/scans/${sid}`);
   await expect(page.getByText(finding.title, { exact: true })).toBeVisible();
   const downloaded = page.waitForEvent("download");
-  await page.getByRole("button", { name: /JSON/ }).first().click();
+  await page.locator(".statline").getByRole("button", { name: /Export/ }).click();
+  await page.getByRole("menuitem", { name: "JSON", exact: true }).click();
   const download = await downloaded;
   expect(download.suggestedFilename()).toBe("scan.json");
   expect(JSON.parse(await readFile((await download.path())!, "utf8"))).toEqual({ findings: [finding] });

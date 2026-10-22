@@ -60,7 +60,7 @@ def mcp(
         result = {
             "protocolVersion": "2025-11-25",
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "aidetector-monitoring", "version": "1"},
+            "serverInfo": {"name": "runpentests-monitoring", "version": "1"},
         }
     elif body.method == "tools/list":
         result = {

@@ -30,7 +30,7 @@ from app.monitoring.body_limit import MonitoringBodyLimit
 log = logging.getLogger("aidetector.api")
 
 app = FastAPI(
-    title="aidetector API",
+    title="runpentests API",
     version="0.1.0",
     description="OpenAPI-driven API security scanner.",
 )

@@ -44,6 +44,25 @@ def test_an_entitled_tenant_may_run_a_premium_pass(monkeypatch: pytest.MonkeyPat
     _authorize(options=RunOptions(premium=True))
 
 
+def test_free_server_execution_is_refused_even_without_premium_passes() -> None:
+    with pytest.raises(policy.PremiumRequired, match="Web and scheduled scans"):
+        policy.authorize_run(
+            authorized=True, options=RunOptions(), tenant_id="acme", premium=False,
+        )
+
+
+def test_free_local_execution_is_allowed_but_premium_passes_remain_gated() -> None:
+    policy.authorize_run(
+        authorized=True, options=RunOptions(), tenant_id="acme", premium=False,
+        lane="local",
+    )
+    with pytest.raises(policy.PremiumRequired):
+        policy.authorize_run(
+            authorized=True, options=RunOptions(premium=True), tenant_id="acme",
+            premium=False, lane="local",
+        )
+
+
 def test_resource_refinement_requires_the_flags_it_depends_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

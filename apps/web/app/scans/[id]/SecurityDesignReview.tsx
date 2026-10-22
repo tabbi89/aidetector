@@ -12,15 +12,14 @@ export function SecurityDesignReview({ review, pending }: { review?: SecurityRev
         <h3>AI security design review</h3>
         <p>DeepSeek suggests security improvements to your API and data model. These are design recommendations that need validation, separate from detected vulnerabilities.</p>
         {active ? <p role="status">The review is queued or running. Suggestions will appear here when it finishes.</p> : state === "unavailable" || state === "running" ? (
-          <p role="status">The review could not finish. Check the AI configuration and input size, then re-run it from the CLI with <code>--security-review</code>.</p>
+          <p role="status">The review could not finish. Check the AI configuration and input size, then open Run now and select Security design review under Choose AI passes.</p>
         ) : state === "not_requested" ? (
           <>
             <p>
-              AI security design review is a <strong>heavy-lane pass</strong>: it runs from the
-              aidetector CLI, not the web run panel (the web lane stays fast). Run it against this
-              scan with:
+              Open <strong>Run now</strong>, then enable <strong>Use AI</strong> or select
+              <strong> Security design review</strong> under Choose AI passes. You can also use the CLI:
             </p>
-            <pre className="shell"><code>aidetector run &lt;scan-id&gt; --authorized --security-review</code></pre>
+            <pre className="shell"><code>runpentests run &lt;scan-id&gt; --authorized --security-review</code></pre>
             <p>Add and test a database schema connection in Inputs to compare it with the OpenAPI spec, or review the spec alone.</p>
           </>
         ) : (

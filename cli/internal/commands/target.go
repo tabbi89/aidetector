@@ -20,21 +20,21 @@ import (
 	"strings"
 	"time"
 
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/project"
 )
 
 // The target form is the everyday way in:
 //
-//	aidetector https://api.example.com            scan it (reuse the scan for it, or create one)
-//	aidetector https://api.example.com ./project  ...and read the code in ./project (a local run)
-//	aidetector                                     run what ./aidetector.yml describes
+//	runpentests https://api.example.com            scan it (reuse the scan for it, or create one)
+//	runpentests https://api.example.com ./project  ...and read the code in ./project (a local run)
+//	runpentests                                     run what ./runpentests.yml describes
 //
 // It composes the subcommands — find or create a scan, make sure it has a spec
 // and identities, run it, show what it found — so it adds no server API of its
 // own beyond telling the server which settings a project file owns.
 //
-// Precedence, setting by setting: CLI flags > aidetector.yml > the web's saved
+// Precedence, setting by setting: CLI flags > runpentests.yml > the web's saved
 // settings > defaults. Consent is never a setting: it is --authorized or a
 // prompt naming the target, answered before this process sends anything.
 
@@ -53,7 +53,7 @@ var looksLikeSpec = regexp.MustCompile(`(?m)("openapi"|"swagger"|^openapi:|^swag
 var hexCommit = regexp.MustCompile(`^[0-9a-f]{7,64}$`)
 
 func cmdTarget(ctx context.Context, e *Env, args []string) int {
-	fs := e.newFlagSet("aidetector")
+	fs := e.newFlagSet("runpentests")
 	authorized := fs.Bool("authorized", false, "I own or am authorized to security-test this target")
 	passes := map[string]*bool{}
 	for flagName := range RunFlags {
@@ -67,8 +67,8 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	newOnly := fs.Bool("new-only", false, "with --fail-on, count only findings new since the previous run")
 	asJSON, outputFlag := addOutputFlags(fs, "print results as JSON")
 	specFlag := fs.String("spec", "", "OpenAPI/Swagger/HAR/Postman file to scan with")
-	configFlag := fs.String("config", "", "project file (default: aidetector.yml in the project directory)")
-	noConfig := fs.Bool("no-config", false, "ignore aidetector.yml")
+	configFlag := fs.String("config", "", "project file (default: runpentests.yml in the project directory)")
+	noConfig := fs.Bool("no-config", false, "ignore runpentests.yml")
 	fresh := fs.Bool("new", false, "create a new scan even if one exists for this target")
 	image := fs.String("image", defaultRunnerImage(e), "runner image")
 	var networks dockerNetworks
@@ -134,8 +134,8 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 		rawTarget = pf.Target
 	}
 	if rawTarget == "" {
-		return e.usage("nothing to scan: give a target URL (aidetector https://api.example.com) " +
-			"or set target: in aidetector.yml")
+		return e.usage("nothing to scan: give a target URL (runpentests https://api.example.com) " +
+			"or set target: in runpentests.yml")
 	}
 	target, err := project.NormalizeTarget(rawTarget)
 	if err != nil {
@@ -190,11 +190,11 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	}
 	for _, p := range pf.Passes {
 		if now, renamed := renamedPasses[p]; renamed {
-			return e.usage("aidetector.yml: the %q pass is now called %q", p, now)
+			return e.usage("runpentests.yml: the %q pass is now called %q", p, now)
 		}
 		field, ok := passField(p)
 		if !ok {
-			return e.usage("aidetector.yml: unknown pass %q in passes", p)
+			return e.usage("runpentests.yml: unknown pass %q in passes", p)
 		}
 		body[field] = true
 	}
@@ -247,7 +247,7 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	specOrigin := specPath
 	if specPath == "" && pf.Spec != "" {
 		specPath = file.Resolve(pf.Spec)
-		specOrigin = e.display(specPath) + " (aidetector.yml)"
+		specOrigin = e.display(specPath) + " (runpentests.yml)"
 	}
 	if specPath == "" {
 		searchIn := sourceDir
@@ -281,11 +281,11 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 		if errors.Is(err, errTargetUnreachable) {
 			discard()
 			return e.usage("no spec: %v\nthe spec is fetched from this machine; if only the server can "+
-				"reach %s, pass --spec FILE (or set spec: in aidetector.yml)", err, target)
+				"reach %s, pass --spec FILE (or set spec: in runpentests.yml)", err, target)
 		}
 		if err != nil {
 			discard()
-			return e.usage("no spec: pass --spec FILE, set spec: in aidetector.yml, or publish one at %s "+
+			return e.usage("no spec: pass --spec FILE, set spec: in runpentests.yml, or publish one at %s "+
 				"(tried %s)", target, strings.Join(wellKnownSpecPaths, ", "))
 		}
 		spec, specOrigin = fetched, from
@@ -360,7 +360,7 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	return showFindings(ctx, e, c, scan.ID)
 }
 
-// findOrCreateScan picks the scan this run belongs to: the one aidetector.yml
+// findOrCreateScan picks the scan this run belongs to: the one runpentests.yml
 // pins, else the latest one for the same target, else a new one. Reusing is
 // the point — identities, triage and the diff all live on the scan.
 func findOrCreateScan(ctx context.Context, e *Env, c *api.Client, target, pinned string, fresh bool) (api.Scan, bool, int) {
@@ -375,7 +375,7 @@ func findOrCreateScan(ctx context.Context, e *Env, c *api.Client, target, pinned
 				return api.Scan{}, false, e.exitFor(err)
 			}
 		}
-		e.errorf("reusing scan %s (pinned in aidetector.yml)\n", scan.ID)
+		e.errorf("reusing scan %s (pinned in runpentests.yml)\n", scan.ID)
 		return scan, false, ExitOK
 	}
 	if !fresh {
@@ -390,7 +390,7 @@ func findOrCreateScan(ctx context.Context, e *Env, c *api.Client, target, pinned
 			}
 			note := ""
 			if count > 1 {
-				note = fmt.Sprintf(" — %d scans match; pin one with scan: in aidetector.yml", count)
+				note = fmt.Sprintf(" — %d scans match; pin one with scan: in runpentests.yml", count)
 			}
 			e.errorf("reusing scan %s for %s%s\n", scan.ID, target, note)
 			return scan, false, ExitOK
@@ -433,8 +433,8 @@ func applyIdentities(ctx context.Context, e *Env, c *api.Client, scan *api.Scan,
 			}
 		}
 		e.errorf("warning: this scan has no identities, so the authorization checks (BOLA, BFLA, " +
-			"broken auth) will be skipped — add them under identities: in aidetector.yml or with " +
-			"`aidetector cred add`\n")
+			"broken auth) will be skipped — add them under identities: in runpentests.yml or with " +
+			"`runpentests cred add`\n")
 		return secrets, ExitOK
 	}
 
@@ -492,7 +492,7 @@ func applyIdentities(ctx context.Context, e *Env, c *api.Client, scan *api.Scan,
 			return nil, e.exitFor(err)
 		}
 		if shapeChanged {
-			e.errorf("identity %s (%s): updated from aidetector.yml\n", id.Name, id.Role)
+			e.errorf("identity %s (%s): updated from runpentests.yml\n", id.Name, id.Role)
 		}
 	}
 	return secrets, ExitOK
@@ -714,15 +714,15 @@ func showFindings(ctx context.Context, e *Env, c *api.Client, id string) int {
 	e.printf("%d finding(s), %d verified\n", len(live), verifiedCount)
 	printLimits(ctx, e, c, id)
 	e.errorf("view: %s\n", scanPageURL(e, c.Base(), id))
-	e.errorf("details: aidetector findings %s · report: aidetector report %s --format html -o report.html\n", id, id)
+	e.errorf("details: runpentests findings %s · report: runpentests report %s --format html -o report.html\n", id, id)
 	return ExitOK
 }
 
 // scanPageURL is the scan's page in the web UI. The hosted server serves the web
 // and the API from one origin; a local `make up` puts the API on :8000 and the
-// web on :3000. AIDETECTOR_WEB_URL overrides both guesses.
+// web on :3000. RUNPENTESTS_WEB_URL overrides both guesses.
 func scanPageURL(e *Env, server, id string) string {
-	base := strings.TrimRight(e.Getenv("AIDETECTOR_WEB_URL"), "/")
+	base := strings.TrimRight(e.Getenv("RUNPENTESTS_WEB_URL"), "/")
 	if base == "" {
 		base = strings.TrimRight(server, "/")
 		if u, err := url.Parse(base); err == nil && project.IsLoopbackTarget(base) && u.Port() == "8000" {

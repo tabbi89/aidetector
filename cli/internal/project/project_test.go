@@ -456,6 +456,22 @@ func TestFindLooksForEitherName(t *testing.T) {
 	}
 }
 
+func TestFindAcceptsLegacyNamesAndPrefersRunpentests(t *testing.T) {
+	for _, name := range []string{"aidetector.yml", "aidetector.yaml"} {
+		dir := t.TempDir()
+		write(t, dir, name, "target: https://old.example\n")
+		got, err := Find(dir)
+		if err != nil || got == nil || got.Target != "https://old.example" {
+			t.Fatalf("legacy project: %v, %v", got, err)
+		}
+		write(t, dir, FileName, "target: https://new.example\n")
+		got, err = Find(dir)
+		if err != nil || got == nil || got.Target != "https://new.example" {
+			t.Fatalf("canonical project must win: %v, %v", got, err)
+		}
+	}
+}
+
 func TestFindSpecPrefersTheShallowestAndSkipsVendoredTrees(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "node_modules/pkg/openapi.json", "{}")
@@ -540,7 +556,7 @@ func TestLocalIsNoLongerAKey(t *testing.T) {
 }
 
 func TestIdentityAcceptsATenantAndBoundsIt(t *testing.T) {
-	f, err := Parse([]byte("identities:\n  - { name: a, role: editor, tenant: ws-a, secret_env: A }\n"), "aidetector.yml")
+	f, err := Parse([]byte("identities:\n  - { name: a, role: editor, tenant: ws-a, secret_env: A }\n"), "runpentests.yml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -548,7 +564,7 @@ func TestIdentityAcceptsATenantAndBoundsIt(t *testing.T) {
 		t.Fatalf("tenant = %q", got)
 	}
 	long := strings.Repeat("x", 121)
-	if _, err := Parse([]byte("identities:\n  - { name: a, role: editor, tenant: "+long+", secret_env: A }\n"), "aidetector.yml"); err == nil {
+	if _, err := Parse([]byte("identities:\n  - { name: a, role: editor, tenant: "+long+", secret_env: A }\n"), "runpentests.yml"); err == nil {
 		t.Fatal("a tenant over 120 characters should be refused")
 	}
 }

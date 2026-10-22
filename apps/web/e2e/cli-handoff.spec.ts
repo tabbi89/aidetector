@@ -32,14 +32,14 @@ test("CLI handoffs copy the configured server without embedding secrets", async 
   await page.getByRole("button", { name: /Continue to run/ }).click();
 
   const handoff = page.locator(".cli-handoff");
-  const prefix = `AIDETECTOR_SERVER=${server} AIDETECTOR_API_KEY=<your-api-key> `;
-  const runCommand = `${prefix}aidetector run ${sid} --authorized --fail-on high --verified-only`;
+  const prefix = `RUNPENTESTS_SERVER=${server} RUNPENTESTS_API_KEY=<your-api-key> `;
+  const runCommand = `${prefix}runpentests run ${sid} --authorized --fail-on high --verified-only`;
   await expect(handoff.locator("pre")).toHaveText(runCommand);
   await handoff.getByRole("button", { name: /^Copy run command/ }).click();
   await expect(page.locator("html")).toHaveAttribute("data-copied", runCommand);
 
   await handoff.getByRole("tab", { name: "Project file" }).click();
-  const projectCommand = `${prefix}aidetector http://target.test --config ./aidetector.yml --authorized`;
+  const projectCommand = `${prefix}runpentests http://target.test --config ./runpentests.yml --authorized`;
   await expect(handoff.locator("pre").last()).toHaveText(projectCommand);
   await handoff.getByRole("button", { name: /^Copy project command/ }).click();
   await expect(page.locator("html")).toHaveAttribute("data-copied", projectCommand);

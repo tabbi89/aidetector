@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"aidetector/cli/internal/api"
+	"runpentests/cli/internal/api"
 )
 
 // cmdCost prints what the scan's AI steps spent: the total, the per-model

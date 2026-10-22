@@ -61,3 +61,27 @@ test("on a phone the primary links fold into a menu and mark the current section
   await expect(menu).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 });
+
+test("member removal keeps API failures in the confirmation and refreshes after retry", async ({ page, api }) => {
+  void api;
+  const member = { user_id: "member-1", email: "dana@example.test", display_name: "Dana", role: "viewer", created_at: "2026-01-01T00:00:00Z" };
+  let removed = false, attempts = 0;
+  await page.route("http://api.test/workspace/members", (route) => route.fulfill({ json: removed ? [] : [member] }));
+  await page.route("http://api.test/workspace/members/member-1", (route) => {
+    attempts += 1;
+    if (attempts === 1) return route.fulfill({ status: 503, json: { detail: "Try removing this member again." } });
+    removed = true;
+    return route.fulfill({ json: { status: "removed" } });
+  });
+  await page.goto("/workspace?section=members");
+  await page.getByRole("button", { name: "Remove Dana", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Remove workspace member?" });
+  await expect(dialog).toContainText("Dana");
+  await dialog.getByRole("button", { name: "Remove member", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Try removing this member again.");
+  await dialog.getByRole("button", { name: "Remove member", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Dana", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Dana removed." })).toBeVisible();
+  expect(attempts).toBe(2);
+});

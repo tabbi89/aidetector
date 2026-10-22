@@ -1,5 +1,12 @@
 "use client";
 
+import { PlanBadge } from "../../components/PlanBadge";
+
+import { ExpandingTextarea } from "../../components/ExpandingTextarea";
+
+import { ValidatedForm } from "../../components/ValidatedForm";
+import { useConfirmation } from "../../components/Confirmation";
+
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   api,
@@ -52,6 +59,7 @@ export function FindingWork({
   onRetest: (check: string) => void;
 }) {
   const [ownerUserId, setOwnerUserId] = useState(work?.owner_user_id ?? "");
+  const confirmAction = useConfirmation();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [membersLoaded, setMembersLoaded] = useState(false);
   const [dueDate, setDueDate] = useState(work?.due_date ?? "");
@@ -133,19 +141,12 @@ export function FindingWork({
   }
 
   async function clearAssignment() {
-    if (!window.confirm("Clear this finding's assignment and status?")) return;
-    setBusy("clear");
-    setErrors((prev) => ({ ...prev, clear: undefined }));
-    try {
-      await onDeleteWork(finding.fingerprint);
-      setOwnerUserId("");
-      setDueDate("");
-      setStatus("open");
-    } catch (e) {
-      setErrors((prev) => ({ ...prev, clear: (e as Error).message }));
-    } finally {
-      setBusy(null);
-    }
+    await confirmAction({ title: "Clear assignment and status?", description: `Remove the owner and due date for “${finding.title}” and reset its work status.`, actionLabel: "Clear assignment", intent: "warning", action: async () => {
+      setBusy("clear");
+      setErrors((prev) => ({ ...prev, clear: undefined }));
+      try { await onDeleteWork(finding.fingerprint); setOwnerUserId(""); setDueDate(""); setStatus("open"); }
+      finally { setBusy(null); }
+    } });
   }
 
   async function submitComment(event: FormEvent<HTMLFormElement>) {
@@ -211,6 +212,7 @@ export function FindingWork({
     >
       <summary>
         <span>Assignment &amp; discussion</span>
+        <PlanBadge premium />
         {activity > 0 && (
           <span className="fw-count" title="Owner and comments recorded">
             {activity}
@@ -339,8 +341,8 @@ export function FindingWork({
             </ul>
           )}
 
-          <form className="fw-compose" onSubmit={submitComment}>
-            <textarea
+          <ValidatedForm className="fw-compose" onSubmit={submitComment}>
+            <ExpandingTextarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               maxLength={4000}
@@ -358,7 +360,7 @@ export function FindingWork({
                 {busy === "comment" ? "Adding…" : "Add"}
               </button>
             </div>
-          </form>
+          </ValidatedForm>
           {errors.comment && (
             <p className="fw-error" role="alert">
               {errors.comment}

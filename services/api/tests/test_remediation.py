@@ -325,7 +325,7 @@ def test_sarif_shape():
     doc = to_sarif(scan)
     assert doc["version"] == "2.1.0"
     run = doc["runs"][0]
-    assert run["tool"]["driver"]["name"] == "aidetector"
+    assert run["tool"]["driver"]["name"] == "runpentests"
     assert run["results"][0]["ruleId"] == "bola"
     assert run["results"][0]["level"] == "error"
     assert run["results"][0]["properties"]["cwe"] == "CWE-639"

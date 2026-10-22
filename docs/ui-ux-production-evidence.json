@@ -1,0 +1,236 @@
+{
+  "date": "2026-10-22",
+  "scope": "Visual learning, illustrated Coverage/CLI guides, responsive CLI precedence, styled catalogue dropdowns, homepage stack strip, premium/AI web run controls, shared validation/editor/confirmation foundations, compact workspace plan comparison, runpentests public/CLI rename, dark default, scroll-aware guide navigation, shared evidence spacing",
+  "checks": [
+    {
+      "command": "cd apps/web && npm run lint",
+      "result": "passed",
+      "notes": [
+        "Next.js warns that next lint is deprecated. No lint findings."
+      ]
+    },
+    {
+      "command": "cd apps/web && npx tsc --noEmit",
+      "result": "passed"
+    },
+    {
+      "command": "cd apps/web && npm run build",
+      "result": "passed"
+    },
+    {
+      "command": "cd apps/web && npm run test:e2e",
+      "result": "passed",
+      "tests": 77,
+      "failed": 0,
+      "skipped": 0,
+      "durationSeconds": 24.0,
+      "api": "mocked http://api.test"
+    },
+    {
+      "command": "Full browser suite includes visual-guides.spec.ts, cli-guide.spec.ts, coverage-selects.spec.ts and web-passes.spec.ts",
+      "result": "passed",
+      "tests": 20,
+      "failed": 0,
+      "skipped": 0,
+      "notes": [
+        "Guides, menu geometry, keyboard/typeahead, homepage spacing/technology strip, web pass defaults, entitlements and failed-run retry."
+      ]
+    },
+    {
+      "command": "docker compose run --rm --no-deps api pytest tests/test_coverage_mirror.py -q",
+      "result": "passed",
+      "tests": 13,
+      "skipped": 0,
+      "notes": [
+        "Disposable container; no scanner services or target traffic started. Local Python virtualenv has a broken interpreter symlink."
+      ]
+    },
+    {
+      "command": "Prettier --check on new components/styles, rewritten guides/home and new browser tests",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "premium audit_project.py . --mode strict",
+      "result": "passed",
+      "evidence": "docs/ui-ux-premium-audit-2026-10-22.json",
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "command": "npx --yes --package @google/design.md designmd lint DESIGN.md",
+      "result": "passed",
+      "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 1
+      }
+    },
+    {
+      "command": "resolve_frontend_design.py --status",
+      "result": "MATCH"
+    },
+    {
+      "command": "Search app source for window.confirm/window.alert/window.prompt/reportValidity",
+      "result": "no matches"
+    },
+    {
+      "command": "cd apps/web && npm audit --omit=dev --json",
+      "result": "passed",
+      "vulnerabilities": 0,
+      "notes": [
+        "Next.js and eslint-config-next patched to 15.5.28; source-map-js refreshed. Development-toolchain advisories are outside this runtime audit."
+      ]
+    },
+    {
+      "command": "Go container: gofmt, go vet ./..., go test -race -count=1 ./...",
+      "result": "passed",
+      "notes": [
+        "Renamed module and command, legacy project/config/env compatibility, API-key namespace isolation."
+      ]
+    },
+    {
+      "command": "make cli; cli/bin/runpentests version; cli/bin/runpentests help",
+      "result": "passed",
+      "artifact": "cli/bin/runpentests"
+    },
+    {
+      "command": "API pytest: test_runner, test_remediation, test_runner_distribution, test_coverage_mirror, test_local_only_credentials, test_db_schema",
+      "result": "passed",
+      "tests": 204,
+      "skipped": 0,
+      "notes": [
+        "Initial run skipped 23 DB cases. Re-ran all selected tests with TEST_REQUIRE_DB=1 against an isolated disposable PostgreSQL container; removed that container afterwards."
+      ]
+    },
+    {
+      "command": "Caddy adapt --config deploy/caddy/Caddyfile",
+      "result": "passed",
+      "notes": [
+        "Accepts new and legacy CLI routing names. Requests retain a compatibility prefix for already-deployed proxies."
+      ]
+    },
+    {
+      "command": "ruff check --no-cache on changed API modules/tests",
+      "result": "passed"
+    }
+  ],
+  "browserEvidence": {
+    "engine": "Playwright Chromium",
+    "viewports": [
+      320,
+      390,
+      460,
+      961,
+      1280,
+      1440
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "reducedMotion": true,
+    "scenarios": [
+      "proof/lead/skipped examples",
+      "catalogue filtering and clearing",
+      "URL restore",
+      "IME composition",
+      "Radix Select keyboard, typeahead, selection, Escape/focus restoration and trigger-width popup geometry",
+      "form validation and focus",
+      "bounded editor growth",
+      "scan run defaults and consent",
+      "modal focus trap and restoration",
+      "async error and retry",
+      "busy duplicate prevention",
+      "typed monitor-name confirmation",
+      "workspace member removal retry",
+      "matching Coverage/CLI illustrated headers",
+      "CLI precedence columns fit without clipping",
+      "homepage intro spacing and Cloudflare/Stripe/OpenAI stack strip",
+      "Deep web runs with writes off",
+      "premium plan controls and unavailable AI",
+      "individual AI passes, attempts and retry",
+      "AI bundle opt-out and all-off behavior",
+      "Free/Premium plan card layout, accurate catalogue counts, links and full-detail keyboard disclosure",
+      "dark default on a light-preferring OS, stored light preference survives reload",
+      "blocked localStorage and JavaScript-disabled dark rendering",
+      "runpentests brand/header at 320px",
+      "CLI/Coverage active-section highlighting on deep links, clicks, scroll and Back",
+      "scroll preserves URL/history and sticky bars do not obscure target sections",
+      "Coverage evidence intro-to-panel gap of at least 28px on mobile"
+    ],
+    "screenshots": "apps/web/test-results/{visual-guides,cli-guide,coverage-selects,web-passes}-*/",
+    "siblingComparison": "apps/web/e2e/scan-results.spec.ts",
+    "limits": [
+      "Browser workflows use a mocked API.",
+      "No live scan was performed.",
+      "Safari, Firefox, physical mobile keyboard, screen-reader and user-comprehension review remain separate release QA."
+    ],
+    "forcedColors": {
+      "result": "passed",
+      "scrollbarColor": "auto",
+      "notes": "System colors take ownership in forced-colors mode.",
+      "selectViewportScrollbar": "thin normally; auto system colors under forced-colors"
+    },
+    "localPreview": {
+      "url": "http://127.0.0.1:3108/",
+      "nextVersion": "15.5.28",
+      "pageErrors": [],
+      "selectScrollCheck": {
+        "scrollHeight": 608,
+        "clientHeight": 334,
+        "scrollbarWidth": "thin"
+      },
+      "screenshots": [
+        "/tmp/runpentests-cli-active-section-final.png",
+        "/tmp/runpentests-coverage-spacing.png"
+      ]
+    },
+    "planComparison": {
+      "viewports": [
+        320,
+        390,
+        768,
+        1280
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "pageErrors": [],
+      "horizontalOverflow": false,
+      "keyboard": "Enter opens full comparison; Space closes; focus retained",
+      "navigation": {
+        "Free": "/scans/new",
+        "Premium": "/coverage?plan=premium#check-details"
+      },
+      "freeActionMinimumContrast": 9.54,
+      "screenshots": [
+        "/tmp/aidetector-plans-final-light.png",
+        "/tmp/aidetector-plans-final-dark.png"
+      ]
+    }
+  },
+  "designContracts": [
+    "DESIGN.md",
+    "UX-CONTRACT.md",
+    "premium-ui.json"
+  ],
+  "followUpPriorities": "docs/ui-ux-production-review-2026-10-22.md",
+  "branding": {
+    "publicName": "runpentests",
+    "command": "runpentests",
+    "projectFile": "runpentests.yml",
+    "compatibility": [
+      "aidetector.yml/.yaml",
+      "saved profiles",
+      "AIDETECTOR_* variables",
+      "stable browser storage keys",
+      "legacy proxy routing"
+    ],
+    "serviceOrigins": "Existing configured hosts retained; this is not a DNS migration."
+  }
+}

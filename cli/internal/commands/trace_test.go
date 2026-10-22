@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"aidetector/cli/internal/api"
+	"runpentests/cli/internal/api"
 )
 
 // traceRow builds one MutationRow the fake server can page through.
@@ -58,7 +58,7 @@ func TestRunTraceTableFiltersByStatusAndIdentity(t *testing.T) {
 	if !strings.Contains(out, "1 shown · 1 match · 3 request(s) in the run") {
 		t.Fatalf("footer should count shown and total:\n%s", out)
 	}
-	if !strings.Contains(h.errOut.String(), "detail: aidetector runs trace 11111111 1 --seq <N>") {
+	if !strings.Contains(h.errOut.String(), "detail: runpentests runs trace 11111111 1 --seq <N>") {
 		t.Fatalf("stderr should point at --seq: %q", h.errOut.String())
 	}
 }
@@ -69,7 +69,7 @@ func TestRunTraceSingleNumberIsTheRunOnTheProjectScan(t *testing.T) {
 	defer srv.Close()
 	h := newHarness(t, srv, "", false)
 	h.env.Dir = t.TempDir()
-	writeFile(t, h.env.Dir, "aidetector.yml", "target: http://t\n")
+	writeFile(t, h.env.Dir, "runpentests.yml", "target: http://t\n")
 
 	if code := h.run("runs", "trace", "2"); code != ExitOK {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())

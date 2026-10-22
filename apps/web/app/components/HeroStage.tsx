@@ -94,24 +94,24 @@ export function HeroStage() {
 }
 
 /** The scanner, drawn on the favicon's shield. Pure shapes; colours from CSS. */
-function ScannerBot() {
+export function ScannerBot({ idPrefix = "bot" }: { idPrefix?: string }) {
   return (
     <svg className="bot" viewBox="0 0 300 360" role="presentation" focusable="false">
       <defs>
-        <clipPath id="bot-visor-clip">
+        <clipPath id={`${idPrefix}-visor-clip`}>
           <rect x="114" y="76" width="72" height="24" rx="12" />
         </clipPath>
-        <radialGradient id="bot-halo-grad">
+        <radialGradient id={`${idPrefix}-halo-grad`}>
           <stop offset="0" className="g-halo-in" />
           <stop offset="1" className="g-halo-out" />
         </radialGradient>
-        <linearGradient id="bot-suit-grad" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${idPrefix}-suit-grad`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" className="g-suit-top" />
           <stop offset="1" className="g-suit-bottom" />
         </linearGradient>
       </defs>
 
-      <circle cx="150" cy="180" r="150" fill="url(#bot-halo-grad)" />
+      <circle cx="150" cy="180" r="150" fill={`url(#${idPrefix}-halo-grad)`} />
       <g className="bot-orbits">
         <ellipse className="bot-orbit" cx="150" cy="180" rx="142" ry="142" />
         <circle className="bot-packet" cx="8" cy="180" r="4" />
@@ -131,7 +131,7 @@ function ScannerBot() {
         <rect className="bot-trim" x="176" y="300" width="14" height="4" rx="2" />
 
         {/* torso */}
-        <rect fill="url(#bot-suit-grad)" x="100" y="138" width="100" height="120" rx="30" />
+        <rect fill={`url(#${idPrefix}-suit-grad)`} x="100" y="138" width="100" height="120" rx="30" />
         <rect className="bot-dark" x="104" y="226" width="92" height="12" rx="6" />
         <rect className="bot-visor" x="122" y="166" width="56" height="42" rx="9" />
         <rect className="bot-ok bar b1" x="130" y="184" width="8" height="18" rx="2" />
@@ -171,7 +171,7 @@ function ScannerBot() {
           d="M150 46 L193 63 V92 C193 113 176 128 150 137 C124 128 107 113 107 92 V63 Z"
         />
         <rect className="bot-visor" x="114" y="76" width="72" height="24" rx="12" />
-        <g clipPath="url(#bot-visor-clip)">
+        <g clipPath={`url(#${idPrefix}-visor-clip)`}>
           <rect className="bot-ok-dim" x="114" y="86" width="72" height="4" />
           <rect className="bot-scan" x="114" y="76" width="18" height="24" />
         </g>

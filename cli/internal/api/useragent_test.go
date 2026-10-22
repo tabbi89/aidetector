@@ -18,12 +18,12 @@ func TestEveryRequestCarriesTheCLIUserAgent(t *testing.T) {
 	}))
 	defer srv.Close()
 	old := UserAgent
-	UserAgent = "aidetector-cli/test"
+	UserAgent = "aidetector-cli/test runpentests-cli/test"
 	defer func() { UserAgent = old }()
 	if err := New(srv.URL, "").Ready(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(got, "aidetector-cli/") {
-		t.Fatalf("User-Agent = %q, want the aidetector-cli/ prefix", got)
+	if !strings.HasPrefix(got, "aidetector-cli/") || !strings.Contains(got, "runpentests-cli/") {
+		t.Fatalf("User-Agent = %q, want both legacy routing and the new CLI identity", got)
 	}
 }

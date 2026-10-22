@@ -38,7 +38,7 @@ export interface Credential {
   privilege: number | null;
   /** The workspace the identity belongs to; null when it declares none. Always present. */
   tenant: string | null;
-  // The secret stays on the CLI machine; only `aidetector run` uses it.
+  // The secret stays on the CLI machine; only `runpentests run` uses it.
   local_only: boolean;
 }
 
@@ -472,7 +472,7 @@ export interface CredentialInput {
   privilege?: number | null;
   /** The workspace the identity belongs to; null when undeclared. */
   tenant?: string | null;
-  /** The secret stays on the CLI machine; only `aidetector run` can use it. */
+  /** The secret stays on the CLI machine; only `runpentests run` can use it. */
   local_only?: boolean;
 }
 

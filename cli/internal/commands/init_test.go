@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"aidetector/cli/internal/project"
+	"runpentests/cli/internal/project"
 )
 
 func loadInit(t *testing.T, h *harness) *project.Loaded {
@@ -33,7 +33,7 @@ func TestInitSingleKeyFollowsTheSpecsScheme(t *testing.T) {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
 	}
 	f := loadInit(t, h).File
-	if f.TokenEnv != "AIDETECTOR_TOKEN" || f.TokenAuth != "query" || f.TokenHeader != "api_key" {
+	if f.TokenEnv != "RUNPENTESTS_TOKEN" || f.TokenAuth != "query" || f.TokenHeader != "api_key" {
 		t.Fatalf("want a query-key shorthand, got %+v", f)
 	}
 	if f.Spec != "openapi.json" {
@@ -45,7 +45,7 @@ func TestInitSingleKeyFollowsTheSpecsScheme(t *testing.T) {
 	if got := s.last("POST /specs/auth-hints")["spec"]; got != testSpec {
 		t.Errorf("the local spec should be sent for hints, got %v", got)
 	}
-	if !strings.Contains(h.errOut.String(), "export AIDETECTOR_TOKEN=") {
+	if !strings.Contains(h.errOut.String(), "export RUNPENTESTS_TOKEN=") {
 		t.Errorf("init should say which variable to export:\n%s", h.errOut.String())
 	}
 }
@@ -76,7 +76,7 @@ func TestInitRolesWithAnOAuthGrant(t *testing.T) {
 		g.ClientID != grantPlaceholder {
 		t.Fatalf("want a client_credentials grant with a placeholder client_id, got %+v", g)
 	}
-	if ids[1].SecretEnv != "AIDETECTOR_ADMIN_TOKEN" {
+	if ids[1].SecretEnv != "RUNPENTESTS_ADMIN_TOKEN" {
 		t.Errorf("secret_env = %q", ids[1].SecretEnv)
 	}
 	if !strings.Contains(h.errOut.String(), grantPlaceholder) {

@@ -132,6 +132,7 @@ def _require_run_authorization[R: schemas.RunRequest](
             options=body.to_options(),
             tenant_id=tenant_id,
             premium=entitled,
+            lane=lane,
         )
     except policy.RunNotAuthorized as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc

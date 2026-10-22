@@ -1,5 +1,5 @@
-// Package project reads aidetector.yml, the project file that lets a plain
-// `aidetector` inside a repository know what to scan and how.
+// Package project reads runpentests.yml, the project file that lets a plain
+// `runpentests` inside a repository know what to scan and how.
 //
 // The file is committed, so two rules shape it:
 //   - it never holds a secret: an identity names the environment variable its
@@ -33,9 +33,12 @@ import (
 
 // FileName is the project file the CLI looks for. AltFileName is accepted too.
 const (
-	FileName    = "aidetector.yml"
-	AltFileName = "aidetector.yaml"
+	FileName    = "runpentests.yml"
+	AltFileName = "runpentests.yaml"
 )
+
+// FileNames lists canonical names before compatibility names from earlier releases.
+var FileNames = []string{FileName, AltFileName, "aidetector.yml", "aidetector.yaml"}
 
 // maxFileBytes bounds the read: a project file is a few dozen lines.
 const maxFileBytes = 64 << 10
@@ -93,7 +96,7 @@ type Schema struct {
 	Tables      []string `yaml:"tables"`
 }
 
-// File is aidetector.yml as written. A zero value means "not set here".
+// File is runpentests.yml as written. A zero value means "not set here".
 type File struct {
 	Target       string   `yaml:"target"`
 	Scan         string   `yaml:"scan"`
@@ -164,7 +167,7 @@ var secretKeys = map[string]bool{
 
 // Find looks for the project file in dir. It returns nil, nil when there is none.
 func Find(dir string) (*Loaded, error) {
-	for _, name := range []string{FileName, AltFileName} {
+	for _, name := range FileNames {
 		p := filepath.Join(dir, name)
 		if info, err := os.Stat(p); err == nil && !info.IsDir() {
 			return Load(p)

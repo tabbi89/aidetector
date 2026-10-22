@@ -157,33 +157,33 @@ test-mutation: ## Report targeted policy mutations (no database or target needed
 
 .PHONY: check web test-integration test-web test-coverage test-contracts test-mutation
 
-# --- aidetector CLI (Go) -----------------------------------------------------
+# --- runpentests CLI (Go) -----------------------------------------------------
 # Go is not required on the host: every target runs in the official image.
 GO_IMAGE ?= golang:1.23
 CLI_OS   := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 CLI_ARCH := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-# `aidetector version` prints this; a tag is nice, a bare commit is enough.
+# `runpentests version` prints this; a tag is nice, a bare commit is enough.
 CLI_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 GO_RUN   := docker run --rm --user $$(id -u):$$(id -g) -e HOME=/tmp -e GOPATH=/tmp/go \
             -e GOCACHE=/tmp/gocache -v "$(CURDIR)/cli":/src -w /src
 
-cli: ## Build cli/bin/aidetector for this machine
+cli: ## Build cli/bin/runpentests for this machine
 	@mkdir -p cli/bin
 	$(GO_RUN) -e CGO_ENABLED=0 -e GOOS=$(CLI_OS) -e GOARCH=$(CLI_ARCH) $(GO_IMAGE) \
-	    go build -trimpath -ldflags "-s -w -X aidetector/cli/internal/commands.Version=$(CLI_VERSION)" \
-	    -o bin/aidetector ./cmd/aidetector
-	@echo "built cli/bin/aidetector ($(CLI_OS)/$(CLI_ARCH))"
+	    go build -trimpath -ldflags "-s -w -X runpentests/cli/internal/commands.Version=$(CLI_VERSION)" \
+	    -o bin/runpentests ./cmd/runpentests
+	@echo "built cli/bin/runpentests ($(CLI_OS)/$(CLI_ARCH))"
 
 BINDIR ?= /usr/local/bin
 
-install-cli: cli ## Build the CLI and install it as /usr/local/bin/aidetector (sudo only if needed; BINDIR=dir to change)
+install-cli: cli ## Build the CLI and install it as /usr/local/bin/runpentests (sudo only if needed; BINDIR=dir to change)
 	@if [ -w "$(BINDIR)" ]; then \
-	    install -m 0755 cli/bin/aidetector "$(BINDIR)/aidetector"; \
+	    install -m 0755 cli/bin/runpentests "$(BINDIR)/runpentests"; \
 	else \
 	    echo "$(BINDIR) is not writable; installing with sudo"; \
-	    sudo install -m 0755 cli/bin/aidetector "$(BINDIR)/aidetector"; \
+	    sudo install -m 0755 cli/bin/runpentests "$(BINDIR)/runpentests"; \
 	fi
-	@echo "installed $(BINDIR)/aidetector ($$("$(BINDIR)/aidetector" version 2>/dev/null || echo unknown version))"
+	@echo "installed $(BINDIR)/runpentests ($$("$(BINDIR)/runpentests" version 2>/dev/null || echo unknown version))"
 
 cli-all: ## Cross-compile the CLI for macOS, Linux and Windows into cli/bin
 	@mkdir -p cli/bin
@@ -191,8 +191,8 @@ cli-all: ## Cross-compile the CLI for macOS, Linux and Windows into cli/bin
 	    os=$${target%/*}; arch=$${target#*/}; ext=""; [ "$$os" = windows ] && ext=".exe"; \
 	    echo "-> $$os/$$arch"; \
 	    $(GO_RUN) -e CGO_ENABLED=0 -e GOOS=$$os -e GOARCH=$$arch $(GO_IMAGE) \
-	        go build -trimpath -ldflags "-s -w -X aidetector/cli/internal/commands.Version=$(CLI_VERSION)" \
-	            -o bin/aidetector-$$os-$$arch$$ext ./cmd/aidetector || exit 1; \
+	        go build -trimpath -ldflags "-s -w -X runpentests/cli/internal/commands.Version=$(CLI_VERSION)" \
+	            -o bin/runpentests-$$os-$$arch$$ext ./cmd/runpentests || exit 1; \
 	done
 
 test-cli: ## gofmt + vet + race-enabled tests for the CLI
@@ -200,13 +200,13 @@ test-cli: ## gofmt + vet + race-enabled tests for the CLI
 	    go vet ./... && go test -race -count=1 ./...'
 	@echo "CLI tests passed."
 
-runner-image: ## Build the runner image every `aidetector` CLI run uses (OAST + the confirm/testssl tools)
+runner-image: ## Build the runner image every `runpentests` CLI run uses (OAST + the confirm/testssl tools)
 	docker build -f services/api/runner.Dockerfile \
 	    --label org.opencontainers.image.revision=$(CLI_VERSION) \
-	    -t aidetector-runner:latest services/api
+	    -t runpentests-runner:latest services/api
 
-kali-image: ## Build the Kali adjunct image `aidetector run --zap/--kali` starts as a sibling
-	docker build -t aidetector-kali:latest services/kali
+kali-image: ## Build the Kali adjunct image `runpentests run --zap/--kali` starts as a sibling
+	docker build -t runpentests-kali:latest services/kali
 
 cli-contract: ## Refresh cli/testdata/openapi.json from the running api (then run test-cli)
 	$(DC_EXEC) api python -m scripts.export_openapi /app/openapi.json

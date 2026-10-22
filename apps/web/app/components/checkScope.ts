@@ -118,7 +118,7 @@ export const NEED_HINT: Record<Need, string> = {
 /** The option that switches a need on, for the "won't run" hint. */
 export const NEED_OPTION: Record<Need, string> = {
   mutate: "Test writes",
-  premium: "the Standard scan level",
+  premium: "premium detections (or Standard/Deep)",
   fuzz: "the Standard scan level",
   oast: "an OAST server (deployment setting)",
 };
@@ -126,17 +126,8 @@ export const NEED_OPTION: Record<Need, string> = {
 export type PresetId = "all" | "custom" | string;
 
 /**
- * The pass flags a preset forces off. The scan level now owns schema fuzzing
- * and premium (the server expands it), and the heavy passes live in the CLI
- * lane, so choosing a preset only narrows the checks and clears any legacy
- * pass flags a restored selection still carried.
- */
-type PresetPass = "fuzz" | "premium" | "zap" | "kali" | "confirm";
-const PRESET_PASSES: PresetPass[] = ["fuzz", "premium", "zap", "kali", "confirm"];
-
-/**
- * Apply a preset's passes; a custom selection leaves them as they are. A pass
- * the server reported as unavailable is cleared too, so it cannot travel on.
+ * Scope changes preserve explicitly chosen run passes. A caller may clear
+ * passes reported unavailable, while a custom selection stays unchanged.
  */
 export function withPresetPasses(
   options: RunOptions,
@@ -145,7 +136,6 @@ export function withPresetPasses(
 ): RunOptions {
   if (preset === "custom") return options;
   const next = { ...options };
-  for (const pass of PRESET_PASSES) next[pass] = false;
   const flags = next as unknown as Record<string, boolean>;
   for (const pass of unavailable) {
     if (pass in flags) flags[pass] = false;

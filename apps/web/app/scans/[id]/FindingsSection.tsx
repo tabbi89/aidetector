@@ -1,9 +1,11 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, type Finding, type FindingWork as FindingWorkItem, type FindingWorkInput, type Operation, type Severity, type Verdict } from "@/lib/api";
 import { useUrlState } from "@/lib/useUrlState";
 import { Ago } from "../../components/ui";
+import { ExportMenu } from "../../components/ExportMenu";
+import { PlanBadge } from "../../components/PlanBadge";
 import { FindingWork } from "./FindingWork";
 import { revealRequestLog } from "./RunInsights";
 import {
@@ -73,6 +75,7 @@ function initialFilters() {
     premiumOnly: params.get("premium") === "1",
     query: params.get("q") ?? "",
     showDismissed: params.get("dismissed") === "1",
+    grouped: params.get("group") === "check",
   };
 }
 
@@ -255,8 +258,50 @@ function FindingsSectionImpl({
   const [query, setQuery] = useState("");
   const [showDismissed, setShowDismissed] = useState(false);
   const [shown, setShown] = useState(PAGE_SIZE);
-  const [exporting, setExporting] = useState<string | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const filterPanelId = useId();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [filtersReady, setFiltersReady] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const { set: setUrlState } = useUrlState();
+  useEffect(() => {
+    const restore = () => {
+      const initial = initialFilters();
+      setSevFilter(initial.sevFilter);
+      setCheckFilter(initial.checkFilter);
+      setEndpointFilter(initial.endpointFilter);
+      setVerdictFilter(initial.verdictFilter);
+      setSortBy(initial.sortBy);
+      setVerifiedOnly(initial.verifiedOnly);
+      setPremiumOnly(initial.premiumOnly);
+      setQuery(initial.query);
+      setShowDismissed(initial.showDismissed);
+      setGrouped(initial.grouped);
+      setFiltersReady(true);
+    };
+    restore();
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
+  useEffect(() => {
+    if (!filtersReady || composing) return;
+    setUrlState({
+      sev: sevFilter === "all" ? null : sevFilter,
+      check: checkFilter === "all" ? null : checkFilter,
+      endpoint: endpointFilter === "all" ? null : endpointFilter,
+      verdict: verdictFilter === "all" ? null : verdictFilter,
+      sort: sortBy === "severity" ? null : sortBy,
+      verified: verifiedOnly ? "1" : null,
+      premium: premiumOnly ? "1" : null,
+      q: query || null,
+      dismissed: showDismissed ? "1" : null,
+      group: grouped ? "check" : null,
+    });
+  }, [filtersReady, composing, setUrlState, sevFilter, checkFilter, endpointFilter, verdictFilter, sortBy, verifiedOnly, premiumOnly, query, showDismissed, grouped]);
+  const extraFilterCount = [checkFilter !== "all", endpointFilter !== "all", verdictFilter !== "all", premiumOnly, showDismissed].filter(Boolean).length;
+  useEffect(() => {
+    if (checkFilter !== "all" || endpointFilter !== "all" || verdictFilter !== "all" || premiumOnly || showDismissed) setMoreFiltersOpen(true);
+  }, [checkFilter, endpointFilter, verdictFilter, premiumOnly, showDismissed]);
   // When a filter is active the server owns the filtered set. It is read a
   // page at a time: a permanent 5,000-row window silently hid matches beyond
   // it, and a page of dismissed rows could fill the whole window.
@@ -299,12 +344,6 @@ function FindingsSectionImpl({
     for (const f of source) map.set(f.id, endpointOf(f, byId));
     return map;
   }, [source, operations]);
-
-  const counts = useMemo(() => {
-    const c: Record<string, number> = {};
-    for (const f of source) c[f.severity] = (c[f.severity] ?? 0) + 1;
-    return c;
-  }, [source]);
 
   const dismissedCount = useMemo(
     () => source.filter((f) => f.verdict === "dismissed").length,
@@ -484,6 +523,10 @@ function FindingsSectionImpl({
   const displayedKey = useRef<string | null>(null);
 
   useEffect(() => {
+    if (composing) {
+      serverGeneration.current += 1;
+      return;
+    }
     if (!serverFiltered) {
       serverGeneration.current += 1;
       displayedKey.current = null;
@@ -502,12 +545,12 @@ function FindingsSectionImpl({
     const limit = sameQuery
       ? Math.min(MAX_FILTER_ROWS, Math.max(FILTER_PAGE, loadedCount.current))
       : FILTER_PAGE;
+    if (!sameQuery) setServerLoading(true);
+    setServerError(null);
     let alive = true;
     const timer = setTimeout(
       () => {
         // A refresh of the same query keeps its rows on screen meanwhile.
-        if (!sameQuery) setServerLoading(true);
-        setServerError(null);
         void api
           .getFindings(id, limit, 0, filterParams)
           .then((rows) => {
@@ -539,7 +582,7 @@ function FindingsSectionImpl({
       alive = false;
       clearTimeout(timer);
     };
-  }, [id, filterParams, queryKey, serverFiltered, retryNonce, revision]);
+  }, [id, filterParams, queryKey, serverFiltered, retryNonce, revision, composing]);
 
   const mark = useCallback(
     async (finding: Finding, verdict: Verdict) => {
@@ -626,94 +669,38 @@ function FindingsSectionImpl({
       }))
     : null;
 
-  async function exportAs(key: string, run: () => Promise<void>) {
-    setExporting(key);
-    setExportError(null);
-    try {
-      await run();
-    } catch (e) {
-      setExportError((e as Error).message);
-    } finally {
-      setExporting(null);
-    }
-  }
-
   if (source.length === 0 && !serverFiltered) return null;
 
   return (
     <>
-      <div className="section-head">
-        <h2>Findings</h2>
-        <span className="export-links" style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <button
-            className="btn quiet sm"
-            onClick={() => exportAs("json", () => api.downloadExport(id))}
-            disabled={exporting !== null}
-          >
-            ⤓ JSON
-          </button>
-          <button
-            className="btn quiet sm"
-            onClick={() => exportAs("pdf", () => api.downloadPdf(id))}
-            disabled={exporting !== null}
-          >
-            ⤓ PDF
-          </button>
-          <button
-            className="btn quiet sm"
-            onClick={() => exportAs("sarif", () => api.downloadSarif(id))}
-            disabled={exporting !== null}
-            title="Findings as SARIF 2.1.0, for code-scanning dashboards"
-          >
-            ⤓ SARIF
-          </button>
-          <button
-            className="btn quiet sm"
-            onClick={() => exportAs("pentest", () => api.downloadPentestReport(id))}
-            disabled={exporting !== null}
-            title="Markdown pentest report — attack paths, impact and remediation"
-          >
-            ⤓ Pentest (MD)
-          </button>
-          <button
-            className="btn quiet sm"
-            onClick={() => exportAs("html", () => api.openHtmlReport(id))}
-            disabled={exporting !== null}
-          >
-            ⤓ HTML report
-          </button>
-        </span>
-      </div>
-
-      {exportError && (
-        <p className="err export-err" role="alert">
-          Could not export: {exportError}
-        </p>
-      )}
-
-      <div className="summary-bar">
-        <div className="sev-stat total">
-          <span className="n">{source.length}</span>
-          <span className="l">total</span>
-          {dismissedCount > 0 && (
-            <span className="sev-stat-context">{activeCount} active</span>
-          )}
+      <div className="section-head findings-heading">
+        <div>
+          <h2>Findings</h2>
+          <p className="muted-sm">{source.length} loaded · {activeCount} active{dismissedCount > 0 ? ` · ${dismissedCount} dismissed` : ""}</p>
         </div>
-        {SEVERITIES.filter((s) => counts[s]).map((s) => (
-          <div className={`sev-stat ${s}`} key={s}>
-            <span className="n">{counts[s]}</span>
-            <span className="l">{s}</span>
-          </div>
-        ))}
-        {dismissedCount > 0 && (
-          <div className="sev-stat dismissed">
-            <span className="n">{dismissedCount}</span>
-            <span className="l">dismissed</span>
-          </div>
-        )}
+        <ExportMenu id={id} />
       </div>
 
-      <div className="filters">
+      <div className="findings-toolbar">
+        <div className="searchbox">
+          <span className="icon" aria-hidden="true">⌕</span>
+          <input ref={searchRef} type="search" value={query} onChange={(e) => setQuery(e.target.value)} onCompositionStart={() => setComposing(true)} onCompositionEnd={(e) => { setQuery(e.currentTarget.value); setComposing(false); }} placeholder="Search findings…" aria-label="Search findings" />
+          {query && <button className="clear" onClick={() => { setQuery(""); searchRef.current?.focus(); }} aria-label="Clear search">✕</button>}
+        </div>
+        <label className="sort-pick">
+          <span>Sort</span>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)} aria-label="Sort findings">
+            <option value="severity">Severity</option>
+            <option value="endpoint">Endpoint</option>
+            <option value="check">Check</option>
+            <option value="newest">Newest</option>
+          </select>
+        </label>
+        <button type="button" className={`btn quiet sm${extraFilterCount ? " filters-active" : ""}`} aria-expanded={moreFiltersOpen} aria-controls={filterPanelId} onClick={() => setMoreFiltersOpen((open) => !open)}>
+          More filters{extraFilterCount ? ` · ${extraFilterCount} active` : ""}
+        </button>
+      </div>
+      <div className="filters findings-severity" role="group" aria-label="Filter findings by severity and evidence">
         <button
           className={`chipbtn ${sevFilter === "all" ? "on" : ""}`}
           onClick={() => setSevFilter("all")}
@@ -743,6 +730,8 @@ function FindingsSectionImpl({
           </button>
         )}
 
+      </div>
+      <div className="filters findings-extra-filters" id={filterPanelId} hidden={!moreFiltersOpen}>
         {premiumCount > 0 && (
           <button
             className={`chipbtn premium ${premiumOnly ? "on" : ""}`}
@@ -794,40 +783,6 @@ function FindingsSectionImpl({
           <option value="dismissed">false positive</option>
         </select>
 
-        <div className="searchbox">
-          <span className="icon" aria-hidden="true">⌕</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search findings…"
-            aria-label="Search findings"
-          />
-          {query && (
-            <button
-              className="clear"
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        <label className="sort-pick">
-          <span>sort</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortKey)}
-            aria-label="Sort findings"
-          >
-            <option value="severity">severity</option>
-            <option value="endpoint">endpoint</option>
-            <option value="check">check</option>
-            <option value="newest">newest</option>
-          </select>
-        </label>
-
         <label
           className="toggle-sm group-toggle"
           title="Collapse the list into one section per check"
@@ -861,6 +816,8 @@ function FindingsSectionImpl({
         </label>
       </div>
 
+      <details className="findings-help">
+        <summary>How to read findings</summary>
       <div className="legend" aria-label="Badge legend">
         <span className="item">
           <span className="conf-badge verified">verified</span>
@@ -881,11 +838,13 @@ function FindingsSectionImpl({
         </span>
         {premiumCount > 0 && (
           <span className="item">
-            <span className="premium-badge">Premium</span>
+            <PlanBadge premium />
             Produced by a premium-tier check
           </span>
         )}
       </div>
+
+      </details>
 
       {beforeList}
 
@@ -965,12 +924,7 @@ function FindingsSectionImpl({
                   </span>
                   {f.owasp_id && <span className="owasp">{f.owasp_id}</span>}
                   {f.premium && (
-                    <span
-                      className="premium-badge"
-                      title="Produced by a premium-tier check"
-                    >
-                      Premium
-                    </span>
+                    <PlanBadge premium />
                   )}
                   <span className="ftitle">{f.title}</span>
                   {f.verdict !== "unreviewed" && (
@@ -1057,7 +1011,7 @@ function FindingsSectionImpl({
       )}
 
       {serverFiltered && serverLoading && (
-        <p className="hint">Loading filtered findings…</p>
+        <p className="hint" role="status">Loading filtered findings…</p>
       )}
 
       {serverFiltered && serverError && (

@@ -3,6 +3,8 @@
 import { memo, useState } from "react";
 import type { RunOptions } from "@/lib/api";
 import { clock } from "../../components/scanShared";
+import { useCapabilities } from "../../components/useCapabilities";
+import { WebRunNotice } from "../../components/WebRunNotice";
 
 const SCHEDULES = [
   { m: 15, label: "every 15 min" },
@@ -69,6 +71,8 @@ function SchedulePanelImpl({
   const [authorized, setAuthorized] = useState(false);
   const [custom, setCustom] = useState("30");
   const [customError, setCustomError] = useState("");
+  const { premium, loading } = useCapabilities();
+  const locked = premium?.available === false;
 
   function scheduleCustom() {
     const value = Number(custom);
@@ -88,6 +92,8 @@ function SchedulePanelImpl({
 
   if (minutes) {
     return (
+      <div>
+      {locked && <p className="opt-warn">Scheduled runs are paused while this workspace is on Free. Premium access is required to dispatch them.</p>}
       <div className="sched">
         <span className="sched-on">
           ↻ Re-runs every {minutes} min
@@ -105,8 +111,11 @@ function SchedulePanelImpl({
           Stop schedule
         </button>
       </div>
+      </div>
     );
   }
+
+  if (locked) return <WebRunNotice />;
 
   return (
     <div>
@@ -114,6 +123,7 @@ function SchedulePanelImpl({
         <input
           type="checkbox"
           checked={authorized}
+          disabled={loading}
           onChange={(e) => setAuthorized(e.target.checked)}
         />
         <span>
@@ -131,7 +141,7 @@ function SchedulePanelImpl({
           <button
             key={s.m}
             className="btn quiet sm"
-            disabled={!authorized}
+            disabled={!authorized || loading}
             onClick={() => onSchedule(s.m, authorized)}
           >
             {s.label}
@@ -148,14 +158,14 @@ function SchedulePanelImpl({
             setCustom(e.target.value);
             setCustomError("");
           }}
-          disabled={!authorized}
+          disabled={!authorized || loading}
           aria-label="Custom schedule interval in minutes"
           aria-invalid={Boolean(customError)}
         />
         <span className="muted-sm">min</span>
         <button
           className="btn quiet sm"
-          disabled={!authorized}
+          disabled={!authorized || loading}
           onClick={scheduleCustom}
         >
           Set

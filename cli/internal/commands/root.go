@@ -5,21 +5,21 @@ import (
 	"os"
 	"strings"
 
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/config"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/config"
+	"runpentests/cli/internal/project"
 )
 
-const helpText = `aidetector — drive an aidetector server from the terminal.
+const helpText = `runpentests — drive a runpentests server from the terminal.
 
-usage: aidetector [URL] [DIR] [flags]      scan an API; the everyday form
-       aidetector <command> [flags]
+usage: runpentests [URL] [DIR] [flags]      scan an API; the everyday form
+       runpentests <command> [flags]
 
   URL        scan this API: reuses the scan for it, or creates one, and
-             finds the spec (--spec, aidetector.yml, the project, or the target)
+             finds the spec (--spec, runpentests.yml, the project, or the target)
   DIR        also read the code in DIR — the scan runs on this machine and
              findings point at file:line
-  (nothing)  run what ./aidetector.yml describes
+  (nothing)  run what ./runpentests.yml describes
 
   common flags: --authorized --fail-on SEV --verified-only --new-only
                 --output table|json|github|junit
@@ -29,10 +29,10 @@ usage: aidetector [URL] [DIR] [flags]      scan an API; the everyday form
                 --spec FILE --new --config FILE --no-config
 
   a scan ID may be the full UUID or its first 4+ hex characters; where an ID
-  is optional, aidetector.yml's scan: (or target:) picks the scan
+  is optional, runpentests.yml's scan: (or target:) picks the scan
 
 commands:
-  init       [URL] [--spec FILE] [--force] [--yes]   write aidetector.yml
+  init       [URL] [--spec FILE] [--force] [--yes]   write runpentests.yml
   login      --server URL [--profile NAME] [--key-stdin | --no-key] [--insecure-http]
   logout     remove the current profile
   status
@@ -55,30 +55,31 @@ commands:
   runs       [ID] [--limit N] [--json]   run history: status, passes, gaps
              trace [ID] [RUN] [--check KEY] [--identity N] [--status S] [--seq N]
   report     [ID] --format pdf|html|pentest|sarif|json [-o FILE]
-             (default file: aidetector-<id8>.<ext>)
+             (default file: runpentests-<id8>.<ext>)
   completion bash|zsh|fish   print a shell completion script
   mcp        serve the setup tools and guides to a coding agent (MCP over stdio)
   version    print the build's version
 
 profiles:
-  AIDETECTOR_PROFILE picks a saved profile (default: the file's current one);
-  AIDETECTOR_SERVER / AIDETECTOR_API_KEY still override the selected profile.
-  'aidetector profile list' shows every saved profile and never a key.
+  RUNPENTESTS_PROFILE picks a saved profile (default: the file's current one);
+  RUNPENTESTS_SERVER / RUNPENTESTS_API_KEY still override the selected profile.
+  'runpentests profile list' shows every saved profile and never a key.
 
 exit codes: 0 clean, 1 findings reached --fail-on, 2 usage/auth, 3 failed, 4 timeout
 
 Secrets are never taken from flags (they land in shell history and ps): use a
-prompt, --key-stdin / --secret-stdin, or AIDETECTOR_API_KEY.
+prompt, --key-stdin / --secret-stdin, or RUNPENTESTS_API_KEY.
 
-run 'aidetector help <command>' for a command's flags and examples
+run 'runpentests help <command>' for a command's flags and examples
 `
 
 // Run executes one command line and returns the process exit code.
 func Run(ctx context.Context, args []string, env Env) int {
+	env.Getenv = config.CompatibleEnv(env.Getenv)
 	e := &env
-	api.UserAgent = "aidetector-cli/" + Version
+	api.UserAgent = "aidetector-cli/" + Version + " runpentests-cli/" + Version
 	if len(args) == 0 {
-		// Inside a project, a bare `aidetector` runs what its file describes.
+		// Inside a project, a bare `runpentests` runs what its file describes.
 		if wd, err := e.workdir(); err == nil {
 			if f, _ := project.Find(wd); f != nil {
 				return cmdTarget(ctx, e, nil)
@@ -145,7 +146,7 @@ func Run(ctx context.Context, args []string, env Env) int {
 	if strings.HasPrefix(args[0], "-") || project.LooksLikeTarget(args[0]) || isDir(args[0]) {
 		return cmdTarget(ctx, e, args)
 	}
-	return e.usage("unknown command %q (try `aidetector help`)", args[0])
+	return e.usage("unknown command %q (try `runpentests help`)", args[0])
 }
 
 func cmdLogin(ctx context.Context, e *Env, args []string) int {
@@ -174,7 +175,7 @@ func cmdLogin(ctx context.Context, e *Env, args []string) int {
 	// selects, else "default".
 	name := *profile
 	if name == "" {
-		name = e.Getenv("AIDETECTOR_PROFILE")
+		name = e.Getenv("RUNPENTESTS_PROFILE")
 	}
 	if name == "" {
 		name = st.Current
@@ -204,11 +205,11 @@ func cmdLogin(ctx context.Context, e *Env, args []string) int {
 	// Prove the server answers and the key works before saving anything.
 	candidate := &Env{Stdin: e.Stdin, Stdout: e.Stdout, Stderr: e.Stderr, Getenv: func(k string) string {
 		switch k {
-		case "AIDETECTOR_SERVER":
+		case "RUNPENTESTS_SERVER":
 			return norm
-		case "AIDETECTOR_API_KEY":
+		case "RUNPENTESTS_API_KEY":
 			return key
-		case "AIDETECTOR_INSECURE_HTTP":
+		case "RUNPENTESTS_INSECURE_HTTP":
 			if *insecure {
 				return "1"
 			}
@@ -293,7 +294,7 @@ func cmdStatus(ctx context.Context, e *Env, args []string) int {
 	}
 	fromEnv := ""
 	if cfg.ProfileFromEnv {
-		fromEnv = " (from AIDETECTOR_PROFILE)"
+		fromEnv = " (from RUNPENTESTS_PROFILE)"
 	}
 	e.printf("profile: %s%s\n", profile, fromEnv)
 	if cfg.Server == "" {
@@ -306,7 +307,7 @@ func cmdStatus(ctx context.Context, e *Env, args []string) int {
 	}
 	serverNote := ""
 	if cfg.ServerFromEnv {
-		serverNote = " (from AIDETECTOR_SERVER)"
+		serverNote = " (from RUNPENTESTS_SERVER)"
 	}
 	e.printf("server: %s%s\napi key: %s\n", cfg.Server, serverNote, keyState)
 	c, err := e.client()

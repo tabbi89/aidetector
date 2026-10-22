@@ -83,14 +83,14 @@ func TestFindingsDefaultsToTheProjectTarget(t *testing.T) {
 	defer srv.Close()
 	h := newHarness(t, srv, "", false)
 	h.env.Dir = t.TempDir()
-	writeFile(t, h.env.Dir, "aidetector.yml", "target: http://t\n")
+	writeFile(t, h.env.Dir, "runpentests.yml", "target: http://t\n")
 	if code := h.run("findings"); code != ExitOK {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
 	}
 	if !f.sawRequest("GET " + fakeScanPath + "/findings") {
 		t.Fatal("the scan for the project's target should have been read")
 	}
-	if !strings.Contains(h.errOut.String(), "scan 11111111 (from aidetector.yml)") {
+	if !strings.Contains(h.errOut.String(), "scan 11111111 (from runpentests.yml)") {
 		t.Fatalf("stderr should say which scan was picked: %q", h.errOut.String())
 	}
 }
@@ -193,7 +193,7 @@ func TestReportDefaultsToAUniqueFilename(t *testing.T) {
 	if code := h.run("report", fakeScanID, "--format", "json"); code != ExitOK {
 		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
 	}
-	path := filepath.Join(h.env.Dir, "aidetector-11111111.json")
+	path := filepath.Join(h.env.Dir, "runpentests-11111111.json")
 	data, err := os.ReadFile(path)
 	if err != nil || !strings.Contains(string(data), "findings") {
 		t.Fatalf("default report = %q, %v", data, err)

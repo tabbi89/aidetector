@@ -395,7 +395,7 @@ function CredentialsPanelImpl({
               {c.local_only ? (
                 <span
                   className="lock"
-                  title="The secret never reached the server: only `aidetector run` can use this identity, and a web run leaves it out."
+                  title="The secret never reached the server: only `runpentests run` can use this identity, and a web run leaves it out."
                 >
                   local-only
                 </span>
@@ -410,7 +410,7 @@ function CredentialsPanelImpl({
                       className="muted-sm"
                       title="This profile is declared in the project file"
                     >
-                      set by aidetector.yml
+                      set by runpentests.yml
                     </span>
                   )}
                   <button
@@ -829,7 +829,7 @@ function CredentialsPanelImpl({
           {editingId && editingLocalOnly ? (
             <p className="muted">
               This identity is local-only: its secret stays on the machine that runs{" "}
-              <code>aidetector run</code>, and the server refuses one here.
+              <code>runpentests run</code>, and the server refuses one here.
             </p>
           ) : (
           <Field

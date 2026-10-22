@@ -78,7 +78,7 @@ def attach_context(
     snapshot = latest_snapshot(db, scan_id) if include_database else None
     if include_database and snapshot is None:
         raise HTTPException(
-            409, "no schema snapshot — run `aidetector` from the CLI with a schema: block"
+            409, "no schema snapshot — run `runpentests` from the CLI with a schema: block"
         )
     snapshot_run = snapshot.run_id if snapshot else None
     monitor_id = monitor.id

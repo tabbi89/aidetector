@@ -123,7 +123,7 @@ test("export stays usable after a successful download", async ({ page, api }) =>
   api.findings = [finding];
   await page.goto(`/scans/${sid}`);
 
-  const trigger = page.getByRole("button", { name: /export/i });
+  const trigger = page.locator(".statline").getByRole("button", { name: /export/i });
   const exportCalls = () => api.requests.filter((row) => row.path.endsWith("/export")).length;
   const before = exportCalls();
 
@@ -154,15 +154,16 @@ test("scan workspace visibility survives a refresh", async ({ page, api }) => {
 
   const workspace = page.getByRole("region", { name: "Scan results", exact: true });
   await expect(workspace.getByRole("button", { name: /all\s*1/ })).toBeVisible();
-  await expect(workspace.locator(".sev-stat.dismissed")).toContainText("1");
+  await expect(workspace.locator(".findings-heading")).toContainText("1 dismissed");
+  await workspace.getByRole("button", { name: /More filters/ }).click();
   await expect(workspace.locator(".dismissed-toggle")).toContainText("1");
   const ask = workspace.getByText("Ask your scan", { exact: true });
-  await ask.locator("..").getByText("Hide", { exact: true }).click();
-  await expect(workspace.getByText("Show", { exact: true })).toBeVisible();
+  await ask.locator("..").getByText("Show", { exact: true }).click();
+  await expect(workspace.locator(".ask-head").getByText("Hide", { exact: true })).toBeVisible();
 
   await page.reload();
 
   await expect(configuration.getByRole("button", { name: "Show" })).toBeVisible();
   await expect(configuration.locator("#config-content")).toBeHidden();
-  await expect(workspace.getByText("Show", { exact: true })).toBeVisible();
+  await expect(workspace.locator(".ask-head").getByText("Hide", { exact: true })).toBeVisible();
 });

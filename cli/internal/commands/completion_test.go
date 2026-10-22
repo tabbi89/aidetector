@@ -15,8 +15,8 @@ func TestCompletionScriptsMentionTheInterface(t *testing.T) {
 
 	markers := map[string]string{
 		"bash": "complete -F",
-		"zsh":  "#compdef aidetector",
-		"fish": "complete -c aidetector",
+		"zsh":  "#compdef runpentests",
+		"fish": "complete -c runpentests",
 	}
 	for shell, marker := range markers {
 		t.Run(shell, func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestHelpForCompletionShowsInstallExamples(t *testing.T) {
 		t.Fatalf("exit = %d\n%s", got, h.errOut.String())
 	}
 	out := h.out.String()
-	for _, want := range []string{"completion zsh", "bash_completion.d", "fish/completions/aidetector.fish"} {
+	for _, want := range []string{"completion zsh", "bash_completion.d", "fish/completions/runpentests.fish"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("completion help is missing %q:\n%s", want, out)
 		}

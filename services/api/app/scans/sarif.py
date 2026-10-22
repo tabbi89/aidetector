@@ -1,7 +1,7 @@
 """SARIF 2.1.0 export for a scan's findings.
 
 SARIF is the interchange format GitHub code-scanning, Azure DevOps, and most CI
-security dashboards consume, so emitting it makes aidetector's findings gate a
+security dashboards consume, so emitting it makes runpentests's findings gate a
 pipeline instead of living only in the UI. One SARIF ``run`` per scan: distinct
 checks become ``rules`` (carrying CWE + OWASP metadata and the remediation
 help GitHub renders under an alert), findings become ``results`` anchored to the
@@ -199,7 +199,7 @@ def to_sarif(scan: Scan) -> dict[str, Any]:
             {
                 "tool": {
                     "driver": {
-                        "name": "aidetector",
+                        "name": "runpentests",
                         "version": "0.1.0",
                         "informationUri": "https://owasp.org/API-Security/",
                         "rules": _rules(checks, scores),

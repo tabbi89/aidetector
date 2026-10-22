@@ -153,7 +153,7 @@ export interface AuthStatus {
   user: { id: string; email: string; display_name: string } | null;
 }
 
-/** A setting a project file (`aidetector.yml`) owns for this scan. */
+/** A setting a project file (`runpentests.yml`) owns for this scan. */
 export type ManagedField =
   | "target"
   | "spec"

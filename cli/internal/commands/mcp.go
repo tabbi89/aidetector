@@ -13,33 +13,33 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"aidetector/cli/docs"
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/config"
-	"aidetector/cli/internal/mcp"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/docs"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/config"
+	"runpentests/cli/internal/mcp"
+	"runpentests/cli/internal/project"
 )
 
-// The MCP server helps a coding agent set aidetector up for a project: it
-// serves the guides, finds the spec, drafts and validates aidetector.yml, and
+// The MCP server helps a coding agent set runpentests up for a project: it
+// serves the guides, finds the spec, drafts and validates runpentests.yml, and
 // says what the person should run next. It deliberately cannot start a scan —
 // the authorization gate is one explicit act by a person, and an agent's tool
 // call is not one — and it never takes, reads or returns a secret value.
 //
 // Every path an agent passes is confined to the directory the server started
-// in, because suggest_config sends a file's text to the aidetector server.
+// in, because suggest_config sends a file's text to the runpentests server.
 
 // mcpGuides are the docs served as resources, in the order they are listed.
 var mcpGuides = []struct{ file, title, description string }{
-	{"setup.md", "Setting up aidetector for a project",
-		"Start here: the steps from a repository to a validated aidetector.yml and the commands to hand over."},
-	{"project-file.md", "aidetector.yml reference",
+	{"setup.md", "Setting up runpentests for a project",
+		"Start here: the steps from a repository to a validated runpentests.yml and the commands to hand over."},
+	{"project-file.md", "runpentests.yml reference",
 		"Every key in the project file, the three ways to describe authentication, and what the file can never hold."},
 	{"levels-and-passes.md", "Levels and passes",
 		"What quick, standard and deep do, and what each opt-in pass costs the target or in tokens."},
 	{"local-runs.md", "Local runs",
 		"Sending the scan from this machine: internal hosts, localhost, and reading the code."},
-	{"distribution.md", "Installing and distributing aidetector",
+	{"distribution.md", "Installing and distributing runpentests",
 		"Public CLI archives, the matching runner image, and the bundled MCP helper."},
 	{"ci-gate.md", "CI gate",
 		"Failing a pipeline on findings: flags, output formats and exit codes."},
@@ -48,15 +48,15 @@ var mcpGuides = []struct{ file, title, description string }{
 }
 
 func guideURI(file string) string {
-	return "aidetector://docs/" + strings.TrimSuffix(file, ".md")
+	return "runpentests://docs/" + strings.TrimSuffix(file, ".md")
 }
 
-const mcpInstructions = "This server helps you set up aidetector, an active API security scanner, " +
-	"for the project in the current directory. Read aidetector://docs/setup first. " +
-	"Use find_spec, suggest_config and validate_config to produce a valid aidetector.yml, " +
+const mcpInstructions = "This server helps you set up runpentests, an active API security scanner, " +
+	"for the project in the current directory. Read runpentests://docs/setup first. " +
+	"Use find_spec, suggest_config and validate_config to produce a valid runpentests.yml, " +
 	"then next_steps for the commands the person runs. You cannot start a scan from here: " +
 	"the person running it must confirm they are authorized to test the target. " +
-	"Never put a secret value in aidetector.yml, a command or your reply — only environment variable names."
+	"Never put a secret value in runpentests.yml, a command or your reply — only environment variable names."
 
 func cmdMCP(ctx context.Context, e *Env, args []string) int {
 	fs := e.newFlagSet("mcp")
@@ -88,7 +88,7 @@ func newMCPServer(e *Env, root string) (*mcp.Server, error) {
 	}
 	t := &mcpTools{e: e, root: root}
 	srv := &mcp.Server{
-		Name:         "aidetector",
+		Name:         "runpentests",
 		Version:      Version,
 		Instructions: mcpInstructions,
 	}
@@ -104,16 +104,16 @@ func newMCPServer(e *Env, root string) (*mcp.Server, error) {
 	}
 	setup, _ := docs.FS.ReadFile("setup.md")
 	srv.Prompts = []mcp.Prompt{{
-		Name:        "setup_aidetector",
-		Title:       "Set up aidetector for this project",
-		Description: "Walk through preparing aidetector.yml for this repository, ending with the commands to run.",
+		Name:        "setup_runpentests",
+		Title:       "Set up runpentests for this project",
+		Description: "Walk through preparing runpentests.yml for this repository, ending with the commands to run.",
 		Arguments: []mcp.PromptArgument{{
 			Name: "target", Description: "the API's base URL, if you already know it",
 		}},
 		Render: func(args map[string]string) (string, error) {
 			var b strings.Builder
-			b.WriteString("Set up aidetector for the project in the current directory, following this guide. ")
-			b.WriteString("Use the aidetector MCP tools for each step, and finish with next_steps.\n\n")
+			b.WriteString("Set up runpentests for the project in the current directory, following this guide. ")
+			b.WriteString("Use the runpentests MCP tools for each step, and finish with next_steps.\n\n")
 			if target := strings.TrimSpace(args["target"]); target != "" {
 				fmt.Fprintf(&b, "The target is %s.\n\n", target)
 			}
@@ -140,7 +140,7 @@ func (t *mcpTools) tools() []mcp.Tool {
 			Name:  "find_spec",
 			Title: "Find the API spec",
 			Description: "List the OpenAPI / Swagger files in the project, most likely first " +
-				"(the one aidetector would pick on its own leads). Vendored and build trees are skipped.",
+				"(the one runpentests would pick on its own leads). Vendored and build trees are skipped.",
 			InputSchema: object(map[string]any{
 				"dir": str("directory to search, relative to the project root (default: the root)"),
 			}),
@@ -149,11 +149,11 @@ func (t *mcpTools) tools() []mcp.Tool {
 		},
 		{
 			Name:  "suggest_config",
-			Title: "Draft aidetector.yml",
-			Description: "Draft an aidetector.yml in exactly the shape `aidetector init` writes. " +
+			Title: "Draft runpentests.yml",
+			Description: "Draft a runpentests.yml in exactly the shape `runpentests init` writes. " +
 				"kind is public (no auth), single (one key) or roles (one identity per role); without it " +
-				"the aidetector server's reading of the spec's securitySchemes decides, when logged in. " +
-				"Sends the spec's text to the configured aidetector server, never to the target. " +
+				"the runpentests server's reading of the spec's securitySchemes decides, when logged in. " +
+				"Sends the spec's text to the configured runpentests server, never to the target. " +
 				"Returns the draft; it writes nothing.",
 			InputSchema: object(map[string]any{
 				"spec":   str("spec file, relative to the project root (default: what find_spec would pick)"),
@@ -169,22 +169,22 @@ func (t *mcpTools) tools() []mcp.Tool {
 		},
 		{
 			Name:  "validate_config",
-			Title: "Validate aidetector.yml",
-			Description: "Check an aidetector.yml with the CLI's own loader: the exact error if it " +
+			Title: "Validate runpentests.yml",
+			Description: "Check a runpentests.yml with the CLI's own loader: the exact error if it " +
 				"would be refused, otherwise a summary and warnings (missing spec file, too few " +
 				"identities for the authorization checks, passes that write or spend tokens). Pass " +
 				"content to check a draft before writing it; without content it checks the file on disk.",
 			InputSchema: object(map[string]any{
 				"content": str("the YAML text to check"),
-				"path":    str("file to check, relative to the project root (default: aidetector.yml)"),
+				"path":    str("file to check, relative to the project root (default: runpentests.yml)"),
 			}),
 			ReadOnly: true,
 			Call:     t.validateConfig,
 		},
 		{
 			Name:  "server_status",
-			Title: "aidetector server status",
-			Description: "Whether this machine is logged in to an aidetector server (never the key), " +
+			Title: "runpentests server status",
+			Description: "Whether this machine is logged in to a runpentests server (never the key), " +
 				"and which passes that server can run.",
 			InputSchema: object(map[string]any{}),
 			ReadOnly:    true,
@@ -195,10 +195,10 @@ func (t *mcpTools) tools() []mcp.Tool {
 			Name:  "next_steps",
 			Title: "Commands to hand over",
 			Description: "The commands the person should run, in order, from the project's " +
-				"aidetector.yml: logging in, the environment variables to export (names only) and " +
+				"runpentests.yml: logging in, the environment variables to export (names only) and " +
 				"the scan. Give these to the person; do not run the scan yourself.",
 			InputSchema: object(map[string]any{
-				"path": str("project file, relative to the project root (default: aidetector.yml)"),
+				"path": str("project file, relative to the project root (default: runpentests.yml)"),
 			}),
 			ReadOnly: true,
 			Call:     t.nextSteps,
@@ -272,7 +272,7 @@ func (t *mcpTools) findSpec(_ context.Context, raw json.RawMessage) (any, error)
 	out := map[string]any{"candidates": []string{}}
 	if len(hits) == 0 {
 		out["note"] = "no openapi.* / swagger.* / *.openapi.* file within three levels. " +
-			"Leave spec: out to let aidetector fetch the target's own /openapi.json at run time, " +
+			"Leave spec: out to let runpentests fetch the target's own /openapi.json at run time, " +
 			"or use a Postman collection or HAR capture as the spec."
 		return out, nil
 	}
@@ -290,8 +290,8 @@ func (t *mcpTools) findSpec(_ context.Context, raw json.RawMessage) (any, error)
 }
 
 // mcpDraftHeader heads a suggest_config draft. It is not initHeader: an agent,
-// not `aidetector init`, writes this file.
-const mcpDraftHeader = "# aidetector.yml — see `aidetector help init` and the project-file guide.\n" +
+// not `runpentests init`, writes this file.
+const mcpDraftHeader = "# runpentests.yml — see `runpentests help init` and the project-file guide.\n" +
 	"# Commit this file: it names environment variables, never secrets.\n"
 
 func (t *mcpTools) suggestConfig(ctx context.Context, raw json.RawMessage) (any, error) {
@@ -343,7 +343,7 @@ func (t *mcpTools) suggestConfig(ctx context.Context, raw json.RawMessage) (any,
 			notes = append(notes, "Without the server's hints, read securitySchemes and the auth code yourself to choose kind.")
 		}
 	} else {
-		notes = append(notes, "No spec file found: the draft leaves spec: out, so aidetector fetches the target's own spec at run time.")
+		notes = append(notes, "No spec file found: the draft leaves spec: out, so runpentests fetches the target's own spec at run time.")
 	}
 
 	kind, source := args.Kind, "argument"
@@ -438,7 +438,7 @@ func (t *mcpTools) validateConfig(_ context.Context, raw json.RawMessage) (any, 
 }
 
 // loadProject parses the draft text, or reads the project file (path, else
-// aidetector.yml / aidetector.yaml at the root). dir is what the file's
+// runpentests.yml / runpentests.yaml at the root). dir is what the file's
 // relative paths resolve against.
 func (t *mcpTools) loadProject(content *string, path string) (*project.File, string, error) {
 	if content != nil {
@@ -446,7 +446,7 @@ func (t *mcpTools) loadProject(content *string, path string) (*project.File, str
 		return f, t.root, err
 	}
 	if path == "" {
-		for _, name := range []string{project.FileName, project.AltFileName} {
+		for _, name := range project.FileNames {
 			if _, err := os.Stat(filepath.Join(t.root, name)); err == nil {
 				path = name
 				break
@@ -493,7 +493,7 @@ func (t *mcpTools) summarize(f *project.File, dir string) (configSummary, []stri
 		}
 	}
 	if f.Target == "" {
-		warnings = append(warnings, "no target: the person must pass the URL (`aidetector URL`)")
+		warnings = append(warnings, "no target: the person must pass the URL (`runpentests URL`)")
 	}
 	ids := f.ExpandIdentities()
 	switch {
@@ -565,7 +565,7 @@ func (t *mcpTools) serverStatus(ctx context.Context, _ json.RawMessage) (any, er
 	}
 	if cfg.Server == "" {
 		out["logged_in"] = false
-		out["note"] = "not logged in: the person runs `aidetector login` (it prompts for an API key from Workspace → API tokens)"
+		out["note"] = "not logged in: the person runs `runpentests login` (it prompts for an API key from Workspace → API tokens)"
 		return out, nil
 	}
 	// A dev server with auth off is logged in without a key.
@@ -622,18 +622,18 @@ func (t *mcpTools) nextSteps(_ context.Context, raw json.RawMessage) (any, error
 	}
 	var steps []string
 	if !t.loggedIn() {
-		steps = append(steps, "aidetector login    # once; paste an API key from Workspace → API tokens")
+		steps = append(steps, "runpentests login    # once; paste an API key from Workspace → API tokens")
 	}
 	summary, warnings := t.summarize(file, dir)
-	steps = append(steps, "make runner-image   # once, in the aidetector repository: every run needs the runner image")
+	steps = append(steps, "make runner-image   # once, in the runpentests repository: every run needs the runner image")
 	env := append([]string(nil), summary.Env...)
 	sort.Strings(env)
 	for _, name := range env {
 		steps = append(steps, "export "+name+"=...   # the secret itself; never commit it")
 	}
-	run := "aidetector"
+	run := "runpentests"
 	if file.Target == "" {
-		run = "aidetector https://STAGING-URL"
+		run = "runpentests https://STAGING-URL"
 	}
 	if t.rel(dir) != "." {
 		run = "cd " + t.rel(dir) + " && " + run
@@ -642,7 +642,7 @@ func (t *mcpTools) nextSteps(_ context.Context, raw json.RawMessage) (any, error
 	out := map[string]any{
 		"steps": steps,
 		"ci": "In CI, the same command with --authorized (the pipeline's owner answers the gate), and " +
-			"AIDETECTOR_SERVER / AIDETECTOR_API_KEY plus each variable above as pipeline secrets. See aidetector://docs/ci-gate.",
+			"RUNPENTESTS_SERVER / RUNPENTESTS_API_KEY plus each variable above as pipeline secrets. See runpentests://docs/ci-gate.",
 		"reminder": "Give these to the person. Do not run the scan or add --authorized yourself.",
 	}
 	if len(warnings) > 0 {

@@ -7,6 +7,7 @@ it is checked here too — a gated deliverable that is free over HTTP is not gat
 """
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
@@ -68,3 +69,19 @@ def test_the_other_exports_stay_available_on_every_plan(
     assert client.get(f"/scans/{sid}/export").status_code == 200
     assert client.get(f"/scans/{sid}/report.pdf").status_code == 200
     assert client.get(f"/scans/{sid}/report.html").status_code == 200
+
+
+@pytest.mark.parametrize("level", ["quick", "standard", "deep"])
+def test_free_workspace_cannot_enable_server_schedules(
+    client: TestClient, scan_with_spec, monkeypatch, level,
+):
+    monkeypatch.setattr(settings, "premium_tenants", "someone-else")
+    sid = scan_with_spec()
+    response = client.put(
+        f"/scans/{sid}/schedule",
+        json={"minutes": 60, "authorized": True, "level": level},
+    )
+    assert response.status_code == 402
+    assert client.get(f"/scans/{sid}").json()["schedule_minutes"] is None
+    # Downgraded workspaces can still stop a standing schedule.
+    assert client.put(f"/scans/{sid}/schedule", json={"minutes": None}).status_code == 200

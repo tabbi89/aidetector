@@ -1,4 +1,4 @@
-// Package api is a small hand-written client for the aidetector server.
+// Package api is a small hand-written client for the runpentests server.
 //
 // It is hand-written rather than generated: FastAPI publishes OpenAPI 3.1,
 // which the Go generators only partly support, and the CLI needs about twenty
@@ -110,7 +110,8 @@ func (e *APIError) Error() string {
 // UserAgent identifies the CLI on every request. On aidetector.com the API
 // shares an origin with the web app, and this prefix is what routes a request
 // for /scans to the API instead of the page (deploy/caddy/Caddyfile).
-var UserAgent = "aidetector-cli"
+// Keep the legacy routing prefix until existing proxies are upgraded.
+var UserAgent = "aidetector-cli/dev runpentests-cli/dev"
 
 // Client talks to one server with one API key.
 type Client struct {

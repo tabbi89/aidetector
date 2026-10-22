@@ -38,10 +38,10 @@ www.{$SITE_DOMAIN} {
 	}
 
 	# The CLI's server is https://aidetector.com, not .../api: its requests
-	# (User-Agent aidetector-cli/…) go to the API at the root. Paths under
+	# (User-Agent runpentests-cli/… or legacy aidetector-cli/…) go to the API at the root. Paths under
 	# /api stay with handle_path above, which strips the prefix first.
 	@cli {
-		header_regexp User-Agent ^aidetector-cli/
+		header_regexp User-Agent ^(runpentests|aidetector)-cli/
 		not path /api/*
 	}
 	handle @cli {

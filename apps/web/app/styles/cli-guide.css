@@ -145,17 +145,41 @@
   color: var(--muted);
 }
 
-.term .t-prompt { color: var(--shell-accent); }
-.term .t-cmd { color: var(--shell-ink); font-weight: 600; }
-.term .t-dim { color: var(--shell-comment); }
-.term .t-ok { color: var(--shell-ok); }
-.term .t-warn { color: var(--shell-warn); }
-.term .t-err { color: var(--shell-err); }
-.term .t-accent { color: var(--shell-accent); }
-.term .t-crit { color: var(--shell-violet); font-weight: 700; }
-.term .t-high { color: var(--shell-err); }
-.term .t-med { color: var(--shell-warn); }
-.term .t-low { color: var(--shell-accent); }
+.term .t-prompt {
+  color: var(--shell-accent);
+}
+.term .t-cmd {
+  color: var(--shell-ink);
+  font-weight: 600;
+}
+.term .t-dim {
+  color: var(--shell-comment);
+}
+.term .t-ok {
+  color: var(--shell-ok);
+}
+.term .t-warn {
+  color: var(--shell-warn);
+}
+.term .t-err {
+  color: var(--shell-err);
+}
+.term .t-accent {
+  color: var(--shell-accent);
+}
+.term .t-crit {
+  color: var(--shell-violet);
+  font-weight: 700;
+}
+.term .t-high {
+  color: var(--shell-err);
+}
+.term .t-med {
+  color: var(--shell-warn);
+}
+.term .t-low {
+  color: var(--shell-accent);
+}
 
 /* ---------- guide: the everyday-form pipeline ---------- */
 .pipe {
@@ -235,6 +259,7 @@
 /* ---------- guide: precedence matrix ---------- */
 .prec {
   width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
@@ -249,6 +274,7 @@
   padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
 }
 
 .prec tr:last-child th,
@@ -268,7 +294,7 @@
 
 .prec tbody th {
   font-weight: 600;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .prec tbody th small {
@@ -299,7 +325,31 @@
 }
 
 .prec-wrap {
+  min-width: 0;
   overflow-x: auto;
+}
+
+.prec col:first-child {
+  width: 34%;
+}
+.prec col:nth-child(2) {
+  width: 24%;
+}
+.prec col:nth-child(3) {
+  width: 16%;
+}
+.prec col:nth-child(4) {
+  width: 26%;
+}
+
+@media (max-width: 560px) {
+  .prec th,
+  .prec td {
+    padding: 10px 6px;
+  }
+  .prec td {
+    font-size: 11px;
+  }
 }
 
 /* ---------- guide: the CI gate funnel ---------- */
@@ -418,11 +468,21 @@
   color: var(--muted);
 }
 
-.exits .x0 { --x: var(--teal); }
-.exits .x1 { --x: var(--red); }
-.exits .x2 { --x: var(--amber); }
-.exits .x3 { --x: var(--violet); }
-.exits .x4 { --x: var(--muted); }
+.exits .x0 {
+  --x: var(--teal);
+}
+.exits .x1 {
+  --x: var(--red);
+}
+.exits .x2 {
+  --x: var(--amber);
+}
+.exits .x3 {
+  --x: var(--violet);
+}
+.exits .x4 {
+  --x: var(--muted);
+}
 
 /* ---------- guide: local-run lanes ---------- */
 .lanes {

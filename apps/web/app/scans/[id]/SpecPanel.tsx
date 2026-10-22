@@ -1,5 +1,7 @@
 "use client";
 
+import { ExpandingTextarea } from "../../components/ExpandingTextarea";
+
 import { memo, useEffect, useMemo, useState } from "react";
 import type { Operation, SpecReport } from "@/lib/api";
 import { SpecReportView } from "../../components/SpecReportView";
@@ -194,7 +196,7 @@ function SpecPanelImpl({
           <>
             {specManaged && (
               <span className="muted-sm" title="The spec comes from the project file">
-                set by aidetector.yml
+                set by runpentests.yml
               </span>
             )}
             <button
@@ -238,7 +240,7 @@ function SpecPanelImpl({
                 {pathParamNames.length === 1 ? "" : "s"}
               </button>
             )}
-            <textarea
+            <ExpandingTextarea
               value={resourceIdsText}
               onChange={(e) => updateResourceIds(e.target.value)}
               placeholder="None — the run creates the resources it needs."
@@ -259,7 +261,7 @@ function SpecPanelImpl({
         <>
           <label className="field" style={{ marginTop: 10 }}>
             <span>Spec contents (JSON or YAML) — replaces the current operations</span>
-            <textarea
+            <ExpandingTextarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={'{ "openapi": "3.0.0", "paths": { … } }'}

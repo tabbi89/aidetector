@@ -2,7 +2,7 @@
 
 The source repository stays private. A separate public repository holds only CLI
 release archives, checksums and `runner.json`. The CLI includes the MCP setup
-helper (`aidetector mcp`); there is no separate plugin executable.
+helper (`runpentests mcp`); there is no separate plugin executable.
 
 The public runner is built by `services/api/runner.Dockerfile`. Its exact source
 allowlist is `services/api/runner-files.txt`: scanner, local runner and their
@@ -14,10 +14,10 @@ Production continues to use its private API/worker image.
 ## One-time setup
 
 1. Create a separate public distribution repository, such as
-   `tabbi89/aidetector-releases`, with an initial README commit. Do not copy source.
+   `tabbi89/runpentests-releases`, with an initial README commit. Do not copy source.
 2. Set source-repository Actions variable `DISTRIBUTION_REPOSITORY` to that
    `owner/repository`. Optionally set `RUNNER_IMAGE` to a GHCR name without a tag
-   (default: `ghcr.io/<source-owner>/aidetector-runner`).
+   (default: `ghcr.io/<source-owner>/runpentests-runner`).
 3. Set Actions secret `DISTRIBUTION_TOKEN` to a token with contents write access
    only to the distribution repository. The source repository's `GITHUB_TOKEN`
    publishes the container with `packages:write`.
@@ -45,11 +45,11 @@ should be marked as prereleases in the release editor.
 
 On a clean machine, download the matching CLI archive and `SHA256SUMS`, verify
 its checksum, extract the executable and place it on PATH. Confirm
-`aidetector version`, then configure `aidetector mcp` as in the CLI README.
+`runpentests version`, then configure `runpentests mcp` as in the CLI README.
 On the first scan, the CLI offers to pull the pinned runner. CI must pull the
 image recorded in `runner.json` beforehand. `--image` and
-`AIDETECTOR_RUNNER_IMAGE` remain explicit overrides. Local development builds
-continue to use `make runner-image` and `aidetector-runner:latest`.
+`RUNPENTESTS_RUNNER_IMAGE` remain explicit overrides. Local development builds
+continue to use `make runner-image` and `runpentests-runner:latest`.
 
 GHCR visibility: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
 

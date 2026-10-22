@@ -1,7 +1,7 @@
 """Strict, value-free contracts for the PostgreSQL metadata adapter.
 
 Two halves. ``ConnectionConfig``/``ConnectionInput`` describe a database the
-*local runner* reads on the CLI machine (from ``aidetector.yml``); the server
+*local runner* reads on the CLI machine (from ``runpentests.yml``); the server
 never sees the password and never opens a database socket. ``SchemaUpload`` is
 what that runner sends back with its results: structure only, re-validated
 here because the server trusts the runner to report what it read, not to
@@ -81,7 +81,7 @@ class LocalConnection(ConnectionInput):
     the connection, not the user.
     """
 
-    label: str = Field(default="aidetector.yml", min_length=1, max_length=120)
+    label: str = Field(default="runpentests.yml", min_length=1, max_length=120)
     sslrootcert: str | None = Field(default=None, max_length=255, pattern=r"^/[\w./-]+$")
 
 

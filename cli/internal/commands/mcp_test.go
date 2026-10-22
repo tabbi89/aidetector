@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"aidetector/cli/docs"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/docs"
+	"runpentests/cli/internal/project"
 )
 
-// mcpSession runs `aidetector mcp` over the given requests (after initialize)
+// mcpSession runs `runpentests mcp` over the given requests (after initialize)
 // and returns each answer by id.
 func mcpSession(t *testing.T, h *harness, requests ...map[string]any) map[int]map[string]any {
 	t.Helper()
@@ -99,9 +99,9 @@ func TestMCPServesEveryGuideAndTheSetupPrompt(t *testing.T) {
 	h, _, _ := targetHarness(t, &stateful{}, "", false, nil)
 	answers := mcpSession(t, h,
 		map[string]any{"method": "resources/list"},
-		map[string]any{"method": "resources/read", "params": map[string]any{"uri": "aidetector://docs/project-file"}},
+		map[string]any{"method": "resources/read", "params": map[string]any{"uri": "runpentests://docs/project-file"}},
 		map[string]any{"method": "prompts/get", "params": map[string]any{
-			"name": "setup_aidetector", "arguments": map[string]any{"target": "https://staging.example.com"},
+			"name": "setup_runpentests", "arguments": map[string]any{"target": "https://staging.example.com"},
 		}},
 	)
 	listed := answers[1]["result"].(map[string]any)["resources"].([]any)
@@ -173,7 +173,7 @@ func TestMCPSuggestConfigUsesServerHintsAndNeverTheTarget(t *testing.T) {
 		t.Errorf("want one identity per hinted role and the spec recorded, got %+v", f)
 	}
 	if s.last("POST /specs/auth-hints")["spec"] != testSpec {
-		t.Errorf("the spec should be sent to the aidetector server for hints")
+		t.Errorf("the spec should be sent to the runpentests server for hints")
 	}
 	if *hits != 0 {
 		t.Errorf("suggest_config must never contact the target (%d hits)", *hits)
@@ -182,7 +182,7 @@ func TestMCPSuggestConfigUsesServerHintsAndNeverTheTarget(t *testing.T) {
 }
 
 func TestMCPSuggestConfigWithoutALoginSaysWhy(t *testing.T) {
-	h, _, _ := targetHarness(t, &stateful{}, "", false, map[string]string{"AIDETECTOR_SERVER": ""})
+	h, _, _ := targetHarness(t, &stateful{}, "", false, map[string]string{"RUNPENTESTS_SERVER": ""})
 	writeFile(t, h.env.Dir, "openapi.json", testSpec)
 	answers := mcpSession(t, h, call("suggest_config", map[string]any{"kind": "single"}))
 	got, isErr := toolJSON(t, answers[1])
@@ -192,7 +192,7 @@ func TestMCPSuggestConfigWithoutALoginSaysWhy(t *testing.T) {
 	if got["server_hints_unavailable"] != errNotLoggedIn {
 		t.Errorf("want the not-logged-in reason, got %v", got["server_hints_unavailable"])
 	}
-	if !strings.Contains(got["draft"].(string), "token_env: AIDETECTOR_TOKEN") {
+	if !strings.Contains(got["draft"].(string), "token_env: RUNPENTESTS_TOKEN") {
 		t.Errorf("kind single should draft the token_env shorthand:\n%s", got["draft"])
 	}
 }
@@ -220,7 +220,7 @@ func TestMCPValidateConfigRefusesSecretsAndWarnsOnWrites(t *testing.T) {
 		}
 	}
 	missing, _ := toolJSON(t, answers[3])
-	if missing["valid"] != false || !strings.Contains(missing["error"].(string), "no aidetector.yml") {
+	if missing["valid"] != false || !strings.Contains(missing["error"].(string), "no runpentests.yml") {
 		t.Errorf("with no file on disk, say so, got %v", missing)
 	}
 }
@@ -334,7 +334,7 @@ func TestMCPNextStepsTreatsALocalhostTargetAsALocalRun(t *testing.T) {
 }
 
 func TestMCPSuggestConfigWithAKeylessLoginSaysAKeyIsNeeded(t *testing.T) {
-	h, _, _ := targetHarness(t, &stateful{}, "", false, map[string]string{"AIDETECTOR_API_KEY": ""})
+	h, _, _ := targetHarness(t, &stateful{}, "", false, map[string]string{"RUNPENTESTS_API_KEY": ""})
 	writeFile(t, h.env.Dir, "openapi.json", testSpec)
 	answers := mcpSession(t, h, call("suggest_config", nil))
 	got, _ := toolJSON(t, answers[1])

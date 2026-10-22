@@ -1,11 +1,15 @@
 "use client";
 
+import { ValidatedForm } from "../../components/ValidatedForm";
+import { useConfirmation } from "../../components/Confirmation";
+
 import { memo, useState } from "react";
 import Link from "next/link";
 import type { Scan } from "@/lib/api";
 import { ExportMenu } from "../../components/ExportMenu";
 import { OwnershipChip } from "../../components/OwnershipNotice";
 import { Ago, CopyButton } from "../../components/ui";
+import { PlanBadge } from "../../components/PlanBadge";
 
 /**
  * Breadcrumb, target URL (with inline editing), status line with the run /
@@ -45,10 +49,11 @@ function ScanHeaderImpl({
   deleting: boolean;
   onSaveTarget: (url: string) => Promise<void>;
   onToggleRunPanel: () => void;
-  onCancel: () => void;
+  onCancel: () => Promise<void>;
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const confirmAction = useConfirmation();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -74,7 +79,7 @@ function ScanHeaderImpl({
 
       <div className="title-row">
         {scan && editing ? (
-          <form
+          <ValidatedForm
             className="target-edit"
             onSubmit={(e) => {
               e.preventDefault();
@@ -83,6 +88,8 @@ function ScanHeaderImpl({
           >
             <input
               type="url"
+              aria-label="Target URL"
+              required
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="https://api.example.com"
@@ -99,7 +106,7 @@ function ScanHeaderImpl({
             >
               Cancel
             </button>
-          </form>
+          </ValidatedForm>
         ) : (
           <>
             <h1>{scan?.target_base_url ?? "Scan"}</h1>
@@ -108,7 +115,7 @@ function ScanHeaderImpl({
               <>
                 {targetManaged && (
                   <span className="muted-sm" title="The target URL comes from the project file">
-                    set by aidetector.yml
+                    set by runpentests.yml
                   </span>
                 )}
                 <button
@@ -167,22 +174,13 @@ function ScanHeaderImpl({
                 }
               >
                 ▶ Run now
+                <PlanBadge premium />
               </button>
             )}
             {running && (
               <button
                 className="btn danger sm"
-                onClick={() => {
-                  // The engine cannot roll a run back, so the stop is confirmed
-                  // rather than fired by a stray click.
-                  if (
-                    window.confirm(
-                      "Stop this scan at the next check boundary? Findings so far are kept.",
-                    )
-                  ) {
-                    onCancel();
-                  }
-                }}
+                onClick={() => void confirmAction({ title: "Cancel this scan?", description: "Stop at the next check boundary. Findings so far are kept; an external tool in progress finishes first.", actionLabel: "Cancel scan", cancelLabel: "Keep scanning", intent: "warning", action: onCancel })}
                 disabled={cancelling}
                 title={
                   cancelling

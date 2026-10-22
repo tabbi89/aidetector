@@ -97,7 +97,8 @@ _UPLOAD_ATTEMPTS = 3
 _MAX_BUFFERED_EVENTS = 2000
 #: Tries the end-of-run drain makes: nothing flushes after it.
 _DRAIN_ATTEMPTS = 3
-RUNNER_USER_AGENT = "aidetector-cli/runner"
+# Preserve routing through already-deployed proxies during the product rename.
+RUNNER_USER_AGENT = "aidetector-cli/runner runpentests-cli/runner"
 
 #: Exit codes. The CLI reads the scan's status from the server; these are for a
 #: human running the container by hand.
@@ -115,7 +116,7 @@ class ServerLink:
         self._owns_client = client is None
         self._prefix = f"/runner/runs/{run_id}"
         # The hosted proxy sends root-path requests to the API only for an
-        # aidetector-cli/ User-Agent (deploy/caddy/Caddyfile); httpx's default
+        # runpentests-cli/ User-Agent (deploy/caddy/Caddyfile); httpx's default
         # lands on the web app, whose 404 reads as a lost run.
         self._headers = {"X-Run-Token": token, "User-Agent": RUNNER_USER_AGENT}
 

@@ -7,8 +7,8 @@
 //
 // A key is a credential, so the file is written 0600 and refused on read if
 // anyone else can open it — the same posture ssh takes with a private key.
-// AIDETECTOR_PROFILE selects a profile; AIDETECTOR_SERVER and
-// AIDETECTOR_API_KEY override its values, which is how CI supplies them
+// RUNPENTESTS_PROFILE selects a profile; RUNPENTESTS_SERVER and
+// RUNPENTESTS_API_KEY override its values, which is how CI supplies them
 // without anything touching disk.
 package config
 
@@ -39,7 +39,7 @@ type Store struct {
 }
 
 // Config is the connection Load resolved, with the environment applied.
-// Profile is always set: AIDETECTOR_PROFILE, else the file's current profile,
+// Profile is always set: RUNPENTESTS_PROFILE, else the file's current profile,
 // else "default".
 type Config struct {
 	Profile        string
@@ -58,7 +58,14 @@ func Path(override string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("no user config directory: %w", err)
 	}
-	return filepath.Join(dir, "aidetector", "config.json"), nil
+	current := filepath.Join(dir, "runpentests", "config.json")
+	if _, err := os.Stat(current); errors.Is(err, os.ErrNotExist) {
+		legacy := filepath.Join(dir, "aidetector", "config.json")
+		if _, legacyErr := os.Stat(legacy); legacyErr == nil {
+			return legacy, nil
+		}
+	}
+	return current, nil
 }
 
 // ReadStore reads the saved profiles without applying the environment. A
@@ -99,12 +106,13 @@ func ReadStore(path string) (Store, error) {
 // Load reads the saved profiles, selects one and applies the environment. A
 // missing file is not an error: CI runs with the environment alone.
 func Load(path string, getenv func(string) string) (Config, error) {
+	getenv = CompatibleEnv(getenv)
 	st, err := ReadStore(path)
 	if err != nil {
 		return Config{}, err
 	}
 	var c Config
-	name := getenv("AIDETECTOR_PROFILE")
+	name := getenv("RUNPENTESTS_PROFILE")
 	if name != "" {
 		c.ProfileFromEnv = true
 		if !ValidProfileName(name) {
@@ -124,19 +132,39 @@ func Load(path string, getenv func(string) string) (Config, error) {
 	if p, ok := st.Profiles[name]; ok {
 		c.Server, c.APIKey = p.Server, p.APIKey
 	}
-	if v := getenv("AIDETECTOR_SERVER"); v != "" {
+	if v := getenv("RUNPENTESTS_SERVER"); v != "" {
 		// A saved key belongs to its profile's server. When the environment
 		// points somewhere else, sending that key there would hand it to a
-		// host it was never issued for, so it needs AIDETECTOR_API_KEY too.
+		// host it was never issued for, so it needs RUNPENTESTS_API_KEY too.
 		if !sameServer(v, c.Server) {
 			c.APIKey = ""
 		}
 		c.Server, c.ServerFromEnv = v, true
 	}
-	if v := getenv("AIDETECTOR_API_KEY"); v != "" {
+	if v := getenv("RUNPENTESTS_API_KEY"); v != "" {
 		c.APIKey = v
 	}
 	return c, nil
+}
+
+// CompatibleEnv prefers the new namespace, with old variables accepted for CI.
+// A newly selected server must never inherit the old namespace's API key.
+func CompatibleEnv(getenv func(string) string) func(string) string {
+	return func(key string) string {
+		if getenv == nil {
+			return ""
+		}
+		if value := getenv(key); value != "" {
+			return value
+		}
+		if key == "RUNPENTESTS_API_KEY" && getenv("RUNPENTESTS_SERVER") != "" {
+			return ""
+		}
+		if strings.HasPrefix(key, "RUNPENTESTS_") {
+			return getenv("AIDETECTOR_" + strings.TrimPrefix(key, "RUNPENTESTS_"))
+		}
+		return ""
+	}
 }
 
 // sameServer compares two server URLs as typed: case and a trailing slash

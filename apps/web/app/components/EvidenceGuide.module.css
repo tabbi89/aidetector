@@ -1,0 +1,197 @@
+.guide {
+  margin-top: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--paper);
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.choices button {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.choices button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.choices button:active {
+  background: var(--accent-soft);
+}
+.choices button[aria-pressed="true"] {
+  background: var(--paper);
+  color: var(--accent);
+  border-color: var(--accent-line);
+  box-shadow: var(--shadow-sm);
+}
+.example {
+  font: 11px var(--mono);
+  color: var(--muted);
+}
+.canvas {
+  padding: 28px;
+}
+.heading {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 44px;
+}
+.heading h3 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+}
+.gap {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.flow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 30px;
+  list-style: none;
+  padding: 0;
+  margin: 28px 0;
+}
+.flow li {
+  position: relative;
+  min-width: 0;
+  min-height: 96px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9px;
+}
+.flow li + li::before {
+  content: "→";
+  position: absolute;
+  left: -25px;
+  top: 32px;
+  color: var(--muted);
+}
+.flow li > span {
+  color: var(--muted);
+  font: 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.flow strong,
+.flow code {
+  font-size: 14px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+}
+.proof {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+.lead {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.mark {
+  font: 24px var(--mono);
+}
+.verdict strong {
+  display: block;
+  font-size: 14px;
+}
+.verdict div > span {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.detail {
+  min-height: 48px;
+  margin: 20px 0 12px;
+  max-width: 85ch;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+.needs {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .guide {
+    margin-top: 28px;
+  }
+  .choices {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+  .choices button {
+    min-height: 40px;
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  .toolbar {
+    padding: 12px;
+  }
+  .canvas {
+    padding: 20px 16px;
+  }
+  .heading {
+    min-height: 100px;
+    align-content: start;
+  }
+  .flow {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    margin: 20px 0;
+  }
+  .flow li {
+    min-height: 78px;
+  }
+  .flow li + li::before {
+    content: "↓";
+    left: 24px;
+    top: -23px;
+  }
+  .detail {
+    min-height: 112px;
+  }
+  .needs {
+    min-height: 40px;
+  }
+}

@@ -72,11 +72,11 @@ def build(version: str, image: str, output: Path) -> None:
         raise ValueError("release output must be a new directory")
     root = Path(__file__).resolve().parents[1]
     output.mkdir(parents=True)
-    with tempfile.TemporaryDirectory(prefix="aidetector-release-") as scratch:
+    with tempfile.TemporaryDirectory(prefix="runpentests-release-") as scratch:
         notices = Path(scratch) / "THIRD_PARTY_NOTICES.txt"
         notices.write_text(third_party_notices(root))
         for system, arch in PLATFORMS:
-            filename = "aidetector.exe" if system == "windows" else "aidetector"
+            filename = "runpentests.exe" if system == "windows" else "runpentests"
             binary = Path(scratch) / filename
             env = {**os.environ, "CGO_ENABLED": "0", "GOOS": system, "GOARCH": arch}
             subprocess.run(
@@ -86,17 +86,17 @@ def build(version: str, image: str, output: Path) -> None:
                     "-trimpath",
                     "-buildvcs=false",
                     "-ldflags",
-                    f"-s -w -X aidetector/cli/internal/commands.Version={version} "
-                    f"-X aidetector/cli/internal/commands.RunnerImage={image}",
+                    f"-s -w -X runpentests/cli/internal/commands.Version={version} "
+                    f"-X runpentests/cli/internal/commands.RunnerImage={image}",
                     "-o",
                     str(binary),
-                    "./cmd/aidetector",
+                    "./cmd/runpentests",
                 ],
                 cwd=root / "cli",
                 env=env,
                 check=True,
             )
-            base = output / f"aidetector-{version}-{system}-{arch}"
+            base = output / f"runpentests-{version}-{system}-{arch}"
             if system == "windows":
                 with zipfile.ZipFile(
                     str(base) + ".zip", "w", zipfile.ZIP_DEFLATED
@@ -114,7 +114,7 @@ def build(version: str, image: str, output: Path) -> None:
                 "version": version,
                 "image": image,
                 "platforms": ["linux/amd64", "linux/arm64"],
-                "mcp": {"command": "aidetector", "args": ["mcp"]},
+                "mcp": {"command": "runpentests", "args": ["mcp"]},
             },
             indent=2,
         )

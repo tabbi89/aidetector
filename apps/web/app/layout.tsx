@@ -8,15 +8,17 @@ import { AccountMenu } from "./components/AccountMenu";
 import { BOOT_THEME } from "./components/theme";
 import { TITLE_SUFFIX } from "./components/title";
 import { ConnectionProvider } from "@/lib/connection";
+import { ConfirmationProvider } from "./components/Confirmation";
 import "./globals.css";
 import "./styles/features.css";
 import "./styles/settings.css";
 import "./styles/results.css";
 import "./styles/cli-guide.css";
+import "./styles/guides.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "aidetector — active API security scanning",
+    default: "runpentests — active API security scanning",
     template: `%s${TITLE_SUFFIX}`,
   },
   description:
@@ -32,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_THEME }} />
       </head>
@@ -41,29 +43,31 @@ export default function RootLayout({
           Skip to content
         </a>
         <ConnectionProvider>
-          <header className="topbar">
-            <div className="wrap inner">
-              <BrandLink />
-              <Nav />
-              <ThemeToggle />
-              <AccountMenu />
-            </div>
-          </header>
-          <main id="main">
-            <AuthGate>{children}</AuthGate>
-          </main>
-          <footer className="sitefoot">
-            <div className="wrap inner">
-              <span className="brand-sm">
-                aidetector<span className="dot">.</span>
-              </span>
-              <span className="foot-note">
-                Active scanner. Only ever point it at a target you own or are
-                authorized to test.
-              </span>
-              <FooterLinks />
-            </div>
-          </footer>
+          <ConfirmationProvider>
+            <header className="topbar">
+              <div className="wrap inner">
+                <BrandLink />
+                <Nav />
+                <ThemeToggle />
+                <AccountMenu />
+              </div>
+            </header>
+            <main id="main" tabIndex={-1}>
+              <AuthGate>{children}</AuthGate>
+            </main>
+            <footer className="sitefoot">
+              <div className="wrap inner">
+                <span className="brand-sm">
+                  runpentests<span className="dot">.</span>
+                </span>
+                <span className="foot-note">
+                  Active scanner. Only ever point it at a target you own or are
+                  authorized to test.
+                </span>
+                <FooterLinks />
+              </div>
+            </footer>
+          </ConfirmationProvider>
         </ConnectionProvider>
       </body>
     </html>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type SchemaContext, type SchemaSnapshotSummary } from "@/lib/api";
 import { Ago, CopyButton } from "./ui";
+import { PlanBadge } from "./PlanBadge";
 
 const REASONS: Record<string, string> = {
   password_missing: "No password supplied on the CLI machine",
@@ -103,14 +104,14 @@ export function DatabaseSchemaPanel({ scanId, running }: { scanId: string; runni
     <div className="specbox schema-panel">
       <div className="spec-head">
         <h2>Schema context</h2>
-        <span className="premium-tag">Premium</span>
+        <PlanBadge premium />
         <span className="muted-sm">PostgreSQL · read-only</span>
       </div>
 
       <div className="schema-intro">
         <p>
-          Read by <code>aidetector</code> from the <code>schema:</code> block in{" "}
-          <code>aidetector.yml</code>. The password stays on that machine; only table and
+          Read by <code>runpentests</code> from the <code>schema:</code> block in{" "}
+          <code>runpentests.yml</code>. The password stays on that machine; only table and
           column structure is uploaded. Values and rows are never read.
         </p>
       </div>
@@ -126,12 +127,12 @@ export function DatabaseSchemaPanel({ scanId, running }: { scanId: string; runni
 
       {context && !snapshot && !unavailable && (
         <div className="schema-empty">
-          <p>No schema snapshot yet. Add it to aidetector.yml:</p>
+          <p>No schema snapshot yet. Add it to runpentests.yml:</p>
           <div className="cli-command">
             <pre className="shell">{EXAMPLE}</pre>
-            <CopyButton value={EXAMPLE} label="Copy aidetector.yml example" />
+            <CopyButton value={EXAMPLE} label="Copy runpentests.yml example" />
           </div>
-          <p>then run <code>aidetector</code>.</p>
+          <p>then run <code>runpentests</code>.</p>
         </div>
       )}
 

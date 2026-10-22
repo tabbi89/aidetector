@@ -45,6 +45,7 @@ const CACHE_MS = 30_000;
  */
 let cached: { at: number; generation: number; value: Snapshot } | null = null;
 let inflight: { generation: number; promise: Promise<Snapshot> } | null = null;
+const snapshotListeners = new Set<(value: Snapshot) => void>();
 
 async function fetchSnapshot(): Promise<Snapshot> {
   const raw = (await api.capabilities()) as Capabilities & { premium?: TenantEntitlement };
@@ -69,6 +70,9 @@ function load(force: boolean): Promise<Snapshot> {
     // next connection's cache.
     if (connectionGeneration() === generation) {
       cached = { at: Date.now(), generation, value };
+      // A retry can be initiated by any consumer. Keep already mounted run,
+      // schedule, export and question controls on the same entitlement answer.
+      for (const listener of snapshotListeners) listener(value);
     }
     return value;
   });
@@ -108,15 +112,23 @@ export function useCapabilities(): CapabilitiesState {
   useEffect(() => onConnectionChange(() => setGeneration(connectionGeneration())), []);
 
   useEffect(() => {
+    const update = (value: Snapshot) => setState({ ...value, loading: false, error: null });
+    snapshotListeners.add(update);
+    return () => { snapshotListeners.delete(update); };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
-    if (nonce === 0 && freshCached()) {
+    const snapshot = freshCached();
+    if (nonce === 0 && snapshot) {
       // The module cache answered already; no probe and no loading flicker.
+      setState({ ...snapshot, loading: false, error: null });
       return;
     }
     setState((prev) => ({ ...prev, loading: true, error: null }));
     load(nonce > 0).then(
       (value) => {
-        if (!cancelled) setState({ ...value, loading: false, error: null });
+        if (!cancelled && generation === connectionGeneration()) setState({ ...value, loading: false, error: null });
       },
       (reason: unknown) => {
         if (!cancelled) {

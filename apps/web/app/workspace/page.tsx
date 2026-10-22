@@ -31,6 +31,8 @@ import {
 import { useUrlState } from "@/lib/useUrlState";
 import { usePageTitle } from "../components/usePageTitle";
 import { CopyButton } from "../components/ui";
+import { useConfirmation } from "../components/Confirmation";
+import { ValidatedForm } from "../components/ValidatedForm";
 
 // Workspace settings, laid out the way a settings area is expected to read: a
 // section list on the left, one section at a time on the right, every panel
@@ -418,7 +420,7 @@ export default function WorkspacePage() {
 
   /** Run a mutation with one busy flag, one error banner and one notice. */
   const act = useCallback(
-    async (work: () => Promise<void>, done?: string) => {
+    async (work: () => Promise<void>, done?: string, feedback: "page" | "dialog" = "page") => {
       setBusy(true);
       setError(null);
       setNotice(null);
@@ -427,6 +429,7 @@ export default function WorkspacePage() {
         await load();
         if (done) setNotice(done);
       } catch (e) {
+        if (feedback === "dialog") throw e;
         setError((e as Error).message);
       } finally {
         setBusy(false);
@@ -571,7 +574,7 @@ export default function WorkspacePage() {
   );
 }
 
-type Act = (work: () => Promise<void>, done?: string) => Promise<void>;
+type Act = (work: () => Promise<void>, done?: string, feedback?: "page" | "dialog") => Promise<void>;
 
 // ---- General ---------------------------------------------------------------------
 
@@ -624,6 +627,7 @@ function Members({
   act: Act;
 }) {
   const [adding, setAdding] = useState(false);
+  const confirmAction = useConfirmation();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("analyst");
@@ -653,7 +657,7 @@ function Members({
     <>
       {adding && (
         <Panel title="Add a member">
-          <form onSubmit={submit}>
+          <ValidatedForm onSubmit={submit}>
             <Field label="Email" htmlFor="member-email">
               <input
                 id="member-email"
@@ -696,7 +700,7 @@ function Members({
                 Add member
               </button>
             </div>
-          </form>
+          </ValidatedForm>
         </Panel>
       )}
 
@@ -765,13 +769,11 @@ function Members({
                         type="button"
                         disabled={busy}
                         aria-label={`Remove ${member.display_name}`}
-                        onClick={() => {
-                          if (!window.confirm(`Remove ${member.display_name} from this workspace?`)) return;
-                          void act(
+                        onClick={() => void confirmAction({ title: "Remove workspace member?", description: `Remove ${member.display_name} from this workspace?`, actionLabel: "Remove member", action: () => act(
                             () => api.removeMember(member.user_id).then(() => undefined),
                             `${member.display_name} removed.`,
-                          );
-                        }}
+                            "dialog",
+                          ) })}
                       >
                         Remove
                       </button>
@@ -913,6 +915,7 @@ function Tokens({
   onNeedMembers: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const [creating, setCreating] = useState(false);
+  const confirmAction = useConfirmation();
   const [user, setUser] = useState("");
   const [label, setLabel] = useState("");
   const [created, setCreated] = useState<CreatedToken | null>(null);
@@ -962,7 +965,7 @@ function Tokens({
       )}
       {creating && (
         <Panel title="Create a token">
-          <form onSubmit={submit}>
+          <ValidatedForm onSubmit={submit}>
             <Field label="Member" htmlFor="token-member" help="The token can do what this member's role allows.">
               <select
                 id="token-member"
@@ -998,7 +1001,7 @@ function Tokens({
                 Create token
               </button>
             </div>
-          </form>
+          </ValidatedForm>
         </Panel>
       )}
 
@@ -1016,7 +1019,7 @@ function Tokens({
               )
             }
           >
-            Create one for the CLI or a CI job. Set it as <code>AIDETECTOR_API_KEY</code>; it is never
+            Create one for the CLI or a CI job. Set it as <code>RUNPENTESTS_API_KEY</code>; it is never
             accepted as a command-line flag.
           </Empty>
         ) : (
@@ -1064,10 +1067,7 @@ function Tokens({
                           type="button"
                           disabled={busy}
                           aria-label={`Revoke token ${token.label || token.prefix}`}
-                          onClick={() => {
-                            if (!window.confirm(`Revoke ${token.label || token.prefix}…${token.last4}? Anything using it stops working.`)) return;
-                            void act(() => api.revokeToken(token.id).then(() => undefined), "Token revoked.");
-                          }}
+                          onClick={() => void confirmAction({ title: "Revoke API token?", description: `Revoke ${token.label || token.prefix}…${token.last4}? Anything using it stops working.`, actionLabel: "Revoke token", action: () => act(() => api.revokeToken(token.id).then(() => undefined), "Token revoked.", "dialog") })}
                         >
                           Revoke
                         </button>
@@ -1173,7 +1173,7 @@ function Limits({ budget, busy, act }: { budget: Budget; busy: boolean; act: Act
         </div>
       </div>
 
-      <form onSubmit={submit}>
+      <ValidatedForm onSubmit={submit}>
         <Panel title="AI budget">
           <Field
             label="Monthly budget (USD)"
@@ -1265,7 +1265,7 @@ function Limits({ budget, busy, act }: { budget: Budget; busy: boolean; act: Act
             Save limits
           </button>
         </div>
-      </form>
+      </ValidatedForm>
     </>
   );
 }
@@ -1282,6 +1282,7 @@ function Domains({
   act: Act;
 }) {
   const [host, setHost] = useState("");
+  const confirmAction = useConfirmation();
   const [checking, setChecking] = useState<string | null>(null);
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -1302,13 +1303,7 @@ function Domains({
   }
 
   function remove(domain: DomainVerification) {
-    if (
-      !window.confirm(
-        `Remove ${domain.host} from this workspace? Scans of it are refused until it is proved again.`,
-      )
-    )
-      return;
-    void act(() => api.deleteDomain(domain.id).then(() => undefined), "Domain removed.");
+    void confirmAction({ title: "Remove verified domain?", description: `Remove ${domain.host} from this workspace? Scans of it are refused until it is proved again.`, actionLabel: "Remove domain", action: () => act(() => api.deleteDomain(domain.id).then(() => undefined), "Domain removed.", "dialog") });
   }
 
   return (
@@ -1320,7 +1315,7 @@ function Domains({
           record for the name and a small HTTP file for the machine that answers — and every scan
           re-checks both.
         </p>
-        <form onSubmit={submit}>
+        <ValidatedForm onSubmit={submit}>
           <Field label="Host" htmlFor="domain-host" help="A hostname, not a URL.">
             <input
               id="domain-host"
@@ -1337,7 +1332,7 @@ function Domains({
               Add
             </button>
           </div>
-        </form>
+        </ValidatedForm>
       </Panel>
 
       {domains.length === 0 ? (
@@ -1537,7 +1532,7 @@ function DomainCard({
           A scan fetches the token from its own target&rsquo;s origin. If that is plain http or
           another port, check against it here.
         </p>
-        <form
+        <ValidatedForm
           className="domain-origin"
           onSubmit={(e) => {
             e.preventDefault();
@@ -1555,7 +1550,7 @@ function DomainCard({
           <button className="btn quiet sm" type="submit" disabled={busy || !origin.trim()}>
             Check this origin
           </button>
-        </form>
+        </ValidatedForm>
       </details>
     </article>
   );
@@ -1615,6 +1610,7 @@ function Notifications({
 }) {
   const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<"webhook" | "slack">("webhook");
+  const confirmAction = useConfirmation();
   const [destination, setDestination] = useState("");
   const [events, setEvents] = useState<NotificationEvent[]>([
     "finding.new",
@@ -1666,7 +1662,7 @@ function Notifications({
       )}
       {adding && (
         <Panel title="Add an endpoint">
-          <form onSubmit={submit}>
+          <ValidatedForm onSubmit={submit}>
             <Field label="Destination" htmlFor="notify-kind">
               <select
                 id="notify-kind"
@@ -1740,7 +1736,7 @@ function Notifications({
                 Add endpoint
               </button>
             </div>
-          </form>
+          </ValidatedForm>
         </Panel>
       )}
 
@@ -1802,13 +1798,11 @@ function Notifications({
                       type="button"
                       disabled={busy}
                       aria-label={`Delete the ${endpoint.kind} endpoint at ${endpoint.destination_hint}`}
-                      onClick={() => {
-                        if (!window.confirm(`Delete the ${endpoint.kind} endpoint at ${endpoint.destination_hint}?`)) return;
-                        void act(
+                      onClick={() => void confirmAction({ title: "Delete notification endpoint?", description: `Delete the ${endpoint.kind} endpoint at ${endpoint.destination_hint}?`, actionLabel: "Delete endpoint", action: () => act(
                           () => api.deleteNotification(endpoint.id).then(() => undefined),
                           "Endpoint deleted.",
-                        );
-                      }}
+                          "dialog",
+                        ) })}
                     >
                       Delete
                     </button>

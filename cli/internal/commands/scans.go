@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/project"
 )
 
 func cmdScans(ctx context.Context, e *Env, args []string) int {

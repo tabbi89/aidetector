@@ -180,14 +180,16 @@ def test_a_run_expands_its_level_for_an_entitled_tenant(client, scan_with_spec, 
     assert options["mutate"] is False and options["plan"] is False
 
 
-def test_a_run_at_a_level_is_not_refused_for_a_free_tenant(client, scan_with_spec, sent,
-                                                          monkeypatch):
+@pytest.mark.parametrize("level", [None, "quick", "standard", "deep"])
+def test_server_execution_requires_premium_at_every_level(client, scan_with_spec, sent,
+                                                          monkeypatch, level):
     monkeypatch.setattr(settings, "premium_tenants", "someone-else")
     sid = scan_with_spec()
-    r = client.post(f"/scans/{sid}/run", json={"authorized": True, "level": "deep"})
-    assert r.status_code == 202, r.text
-    assert sent[0]["options"]["premium"] is False
-    assert sent[0]["options"]["fuzz"] is True
+    r = client.post(f"/scans/{sid}/run", json={"authorized": True, "level": level})
+    assert r.status_code == 402, r.text
+    assert "local CLI" in r.json()["detail"]
+    assert sent == []
+    assert client.get(f"/scans/{sid}").json()["status"] == "draft"
 
 
 def test_an_explicit_premium_flag_is_still_refused_for_a_free_tenant(client, scan_with_spec,
@@ -201,6 +203,24 @@ def test_an_explicit_premium_flag_is_still_refused_for_a_free_tenant(client, sca
     assert sent == []
 
 
+def test_workspace_plan_controls_server_execution_without_a_dev_override(
+    client, scan_with_spec, sent, db_session, monkeypatch,
+):
+    from app.scans import workspace
+
+    monkeypatch.setattr(settings, "premium_tenants", "")
+    sid = scan_with_spec()
+    tenant = workspace.ensure_tenant(db_session, "default")
+    tenant.plan = "free"
+    db_session.commit()
+    assert client.post(f"/scans/{sid}/run", json={"authorized": True}).status_code == 402
+    assert sent == []
+    tenant.plan = "premium"
+    db_session.commit()
+    assert client.post(f"/scans/{sid}/run", json={"authorized": True}).status_code == 202
+    assert len(sent) == 1
+
+
 def test_a_level_does_not_answer_the_authorization_gate(client, scan_with_spec, sent):
     sid = scan_with_spec()
     r = client.post(f"/scans/{sid}/run", json={"authorized": False, "level": "deep"})
@@ -210,7 +230,7 @@ def test_a_level_does_not_answer_the_authorization_gate(client, scan_with_spec, 
 
 def test_a_schedule_saves_the_expanded_options(client, scan_with_spec, db_session,
                                                monkeypatch):
-    monkeypatch.setattr(settings, "premium_tenants", "someone-else")
+    monkeypatch.setattr(settings, "premium_tenants", "*")
     sid = scan_with_spec()
     r = client.put(
         f"/scans/{sid}/schedule",
@@ -224,11 +244,12 @@ def test_a_schedule_saves_the_expanded_options(client, scan_with_spec, db_sessio
     db_session.expire_all()
     saved = db_session.get(Scan, uuid.UUID(sid)).schedule_options
     assert saved["fuzz"] is True and saved["plan"] is True
-    assert saved.get("premium", False) is False and saved.get("mutate", False) is False
+    assert saved["premium"] is True and saved.get("mutate", False) is False
 
 
 def test_a_local_claim_at_deep_runs_what_the_runner_can(client, scan_with_spec, monkeypatch):
     monkeypatch.setattr(settings, "local_runner_enabled", True)
+    monkeypatch.setattr(settings, "premium_tenants", "someone-else")
     sid = scan_with_spec("http://127.0.0.1")
     r = client.post(
         f"/scans/{sid}/local-runs", json={"authorized": True, "level": "deep", "ai": True}
@@ -236,6 +257,7 @@ def test_a_local_claim_at_deep_runs_what_the_runner_can(client, scan_with_spec, 
     assert r.status_code == 201, r.text
     options = r.json()["options"]
     assert options["fuzz"] is True and options["security_review"] is True
+    assert not options.get("premium") and not options.get("adaptive")
     assert not any(options.get(name) for name in LOCAL_REFUSED)
 
 

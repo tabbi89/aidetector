@@ -17,9 +17,9 @@ import (
 	"strings"
 	"time"
 
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/config"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/config"
+	"runpentests/cli/internal/project"
 )
 
 // A local run sends the scan traffic from THIS machine: the CLI claims the run
@@ -34,20 +34,20 @@ import (
 //   - the container gets the per-run token, not the API key;
 //   - the container is read-only, capability-less and resource-limited.
 
-const runnerImageDefault = "aidetector-runner:latest"
+const runnerImageDefault = "runpentests-runner:latest"
 
 // Default images for the adjunct siblings the CLI starts for a local run. ZAP's
 // is published; Kali's is built from services/kali (there is no public tag), so
-// a missing one is a build hint, never a pull. Override with AIDETECTOR_*_IMAGE.
+// a missing one is a build hint, never a pull. Override with RUNPENTESTS_*_IMAGE.
 const (
 	zapImageDefault  = "ghcr.io/zaproxy/zaproxy:stable"
-	kaliImageDefault = "aidetector-kali:latest"
+	kaliImageDefault = "runpentests-kali:latest"
 	zapPort          = "8090"
 	kaliPort         = "8091"
 )
 
 func defaultRunnerImage(e *Env) string {
-	if v := e.Getenv("AIDETECTOR_RUNNER_IMAGE"); v != "" {
+	if v := e.Getenv("RUNPENTESTS_RUNNER_IMAGE"); v != "" {
 		return v
 	}
 	if RunnerImage != "" {
@@ -97,7 +97,7 @@ type localFlags struct {
 	// empty disables it. Mounted at the fixed container path /src.
 	source string
 	// Secrets already found on this machine, by identity name — the target
-	// form reads them from the environment variables aidetector.yml names.
+	// form reads them from the environment variables runpentests.yml names.
 	secrets map[string]string
 	// The project file's schema block, if any. Only a local run reads it.
 	schema *project.Schema
@@ -112,7 +112,7 @@ type localFlags struct {
 const sourceMount = "/src"
 
 // schemaCAMount is where a CA certificate is mounted inside the runner.
-const schemaCAMount = "/run/aidetector/schema-ca.pem"
+const schemaCAMount = "/run/runpentests/schema-ca.pem"
 
 func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[string]any,
 	lf localFlags, failOn string, verified, newOnly bool, output string) int {
@@ -123,7 +123,7 @@ func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[st
 	// would only end as a failed run.
 	build := ""
 	if lf.image == runnerImageDefault {
-		build = "build it with `make runner-image` in the aidetector repository"
+		build = "build it with `make runner-image` in the runpentests repository"
 	}
 	if code := ensureImage(ctx, e, lf.image, build); code != ExitOK {
 		return code
@@ -200,7 +200,7 @@ func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[st
 		return e.usage("%v", err)
 	}
 
-	name := "aidetector-run-" + shortID(runID)
+	name := "runpentests-run-" + shortID(runID)
 	e.errorf("running locally in %s (the scan traffic comes from this machine)\n", lf.image)
 	var stdout bytes.Buffer
 	runErr := e.Docker(ctx, name, dockerArgs(name, lf), bytes.NewReader(cfg), &stdout, e.Stderr)
@@ -220,11 +220,11 @@ func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[st
 		var interrupted bool
 		scan, interrupted, getErr = waitForAnalysis(ctx, e, c, id)
 		if interrupted {
-			e.errorf("interrupted; the analysis continues on the service (aidetector wait %s)\n", shortID(id))
+			e.errorf("interrupted; the analysis continues on the service (runpentests wait %s)\n", shortID(id))
 			return ExitFailed
 		}
 		if getErr == nil && scan.Status == "running" {
-			e.errorf("the AI analysis is still running on the service (aidetector wait %s)\n", shortID(id))
+			e.errorf("the AI analysis is still running on the service (runpentests wait %s)\n", shortID(id))
 			return ExitTimeout
 		}
 	}
@@ -312,7 +312,7 @@ func warnStaleRunner(ctx context.Context, e *Env, image string) {
 		built = "was built from " + printable(rev)
 	}
 	e.errorf("warning: the runner image %s %s, and this CLI is %s — the run may lack recent "+
-		"fixes; rebuild it with `make runner-image` in the aidetector repository\n", image, built, Version)
+		"fixes; rebuild it with `make runner-image` in the runpentests repository\n", image, built, Version)
 }
 
 // serverCallTimeout bounds each server call a local run makes once the run is
@@ -465,7 +465,7 @@ func runnerConfig(serverBase string, claim api.LocalClaim, secrets map[string]ma
 		"server":         server,
 		"run":            run,
 		"secrets":        secrets,
-		"runner_version": "aidetector-cli",
+		"runner_version": "runpentests-cli",
 	}
 	if containerSource != "" {
 		// Where the runner finds the mounted project inside the container.
@@ -531,13 +531,13 @@ func startAdjunctSiblings(
 	adjuncts := map[string]any{}
 
 	if wantZap {
-		image := envOr(e, "AIDETECTOR_ZAP_IMAGE", zapImageDefault)
+		image := envOr(e, "RUNPENTESTS_ZAP_IMAGE", zapImageDefault)
 		if code := ensureImage(ctx, e, image, ""); code != ExitOK {
 			cleanup()
 			return nil, func() {}, code
 		}
 		key := randomHex(16)
-		name := "aidetector-zap-" + shortID(runID)
+		name := "runpentests-zap-" + shortID(runID)
 		args := append(append([]string{"--rm"}, netArgs...), image,
 			"zap.sh", "-daemon", "-host", "0.0.0.0", "-port", zapPort,
 			"-config", "api.key="+key,
@@ -554,15 +554,15 @@ func startAdjunctSiblings(
 	}
 
 	if wantKali {
-		image := envOr(e, "AIDETECTOR_KALI_IMAGE", kaliImageDefault)
+		image := envOr(e, "RUNPENTESTS_KALI_IMAGE", kaliImageDefault)
 		// Built locally from services/kali, never pulled.
 		if code := ensureImage(ctx, e, image,
-			"build it with `make kali-image` in the aidetector repository"); code != ExitOK {
+			"build it with `make kali-image` in the runpentests repository"); code != ExitOK {
 			cleanup()
 			return nil, func() {}, code
 		}
 		key := randomHex(16)
-		name := "aidetector-kali-" + shortID(runID)
+		name := "runpentests-kali-" + shortID(runID)
 		args := append(append([]string{"--rm", "--env", "KALI_API_KEY=" + key}, netArgs...), image)
 		if err := e.StartContainer(ctx, name, args); err != nil {
 			return fail("could not start Kali: %v", err)
@@ -608,8 +608,8 @@ func envName(role string) string {
 // collectSecrets finds each credential's secret on this machine, keyed by
 // identity name so two identities that share a role keep distinct secrets: a
 // 0600 secrets file (name first, role only when unique), then a secret the
-// caller already found by identity name (aidetector.yml's secret_env), then
-// AIDETECTOR_SECRET_<NAME> (and AIDETECTOR_REFRESH_SECRET_<NAME>), with the role
+// caller already found by identity name (runpentests.yml's secret_env), then
+// RUNPENTESTS_SECRET_<NAME> (and RUNPENTESTS_REFRESH_SECRET_<NAME>), with the role
 // variable as a fallback only when no other identity has that role, then a
 // hidden prompt. An identity with none is dropped by the runner with a named
 // reason rather than failing the run.
@@ -700,7 +700,7 @@ func collectSecrets(e *Env, claim api.LocalClaim, file string, byName map[string
 				return nil, sharedRoleError("--secrets-file", role, roleNames[role])
 			}
 		}
-		for _, prefix := range []string{"AIDETECTOR_SECRET_", "AIDETECTOR_REFRESH_SECRET_"} {
+		for _, prefix := range []string{"RUNPENTESTS_SECRET_", "RUNPENTESTS_REFRESH_SECRET_"} {
 			roleKey := envName(role)
 			if envRoleCount[roleKey] > 1 && len(envNameOwners[roleKey]) == 0 && e.Getenv(prefix+roleKey) != "" {
 				return nil, sharedRoleError(prefix+roleKey, role, envRoleNames[roleKey])
@@ -723,12 +723,12 @@ func collectSecrets(e *Env, claim api.LocalClaim, file string, byName map[string
 		}
 		var err error
 		if entry["secret"] == "" {
-			if entry["secret"], err = fromEnv("AIDETECTOR_SECRET_", name, role); err != nil {
+			if entry["secret"], err = fromEnv("RUNPENTESTS_SECRET_", name, role); err != nil {
 				return nil, err
 			}
 		}
 		if entry["refresh_secret"] == "" {
-			if entry["refresh_secret"], err = fromEnv("AIDETECTOR_REFRESH_SECRET_", name, role); err != nil {
+			if entry["refresh_secret"], err = fromEnv("RUNPENTESTS_REFRESH_SECRET_", name, role); err != nil {
 				return nil, err
 			}
 		}
@@ -756,7 +756,7 @@ func collidingNameError(source string, names []string) error {
 	for i, n := range names {
 		quoted[i] = fmt.Sprintf("%q", n)
 	}
-	return fmt.Errorf("%s: identities %s share this environment key; key their secrets by exact name in --secrets-file or aidetector.yml secret_env instead",
+	return fmt.Errorf("%s: identities %s share this environment key; key their secrets by exact name in --secrets-file or runpentests.yml secret_env instead",
 		source, strings.Join(quoted, ", "))
 }
 

@@ -1,7 +1,14 @@
 "use client";
 
-import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
+import { ValidatedForm } from "../../components/ValidatedForm";
+
+import { ExpandingTextarea } from "../../components/ExpandingTextarea";
+
+import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
+import { PlanBadge } from "../../components/PlanBadge";
+import { useCapabilities } from "../../components/useCapabilities";
 
 /**
  * Render the model's lightweight markdown as React nodes — never via
@@ -79,12 +86,15 @@ interface Turn {
 }
 
 export function AskPanel({ id }: { id: string }) {
+  const { premium, loading } = useCapabilities();
+  const premiumLocked = !loading && premium?.available === false;
+  const accessHintId = useId();
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<number | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [collapsedLoaded, setCollapsedLoaded] = useState(false);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -126,7 +136,7 @@ export function AskPanel({ id }: { id: string }) {
 
   async function ask(q: string) {
     const trimmed = q.trim();
-    if (!trimmed || asking) return;
+    if (!trimmed || asking || premiumLocked || loading) return;
     setError(null);
     setPending(trimmed);
     setQuestion("");
@@ -172,9 +182,7 @@ export function AskPanel({ id }: { id: string }) {
         aria-controls="ask-body"
       >
         <span className="ask-title">Ask your scan</span>
-        <span className="premium-badge" title="Premium feature">
-          Premium
-        </span>
+        <PlanBadge premium />
         {turns.length > 0 && (
           <span className="ask-count">
             {turns.length} question{turns.length === 1 ? "" : "s"}
@@ -190,9 +198,16 @@ export function AskPanel({ id }: { id: string }) {
       </button>
 
       <div id="ask-body" hidden={collapsed}>
+      {premiumLocked && (
+        <div className="ask-access-note" id={accessHintId}>
+          <strong>Premium workspace required</strong>
+          <p>Ask questions about these findings after your workspace has Premium access. You can still review every finding and its evidence below.</p>
+          <Link href="/#plans">Compare plan features <span aria-hidden="true">↗</span></Link>
+        </div>
+      )}
       <p className="muted-note">
         Ask a question about these findings — grounded only in what the scan
-        found. Each answer spends AI tokens (see cost above).
+        found. Each answer spends AI tokens, tracked under AI usage in Scan configuration.
       </p>
 
       {(turns.length > 0 || asking) && (
@@ -240,7 +255,7 @@ export function AskPanel({ id }: { id: string }) {
 
       {error && <div className="ask-error">{error}</div>}
 
-      <form
+      <ValidatedForm
         className="ask-form"
         onSubmit={(e) => {
           e.preventDefault();
@@ -248,7 +263,7 @@ export function AskPanel({ id }: { id: string }) {
         }}
       >
         <div className="ask-input">
-          <textarea
+          <ExpandingTextarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             placeholder={
@@ -257,9 +272,11 @@ export function AskPanel({ id }: { id: string }) {
                 : "Ask a follow-up…"
             }
             rows={2}
+            disabled={premiumLocked || loading || asking}
             aria-label="Question about the scan"
+            aria-describedby={premiumLocked ? accessHintId : undefined}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              if (!e.nativeEvent.isComposing && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 void ask(question);
               }
@@ -267,10 +284,10 @@ export function AskPanel({ id }: { id: string }) {
           />
           <span className="ask-kbd">⌘/Ctrl + ⏎</span>
         </div>
-        <button className="btn" type="submit" disabled={asking || !question.trim()}>
+        <button className="btn" type="submit" aria-busy={asking} disabled={asking || premiumLocked || loading || !question.trim()}>
           {asking ? "Thinking…" : "Ask"}
         </button>
-      </form>
+      </ValidatedForm>
 
       {empty && (
         <div className="ask-suggestions">
@@ -279,7 +296,7 @@ export function AskPanel({ id }: { id: string }) {
               key={s}
               type="button"
               className="chipbtn"
-              disabled={asking}
+              disabled={asking || premiumLocked || loading}
               onClick={() => void ask(s)}
             >
               {s}

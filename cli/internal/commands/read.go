@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"aidetector/cli/internal/api"
+	"runpentests/cli/internal/api"
 )
 
 func cmdFindings(ctx context.Context, e *Env, args []string) int {
@@ -83,7 +83,7 @@ func cmdFindings(ctx context.Context, e *Env, args []string) int {
 	}
 	e.printf("%d finding(s)\n", len(shown))
 	if len(shown) > 0 {
-		e.errorf("detail: aidetector findings show %s <ID>\n", shortID(id))
+		e.errorf("detail: runpentests findings show %s <ID>\n", shortID(id))
 	}
 	return ExitOK
 }
@@ -165,7 +165,7 @@ func findingsVerdict(ctx context.Context, e *Env, verb string, args []string) in
 		return e.parseFailed("findings", fs, err)
 	}
 	// Two or more positionals are scan then findings; a single one is a
-	// finding on the project's scan (aidetector.yml picks it).
+	// finding on the project's scan (runpentests.yml picks it).
 	scanRef := ""
 	refs := pos
 	switch {
@@ -257,7 +257,7 @@ func findingsVerdict(ctx context.Context, e *Env, verb string, args []string) in
 		for _, f := range updated {
 			ids = append(ids, shortID(f.ID))
 		}
-		e.errorf("undo: aidetector findings reopen %s %s\n", shortID(scanID), strings.Join(ids, " "))
+		e.errorf("undo: runpentests findings reopen %s %s\n", shortID(scanID), strings.Join(ids, " "))
 	}
 	return ExitOK
 }
@@ -396,7 +396,7 @@ var reportExt = map[string]string{
 func cmdReport(ctx context.Context, e *Env, args []string) int {
 	fs := e.newFlagSet("report")
 	format := fs.String("format", "", "pdf | html | pentest | sarif | json")
-	out := fs.String("o", "", "file to write, or - for stdout (text formats only); default aidetector-<id8>.<ext>")
+	out := fs.String("o", "", "file to write, or - for stdout (text formats only); default runpentests-<id8>.<ext>")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return e.parseFailed("report", fs, err)
@@ -431,7 +431,7 @@ func cmdReport(ctx context.Context, e *Env, args []string) int {
 		if err != nil {
 			return e.usage("%v", err)
 		}
-		*out = filepath.Join(wd, "aidetector-"+shortID(id)+"."+reportExt[*format])
+		*out = filepath.Join(wd, "runpentests-"+shortID(id)+"."+reportExt[*format])
 		// Never overwrite a report the user did not ask to replace.
 		f, err := os.OpenFile(*out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if err != nil {

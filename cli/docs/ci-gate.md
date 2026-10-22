@@ -1,14 +1,14 @@
 # Use it as a CI gate
 
 ```bash
-aidetector run "$SCAN_ID" --authorized \
+runpentests run "$SCAN_ID" --authorized \
     --fail-on high --verified-only --new-only
 ```
 
-Inside a repository with an `aidetector.yml` that sets `fail_on:`, the step is just:
+Inside a repository with an `runpentests.yml` that sets `fail_on:`, the step is just:
 
 ```bash
-aidetector --authorized
+runpentests --authorized
 ```
 
 `--authorized` is required with no terminal: the CI job is the one place the person who
@@ -21,10 +21,10 @@ set it up answers the authorization gate for every run. It is a flag, never a fi
 
 ```bash
 # Annotate the GitHub Actions run with each finding
-aidetector run "$SCAN_ID" --authorized --fail-on high --output github
+runpentests run "$SCAN_ID" --authorized --fail-on high --output github
 
 # Publish the gate as a JUnit test report
-aidetector wait "$SCAN_ID" --fail-on high --output junit > aidetector.xml
+runpentests wait "$SCAN_ID" --fail-on high --output junit > runpentests.xml
 ```
 
 The scan runs on the CI machine itself, so the job needs Docker and the runner image, and
@@ -44,13 +44,13 @@ the target must be reachable from it. To gate again later without re-running, us
   regressions rather than known debt. A first run has nothing to compare with, so
   everything counts.
 - A finding a person already **dismissed** never fails the gate — that is what triage is for.
-  Dismiss a false positive with `aidetector findings dismiss SCAN ID`; it stays dismissed on
+  Dismiss a false positive with `runpentests findings dismiss SCAN ID`; it stays dismissed on
   later runs and never fails the gate.
 - Progress goes to **stderr**; stdout stays clean for `--json`, `--output github`
   and `--output junit`.
 - Ctrl-C while waiting asks the server to cancel the run instead of leaving it going.
 
-CI needs no saved login: set `AIDETECTOR_SERVER` and `AIDETECTOR_API_KEY` (a workspace API
+CI needs no saved login: set `RUNPENTESTS_SERVER` and `RUNPENTESTS_API_KEY` (a workspace API
 token) as secrets, and each identity's `secret_env` variable.
 
 Upload SARIF to GitHub code scanning with `report --format sarif` — only verified

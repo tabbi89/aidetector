@@ -154,7 +154,7 @@ def test_scheduled_runs_carry_the_options_the_schedule_was_authorized_with(
     assert enqueued[0]["predefined_resource_ids"] == {"merchant": "merchant_live_1"}
 
 
-def test_dispatch_drops_premium_passes_the_tenant_has_since_lost(
+def test_dispatch_pauses_server_runs_when_the_tenant_loses_premium(
     db_session, seeded_scan, engine_client, monkeypatch
 ):
     from app.core.config import settings
@@ -165,8 +165,12 @@ def test_dispatch_drops_premium_passes_the_tenant_has_since_lost(
     monkeypatch.setattr(settings, "premium_tenants", "someone-else")
 
     enqueued: list[dict] = []
-    dispatch_due(db_session, datetime.now(UTC), lambda _sid, opts: enqueued.append(opts))
-    assert enqueued[0]["premium"] is False and enqueued[0]["adaptive"] is False
+    now = datetime.now(UTC)
+    dispatched = dispatch_due(db_session, now, lambda _sid, opts: enqueued.append(opts))
+    assert dispatched == [] and enqueued == []
+    db_session.refresh(seeded_scan)
+    assert seeded_scan.next_run_at > now
+    assert seeded_scan.status != ScanStatus.queued
 
 
 # ---- PDF report ----

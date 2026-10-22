@@ -9,9 +9,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"aidetector/cli/internal/api"
-	"aidetector/cli/internal/config"
-	"aidetector/cli/internal/project"
+	"runpentests/cli/internal/api"
+	"runpentests/cli/internal/config"
+	"runpentests/cli/internal/project"
 )
 
 // initSpecNames are the spec files `init` looks for in the project directory,
@@ -52,14 +52,14 @@ type initGrant struct {
 // written so the file loads, and named so the user sees what to fill in.
 const grantPlaceholder = "CHANGE-ME"
 
-// cmdInit writes an aidetector.yml that fits the API. It finds a spec on this
+// cmdInit writes a runpentests.yml that fits the API. It finds a spec on this
 // machine (never by calling the target), asks the server what the spec says
 // about authentication, and turns that into one of the three shorthands. It
 // only ever writes environment variable names, never a secret.
 func cmdInit(ctx context.Context, e *Env, args []string) int {
 	fs := e.newFlagSet("init")
 	specFlag := fs.String("spec", "", "OpenAPI/Swagger file to read auth hints from")
-	force := fs.Bool("force", false, "overwrite an existing aidetector.yml")
+	force := fs.Bool("force", false, "overwrite an existing runpentests.yml")
 	yes := fs.Bool("yes", false, "take the suggested answers without prompting")
 	pos, err := parse(fs, args)
 	if err != nil {
@@ -73,7 +73,7 @@ func cmdInit(ctx context.Context, e *Env, args []string) int {
 		return e.usage("%v", err)
 	}
 	if !*force {
-		for _, name := range []string{project.FileName, project.AltFileName} {
+		for _, name := range project.FileNames {
 			if _, err := os.Stat(filepath.Join(wd, name)); err == nil {
 				return e.usage("%s already exists; pass --force to overwrite it", name)
 			}
@@ -141,7 +141,7 @@ func cmdInit(ctx context.Context, e *Env, args []string) int {
 	content := append([]byte(initHeader), data...)
 
 	// Prove the document loads before it can be committed.
-	tmp, err := os.CreateTemp(wd, ".aidetector-init-*.yml")
+	tmp, err := os.CreateTemp(wd, ".runpentests-init-*.yml")
 	if err != nil {
 		return e.usage("cannot write %s: %v", project.FileName, err)
 	}
@@ -171,7 +171,7 @@ func cmdInit(ctx context.Context, e *Env, args []string) int {
 		e.errorf("this API takes no credentials: nothing to export\n")
 		return ExitOK
 	}
-	e.errorf("set these environment variables before running aidetector:\n")
+	e.errorf("set these environment variables before running runpentests:\n")
 	for _, name := range envs {
 		e.errorf("  export %s=...\n", name)
 	}
@@ -187,7 +187,7 @@ func draftInitFile(e *Env, kind, target, specPath string, hints api.AuthHints, i
 	case "public":
 		cfg.Auth = "public"
 	case "single":
-		cfg.TokenEnv = "AIDETECTOR_TOKEN"
+		cfg.TokenEnv = "RUNPENTESTS_TOKEN"
 		cfg.TokenAuth, cfg.TokenHeader = singleTokenShape(hints)
 	case "roles":
 		cfg.Identities = roleIdentities(e, hints, interactive)
@@ -196,7 +196,7 @@ func draftInitFile(e *Env, kind, target, specPath string, hints api.AuthHints, i
 }
 
 // initHeader is the comment at the top of a generated project file.
-const initHeader = "# aidetector.yml — written by `aidetector init`.\n" +
+const initHeader = "# runpentests.yml — written by `runpentests init`.\n" +
 	"# Commit this file: it names environment variables, never secrets.\n"
 
 // resolveIn makes p absolute against dir when it is relative.
@@ -228,8 +228,8 @@ func fetchAuthHints(ctx context.Context, e *Env, specText string) (api.AuthHints
 // lookupAuthHints' reasons when it does not ask: no server saved, or a server
 // saved without a key (a dev server with auth off answers hints only to a key).
 const (
-	errNotLoggedIn = "not logged in — run `aidetector login`"
-	errNoAPIKey    = "logged in without an API key; auth hints need one — run `aidetector login` with a key"
+	errNotLoggedIn = "not logged in — run `runpentests login`"
+	errNoAPIKey    = "logged in without an API key; auth hints need one — run `runpentests login` with a key"
 )
 
 // lookupAuthHints is fetchAuthHints without the printing: on failure it says
@@ -381,7 +381,7 @@ func secretEnvFor(name string) string {
 			b.WriteByte('_')
 		}
 	}
-	return "AIDETECTOR_" + b.String() + "_TOKEN"
+	return "RUNPENTESTS_" + b.String() + "_TOKEN"
 }
 
 // identityEnvNames lists what the generated file expects in the environment.

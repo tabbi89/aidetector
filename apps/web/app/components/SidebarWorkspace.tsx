@@ -1,12 +1,14 @@
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
+import { PlanBadge } from "./PlanBadge";
 
 export interface WorkspaceSection {
   id: string;
   label: string;
   meta: string;
   content: ReactNode;
+  premium?: boolean;
 }
 
 export function SidebarWorkspace({
@@ -149,6 +151,7 @@ export function SidebarWorkspace({
               </span>
               <span className="config-nav-copy">
                 <strong>{section.label}</strong>
+                {section.premium && <PlanBadge premium />}
                 <small>{section.meta}</small>
               </span>
             </button>

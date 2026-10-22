@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"aidetector/cli/internal/api"
+	"runpentests/cli/internal/api"
 )
 
 // RunFlags maps each pass flag to the RunRequest field it sets. It is the
@@ -48,7 +48,7 @@ func passField(name string) (string, bool) {
 	return field, ok
 }
 
-// PassHelp describes each pass for `aidetector help` and for the flag's own
+// PassHelp describes each pass for `runpentests help` and for the flag's own
 // usage. A pass that saves time is never described as "enable the X pass": the
 // cost to the target or the tokens is the part that matters.
 var PassHelp = map[string]string{
@@ -80,7 +80,7 @@ var RunRequestNotFlags = map[string]string{
 	"resource_attempts":       "not exposed: bounded default",
 	"requests_per_second":     "--rps",
 	"checks":                  "--checks",
-	"config_source":           "set from aidetector.yml by the target form, never a flag",
+	"config_source":           "set from runpentests.yml by the target form, never a flag",
 	"level":                   "--level",
 }
 
@@ -280,7 +280,7 @@ func waitForRun(ctx context.Context, e *Env, c *api.Client, id string, timeout t
 	first := true
 	for {
 		if ctx.Err() != nil && detach {
-			e.errorf("interrupted; the run continues on the server (aidetector cancel %s stops it)\n", shortID(id))
+			e.errorf("interrupted; the run continues on the server (runpentests cancel %s stops it)\n", shortID(id))
 			return ExitFailed
 		}
 		if ctx.Err() != nil {
@@ -386,7 +386,7 @@ func cmdWait(ctx context.Context, e *Env, args []string) int {
 		e.errorf("scan %s is %s%s\n", shortID(id), scan.Status, reason)
 		return ExitFailed
 	default:
-		return e.usage("scan %s has not started a run (status %s): start one with `aidetector run %s`",
+		return e.usage("scan %s has not started a run (status %s): start one with `runpentests run %s`",
 			shortID(id), scan.Status, shortID(id))
 	}
 	if *failOn == "" {
@@ -529,7 +529,7 @@ func printJUnitGate(e *Env, considered, failing []gateRow) int {
 	for _, r := range failing {
 		isFailing[r.ID] = true
 	}
-	suite := junitSuite{Name: "aidetector", Tests: len(considered), Failures: len(failing)}
+	suite := junitSuite{Name: "runpentests", Tests: len(considered), Failures: len(failing)}
 	for _, r := range considered {
 		c := junitCase{Classname: printable(r.Check), Name: printable(r.Title)}
 		if isFailing[r.ID] {

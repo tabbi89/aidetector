@@ -1,13 +1,16 @@
+import { GuideNav } from "../components/GuideNav";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SCAN_LEVELS } from "../components/scanLevels";
+import { GuideHero } from "../components/GuideHero";
 import { SectionLabel } from "../components/SectionLabel";
 import { Terminal, type TermLine } from "../components/Terminal";
+import { PlanBadge } from "../components/PlanBadge";
 
 export const metadata: Metadata = {
   title: "CLI guide",
   description:
-    "How to drive aidetector from the terminal: connect, scan an API in one command, commit a project file, read results and gate a pipeline.",
+    "How to drive runpentests from the terminal: connect, scan an API in one command, commit a project file, read results and gate a pipeline.",
 };
 
 /*
@@ -19,24 +22,24 @@ export const metadata: Metadata = {
  */
 
 const TOC = [
-  { id: "install", t: "Install & connect" },
-  { id: "everyday", t: "Scan an API" },
-  { id: "project", t: "aidetector.yml" },
-  { id: "results", t: "Read the results" },
-  { id: "ci", t: "Gate a pipeline" },
-  { id: "local", t: "Local runs" },
-  { id: "web-or-cli", t: "Web or CLI" },
-  { id: "reference", t: "Command reference" },
+  { id: "install", label: "Install & connect" },
+  { id: "everyday", label: "Scan an API" },
+  { id: "project", label: "runpentests.yml" },
+  { id: "results", label: "Read the results" },
+  { id: "ci", label: "Gate a pipeline" },
+  { id: "local", label: "Local runs" },
+  { id: "web-or-cli", label: "Web or CLI" },
+  { id: "reference", label: "Command reference" },
 ];
 
 const SCAN = "645d5118-e36b-42fa-a986-0c8c4c878382";
 
 const INSTALL: TermLine[] = [
   "# connect once — the key is prompted for, never a flag",
-  "$ aidetector login",
+  "$ runpentests login",
   "API key (input hidden):",
   { text: "logged in to https://aidetector.com", tone: "ok" },
-  "$ aidetector status",
+  "$ runpentests status",
   "cli: 15f5da6",
   "profile: default",
   "server: https://aidetector.com",
@@ -60,11 +63,11 @@ const PIPE = [
   {
     t: "Find the scan",
     d: "Reuses the scan whose target matches, keeping identities, triage and history. --new forces a fresh one.",
-    src: "scan: in aidetector.yml pins one",
+    src: "scan: in runpentests.yml pins one",
   },
   {
     t: "Find a spec",
-    d: "--spec, then aidetector.yml, then the project tree, the saved spec, and finally the target's own /openapi.json.",
+    d: "--spec, then runpentests.yml, then the project tree, the saved spec, and finally the target's own /openapi.json.",
     src: "unchanged specs are not re-uploaded",
   },
   {
@@ -80,9 +83,12 @@ const PIPE = [
 ];
 
 const FIRST_RUN: TermLine[] = [
-  "$ aidetector https://api.example.com",
+  "$ runpentests https://api.example.com",
   "This sends active security tests to https://api.example.com.",
-  { text: "Type y to confirm you own or are authorized to test it: y", tone: "warn" },
+  {
+    text: "Type y to confirm you own or are authorized to test it: y",
+    tone: "warn",
+  },
   `created scan ${SCAN} for https://api.example.com`,
   "spec: https://api.example.com/openapi.json — 11 operations",
   "This scan has no identities. The authorization checks compare two users — for example a normal user and an admin.",
@@ -99,8 +105,14 @@ const FIRST_RUN: TermLine[] = [
   "Identity name (empty to finish):",
   `scan ${SCAN}`,
   { text: "    0%  scanning 11 operations", tone: "accent" },
-  { text: "    0%  write_authz did not run: writes to the target are off (turn on writes to run it)", tone: "dim" },
-  { text: "    0%  ssrf did not run: no url-shaped parameter in the spec — SSRF needs somewhere to put a URL", tone: "dim" },
+  {
+    text: "    0%  write_authz did not run: writes to the target are off (turn on writes to run it)",
+    tone: "dim",
+  },
+  {
+    text: "    0%  ssrf did not run: no url-shaped parameter in the spec — SSRF needs somewhere to put a URL",
+    tone: "dim",
+  },
   { text: "    4%  completed security_headers", tone: "accent" },
   { text: "   12%  completed broken_auth", tone: "accent" },
   { text: "  …", tone: "dim" },
@@ -115,12 +127,15 @@ const FIRST_RUN: TermLine[] = [
   "low      heuristic signature_injection      NoSQL injection lead via query 'q' on GET /search",
   { text: "…", tone: "dim" },
   "17 finding(s), 9 verified",
-  { text: `details: aidetector findings ${SCAN} · report: aidetector report ${SCAN} --format html -o report.html`, tone: "dim" },
+  {
+    text: `details: runpentests findings ${SCAN} · report: runpentests report ${SCAN} --format html -o report.html`,
+    tone: "dim",
+  },
 ];
 
 const SECOND_RUN: TermLine[] = [
   "# the same command tomorrow: the scan, its identities and its triage are reused",
-  "$ aidetector https://api.example.com --authorized",
+  "$ runpentests https://api.example.com --authorized",
   `reusing scan ${SCAN} for https://api.example.com`,
   `scan ${SCAN}`,
   { text: "    0%  scanning 11 operations", tone: "accent" },
@@ -128,15 +143,21 @@ const SECOND_RUN: TermLine[] = [
   { text: "  100%  complete · 17 findings · 66 requests", tone: "ok" },
   { text: "…", tone: "dim" },
   "# add a directory and the run happens here, with your code read-only",
-  "$ aidetector https://api.example.com ./my-project",
+  "$ runpentests https://api.example.com ./my-project",
 ];
 
 const PROJECT_FILE: TermLine[] = [
-  "$ cat aidetector.yml",
+  "$ cat runpentests.yml",
   "target: https://staging.example.com",
-  { text: "spec: openapi.yaml            # relative to this file", tone: "dim" },
+  {
+    text: "spec: openapi.yaml            # relative to this file",
+    tone: "dim",
+  },
   "rps: 5",
-  { text: "passes: [writes]              # any run flag, without the dashes", tone: "dim" },
+  {
+    text: "passes: [writes]              # any run flag, without the dashes",
+    tone: "dim",
+  },
   "checks: [bola, bfla]",
   "fail_on: high",
   "verified_only: true",
@@ -146,28 +167,40 @@ const PROJECT_FILE: TermLine[] = [
   "  - { name: admin, role: admin, auth: header, header: X-Api-Key, secret_env: ADMIN_TOKEN }",
   "",
   "# inside the project, a bare command does what the file says",
-  "$ aidetector --authorized",
-  { text: "using aidetector.yml", tone: "dim" },
+  "$ runpentests --authorized",
+  { text: "using runpentests.yml", tone: "dim" },
   `reusing scan ${SCAN} for https://staging.example.com`,
-  "spec: openapi.yaml (aidetector.yml) — 11 operations",
-  { text: "identity alice (user): updated from aidetector.yml", tone: "ok" },
-  { text: "identity admin (admin): updated from aidetector.yml", tone: "ok" },
+  "spec: openapi.yaml (runpentests.yml) — 11 operations",
+  { text: "identity alice (user): updated from runpentests.yml", tone: "ok" },
+  { text: "identity admin (admin): updated from runpentests.yml", tone: "ok" },
   `scan ${SCAN}`,
 ];
 
 /* Which layer supplies each setting in one example run. */
 const PREC_ROWS = [
   { layer: "Flags", note: "this command line", cells: ["critical", "—", "—"] },
-  { layer: "aidetector.yml", note: "committed with the code", cells: ["high", "5", "—"] },
-  { layer: "Web settings", note: "saved on the scan", cells: ["—", "10", "uploaded spec"] },
-  { layer: "Defaults", note: "when nothing sets it", cells: ["no gate", "scan default", "/openapi.json"] },
+  {
+    layer: "runpentests.yml",
+    note: "committed with the code",
+    cells: ["high", "5", "—"],
+  },
+  {
+    layer: "Web settings",
+    note: "saved on the scan",
+    cells: ["—", "10", "uploaded spec"],
+  },
+  {
+    layer: "Defaults",
+    note: "when nothing sets it",
+    cells: ["no gate", "scan default", "/openapi.json"],
+  },
 ];
 /* Index of the winning row for each column: the highest layer that sets it. */
 const PREC_WIN = [0, 1, 2];
 const PREC_COLS = ["fail_on", "rps", "spec"];
 
 const FINDINGS: TermLine[] = [
-  "$ aidetector findings 645d",
+  "$ runpentests findings 645d",
   "ID        SEVERITY  EVIDENCE   CHECK                     TITLE",
   "38170cee  high      verified   bola                      Cross-identity read (BOLA) on GET /accounts/{account_id}",
   "5a4f98da  high      verified   bola                      Cross-identity read (BOLA) on GET /notes/{note_id}",
@@ -179,12 +212,15 @@ const FINDINGS: TermLine[] = [
   "188a6d60  low       heuristic  signature_injection       LDAP injection lead via query 'q' on GET /search",
   { text: "…", tone: "dim" },
   "17 finding(s)",
-  { text: "detail: aidetector findings show 645d5118 <ID>", tone: "dim" },
+  { text: "detail: runpentests findings show 645d5118 <ID>", tone: "dim" },
 ];
 
 const SHOW: TermLine[] = [
-  "$ aidetector findings show 645d 3817",
-  { text: "Cross-identity read (BOLA) on GET /accounts/{account_id}", tone: "accent" },
+  "$ runpentests findings show 645d 3817",
+  {
+    text: "Cross-identity read (BOLA) on GET /accounts/{account_id}",
+    tone: "accent",
+  },
   "high · verified · bola · API1:2023 · unreviewed",
   { text: "fingerprint: 52fc07460b6ad9c67e8a1e18fafbbf86", tone: "dim" },
   "",
@@ -201,7 +237,7 @@ const SHOW: TermLine[] = [
   '    "trace": [1, 4, 7, 10] }',
   "",
   "# the trace rows behind that finding: who sent what, and what came back",
-  "$ aidetector runs trace 645d --check bola",
+  "$ runpentests runs trace 645d --check bola",
   "SEQ    METHOD   STATUS       MS  IDENTITY      CHECK                 ROUTE",
   "1      GET      401          21  anonymous     bola                  /accounts/{account_id}",
   "4      GET      200           2  admin         bola                  /accounts/{account_id}",
@@ -211,29 +247,35 @@ const SHOW: TermLine[] = [
 ];
 
 const DIFF: TermLine[] = [
-  "$ aidetector runs 4e4c",
+  "$ runpentests runs 4e4c",
   "RUN   STATUS     STARTED           DURATION  FINDINGS  REQUESTS  EXECUTOR  PASSES",
   "3     completed  2026-09-25 17:29  15m22s    56        285       server    confirm,kali,writes,zap,…",
   "2     completed  2026-09-22 23:20  9s        18        88        server    confirm,fuzz,kali,zap",
   "1     completed  2026-09-22 22:56  10s       18        88        server    confirm,fuzz,kali,zap",
   { text: "run 2: did not run: kali, zap", tone: "warn" },
   "",
-  "$ aidetector diff 4e4c",
+  "$ runpentests diff 4e4c",
   "run 2 -> run 3",
   "  new:          39",
   "  fixed:        1",
   "  not retested: 0",
   "  unchanged:    17",
-  { text: "note: the runs used different options, so the comparison is partial", tone: "warn" },
+  {
+    text: "note: the runs used different options, so the comparison is partial",
+    tone: "warn",
+  },
   "  + high     Privileged function open to low privilege (BFLA) on POST /admin/users/{user_id}/promote",
   "  + high     BOLA (write): PUT /notes/{note_id} write by 'user' persisted",
   "  + medium   Reflected CMDI via body '/title' on POST /notes",
   "  - low      Security header gaps (6) on all endpoints",
-  { text: "  ? low      Undocumented rate-limit behavior: POST /login", tone: "warn" },
+  {
+    text: "  ? low      Undocumented rate-limit behavior: POST /login",
+    tone: "warn",
+  },
 ];
 
 const GATE: TermLine[] = [
-  `$ aidetector run 645d --authorized --fail-on high --verified-only`,
+  `$ runpentests run 645d --authorized --fail-on high --verified-only`,
   { text: "    0%  scanning 11 operations", tone: "accent" },
   { text: "  …", tone: "dim" },
   { text: "  100%  complete · 17 findings · 66 requests", tone: "ok" },
@@ -251,10 +293,39 @@ const GATE: TermLine[] = [
 /* The gate on the sample scan above: 17 findings, nothing dismissed. */
 const FUNNEL = [
   { label: "every finding of the run", n: 17 },
-  { label: <>minus findings a person <code>dismissed</code></>, n: 17 },
-  { label: <><code>--verified-only</code> — evidence, not leads</>, n: 9 },
-  { label: <><code>--new-only</code> — off in this example</>, n: 9 },
-  { label: <>at or above <code>--fail-on high</code></>, n: 6, out: true },
+  {
+    label: (
+      <>
+        minus findings a person <code>dismissed</code>
+      </>
+    ),
+    n: 17,
+  },
+  {
+    label: (
+      <>
+        <code>--verified-only</code> — evidence, not leads
+      </>
+    ),
+    n: 9,
+  },
+  {
+    label: (
+      <>
+        <code>--new-only</code> — off in this example
+      </>
+    ),
+    n: 9,
+  },
+  {
+    label: (
+      <>
+        at or above <code>--fail-on high</code>
+      </>
+    ),
+    n: 6,
+    out: true,
+  },
 ];
 
 const EXITS = [
@@ -262,28 +333,38 @@ const EXITS = [
   { n: 1, t: "findings", d: "something reached --fail-on" },
   { n: 2, t: "usage", d: "bad flag, config or auth; the server refused" },
   { n: 3, t: "failed", d: "scan failed or cancelled, server unreachable" },
-  { n: 4, t: "timeout", d: "the AI analysis outlasted the wait; it keeps going" },
+  {
+    n: 4,
+    t: "timeout",
+    d: "the AI analysis outlasted the wait; it keeps going",
+  },
 ];
 
 const ACTIONS: TermLine[] = [
   "# .github/workflows/api-scan.yml",
-  "- name: aidetector",
+  "- name: runpentests",
   "  env:",
-  "    AIDETECTOR_API_KEY: ${{ secrets.AIDETECTOR_API_KEY }}",
+  "    RUNPENTESTS_API_KEY: ${{ secrets.RUNPENTESTS_API_KEY }}",
   "    ALICE_TOKEN: ${{ secrets.ALICE_TOKEN }}",
   "    ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}",
-  "  run: aidetector --authorized --output github",
+  "  run: runpentests --authorized --output github",
   "",
   "# what the job log receives — GitHub turns each line into an annotation",
-  { text: "::error title=bola%3A high::Cross-identity read (BOLA) on GET /accounts/{account_id}", tone: "err" },
-  { text: "::error title=broken_auth%3A high::Auth bypass (random_token) on GET /users/me", tone: "err" },
+  {
+    text: "::error title=bola%3A high::Cross-identity read (BOLA) on GET /accounts/{account_id}",
+    tone: "err",
+  },
+  {
+    text: "::error title=broken_auth%3A high::Auth bypass (random_token) on GET /users/me",
+    tone: "err",
+  },
   "6 finding(s) at or above high",
 ];
 
 const LOCAL: TermLine[] = [
-  "$ export AIDETECTOR_SECRET_ALICE=… AIDETECTOR_SECRET_ADMIN=…",
-  "$ aidetector run 645d --authorized --fail-on high --verified-only",
-  "running locally in aidetector-runner:latest (the scan traffic comes from this machine)",
+  "$ export RUNPENTESTS_SECRET_ALICE=… RUNPENTESTS_SECRET_ADMIN=…",
+  "$ runpentests run 645d --authorized --fail-on high --verified-only",
+  "running locally in runpentests-runner:latest (the scan traffic comes from this machine)",
   { text: "    0%  scanning 11 operations", tone: "accent" },
   { text: "  …", tone: "dim" },
   { text: "  100%  complete · 17 findings · 66 requests", tone: "ok" },
@@ -321,25 +402,50 @@ const levelRows = SCAN_LEVELS.map((l, i) => {
     i === 0
       ? ["OWASP API Top 10 engine checks"]
       : l.passes.filter((p) => !below.has(p)).map((p) => `+ ${label(p)}`);
-  return { k: l.title, note: i === 0 ? "the default" : `--level ${l.id}`, web: l.cliOnly ? null : chips, cli: chips };
+  return {
+    k: l.title,
+    note: i === 0 ? "the default" : `--level ${l.id}`,
+    web: chips,
+    cli: chips,
+  };
 });
 
 /* The AI switch adds the passes that fit the level; Deep adds the in-loop ones. */
-const aiOn = (levels: typeof SCAN_LEVELS) => [...new Set(levels.flatMap((l) => l.aiPasses))];
-const webAi = aiOn(SCAN_LEVELS.filter((l) => !l.cliOnly));
+const aiOn = (levels: typeof SCAN_LEVELS) => [
+  ...new Set(levels.flatMap((l) => l.aiPasses)),
+];
+const webAi = SCAN_LEVELS[0].aiPasses;
 const deepOnlyAi = aiOn(SCAN_LEVELS).filter((p) => !webAi.includes(p));
 
-const WRITES = ["write authorization", "mass assignment", "races", "seeded BOLA", "body-field injection"];
+const WRITES = [
+  "write authorization",
+  "mass assignment",
+  "races",
+  "seeded BOLA",
+  "body-field injection",
+];
 
-const LEVEL_ROWS: { k: string; note: string; web: string[] | null; cli: string[] }[] = [
+const LEVEL_ROWS: {
+  k: string;
+  note: string;
+  web: string[] | null;
+  cli: string[];
+}[] = [
   ...levelRows,
   {
     k: "AI",
     note: "--ai, spends tokens",
-    web: webAi.map(label),
+    web: [
+      ...webAi.map(label),
+      ...(deepOnlyAi.length
+        ? [`at Deep: ${deepOnlyAi.map(label).join(", ")}`]
+        : []),
+    ],
     cli: [
       ...webAi.map(label),
-      ...(deepOnlyAi.length ? [`at Deep: ${deepOnlyAi.map(label).join(", ")}`] : []),
+      ...(deepOnlyAi.length
+        ? [`at Deep: ${deepOnlyAi.map(label).join(", ")}`]
+        : []),
     ],
   },
   { k: "Writes", note: "--writes, changes data", web: WRITES, cli: WRITES },
@@ -349,7 +455,7 @@ const LEVEL_ROWS: { k: string; note: string; web: string[] | null; cli: string[]
     web: null,
     cli: [
       "source DIR → file:line",
-      "aidetector.yml",
+      "runpentests.yml",
       "exit-code gate",
       "database schema context",
       "bounded agent³",
@@ -359,10 +465,22 @@ const LEVEL_ROWS: { k: string; note: string; web: string[] | null; cli: string[]
 
 /* Where a CLI run's data goes. Verified against RunnerComplete and the claim. */
 const UPLOADED = [
-  { t: "Before the run", d: "the claim (target, level, passes, the aidetector.yml digest), the spec when it changed, each identity's name, role and auth type" },
-  { t: "While it runs", d: "events and a heartbeat; the operation list for --plan; redacted evidence (status, field names, error excerpts) for the in-loop AI" },
-  { t: "When it ends", d: "findings, endpoint coverage, gaps, the request trace (capped near 1 MB) and the methodology manifest, redacted here and again on the service" },
-  { t: "Only if you ask", d: "with a DIR, file:line citations and short redacted snippets; with schema:, a structure-only database snapshot" },
+  {
+    t: "Before the run",
+    d: "the claim (target, level, passes, the runpentests.yml digest), the spec when it changed, each identity's name, role and auth type",
+  },
+  {
+    t: "While it runs",
+    d: "events and a heartbeat; the operation list for --plan; redacted evidence (status, field names, error excerpts) for the in-loop AI",
+  },
+  {
+    t: "When it ends",
+    d: "findings, endpoint coverage, gaps, the request trace (capped near 1 MB) and the methodology manifest, redacted here and again on the service",
+  },
+  {
+    t: "Only if you ask",
+    d: "with a DIR, file:line citations and short redacted snippets; with schema:, a structure-only database snapshot",
+  },
 ];
 const STAYS = [
   "identity secrets: stdin to the runner, nowhere else",
@@ -379,50 +497,74 @@ const SERVICE = [
 ];
 
 const COMMANDS: { c: string; d: string }[] = [
-  { c: "aidetector URL [DIR]", d: "Scan an API in one step from this machine; a DIR adds your code." },
-  { c: "aidetector", d: "Inside a project: run what aidetector.yml describes." },
-  { c: "login --server URL [--profile NAME]", d: "Save a server as a profile; logout removes the current one." },
-  { c: "status", d: "Check the connection and which passes this server can run." },
-  { c: "profile list | use NAME | rm NAME", d: "Switch between saved servers; never prints a key." },
-  { c: "scans list | show [ID] | rm ID", d: "Manage scans; IDs may be the first 4+ hex characters." },
-  { c: "scan create --target URL --spec FILE", d: "Create a scan from OpenAPI, Swagger, HAR or Postman." },
-  { c: "cred add ID … | list | rm", d: "Manage identities; the secret is write-only on the server." },
-  { c: "run ID [pass flags]", d: "Run a scan from this machine; --fail-on gates it." },
-  { c: "wait ID [--fail-on SEV]", d: "Attach to a run still going (AI analysis, a web run), then gate." },
+  {
+    c: "runpentests URL [DIR]",
+    d: "Scan an API in one step from this machine; a DIR adds your code.",
+  },
+  {
+    c: "runpentests",
+    d: "Inside a project: run what runpentests.yml describes.",
+  },
+  {
+    c: "login --server URL [--profile NAME]",
+    d: "Save a server as a profile; logout removes the current one.",
+  },
+  {
+    c: "status",
+    d: "Check the connection and which passes this server can run.",
+  },
+  {
+    c: "profile list | use NAME | rm NAME",
+    d: "Switch between saved servers; never prints a key.",
+  },
+  {
+    c: "scans list | show [ID] | rm ID",
+    d: "Manage scans; IDs may be the first 4+ hex characters.",
+  },
+  {
+    c: "scan create --target URL --spec FILE",
+    d: "Create a scan from OpenAPI, Swagger, HAR or Postman.",
+  },
+  {
+    c: "cred add ID … | list | rm",
+    d: "Manage identities; the secret is write-only on the server.",
+  },
+  {
+    c: "run ID [pass flags]",
+    d: "Run a scan from this machine; --fail-on gates it.",
+  },
+  {
+    c: "wait ID [--fail-on SEV]",
+    d: "Attach to a run still going (AI analysis, a web run), then gate.",
+  },
   { c: "cancel ID", d: "Stop a run at the next check boundary." },
-  { c: "findings [ID] · show · dismiss | confirm | reopen", d: "List, inspect or triage findings." },
-  { c: "diff [ID] · runs [ID] · runs trace", d: "Compare runs, list history, read the redacted request log." },
-  { c: "coverage [ID] [--untested] · cost [ID]", d: "What each endpoint got; what the AI passes spent." },
-  { c: "report [ID] --format pdf|html|pentest|sarif|json", d: "Download a report, written 0600." },
-  { c: "completion bash|zsh|fish · version", d: "Shell completion; the build's version." },
+  {
+    c: "findings [ID] · show · dismiss | confirm | reopen",
+    d: "List, inspect or triage findings.",
+  },
+  {
+    c: "diff [ID] · runs [ID] · runs trace",
+    d: "Compare runs, list history, read the redacted request log.",
+  },
+  {
+    c: "coverage [ID] [--untested] · cost [ID]",
+    d: "What each endpoint got; what the AI passes spent.",
+  },
+  {
+    c: "report [ID] --format pdf|html|pentest|sarif|json",
+    d: "Download a report, written 0600.",
+  },
+  {
+    c: "completion bash|zsh|fish · version",
+    d: "Shell completion; the build's version.",
+  },
 ];
 
 export default function CliGuide() {
   return (
     <>
-      <section className="cov-head">
-        <div className="wrap cov-head-inner">
-          <div className="hero-kicker">
-            <span>CLI guide</span>
-            <i className="dot-sep" aria-hidden="true" />
-            <span>The heavy lane</span>
-          </div>
-          <h1>Scan an API from your terminal.</h1>
-          <p className="lead">
-            One static binary that talks to the same API this web app uses. Point
-            it at a URL and it finds the scan, the spec and the identities, runs,
-            and prints what it found. Every session on this page is real CLI
-            output from a scan of a deliberately vulnerable test API.
-          </p>
-          <ul className="guide-toc" aria-label="On this page">
-            {TOC.map((s) => (
-              <li key={s.id}>
-                <a href={`#${s.id}`}>{s.t}</a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      <GuideHero kind="cli" />
+      <GuideNav label="CLI guide sections" sections={TOC} />
 
       <section className="wrap guide-sec" id="install">
         <SectionLabel>01 · Install & connect</SectionLabel>
@@ -431,7 +573,7 @@ export default function CliGuide() {
           <div className="guide-copy">
             <p>
               The CLI is one static binary for macOS, Linux and Windows. Put{" "}
-              <code>aidetector</code> on your <code>PATH</code>; it needs no
+              <code>runpentests</code> on your <code>PATH</code>; it needs no
               runtime.
             </p>
             <p>
@@ -445,7 +587,7 @@ export default function CliGuide() {
               <li>
                 <b>The key is never a flag.</b> It is prompted for, piped with{" "}
                 <code>--key-stdin</code>, or read from{" "}
-                <code>AIDETECTOR_API_KEY</code>. That way it stays out of shell
+                <code>RUNPENTESTS_API_KEY</code>. That way it stays out of shell
                 history and <code>ps</code>.
               </li>
               <li>
@@ -461,7 +603,7 @@ export default function CliGuide() {
       <section className="wrap guide-sec" id="everyday">
         <SectionLabel>02 · The everyday form</SectionLabel>
         <h2 className="h-lg">
-          <code>aidetector URL</code> does five things
+          <code>runpentests URL</code> does five things
         </h2>
         <p className="lead">
           The everyday form chains the subcommands in this order, and the first
@@ -484,12 +626,13 @@ export default function CliGuide() {
               A new target creates a scan. The spec is fetched from the
               target&apos;s own <code>/openapi.json</code>, and with no
               identities the CLI asks for two. The authorization checks (BOLA,
-              BFLA, broken auth) compare one user&apos;s view with another&apos;s.
+              BFLA, broken auth) compare one user&apos;s view with
+              another&apos;s.
             </p>
             <p>
               Progress is the server&apos;s event log. A check that had nothing
-              to work against says so (<i>did not run: …</i>), so an empty result
-              never quietly stands in for &ldquo;clean&rdquo;.
+              to work against says so (<i>did not run: …</i>), so an empty
+              result never quietly stands in for &ldquo;clean&rdquo;.
             </p>
             <h3 style={{ marginTop: 24 }}>Every run after</h3>
             <p>
@@ -512,11 +655,11 @@ export default function CliGuide() {
 
       <section className="wrap guide-sec" id="project">
         <SectionLabel>03 · The project file</SectionLabel>
-        <h2 className="h-lg">Commit aidetector.yml</h2>
+        <h2 className="h-lg">Commit runpentests.yml</h2>
         <p className="lead">
           The target, spec, identities and gate live in the repository, so a
-          bare <code>aidetector</code> (or{" "}
-          <code>aidetector --authorized</code> in CI) does the right thing.
+          bare <code>runpentests</code> (or{" "}
+          <code>runpentests --authorized</code> in CI) does the right thing.
         </p>
         <div className="guide-split">
           <div className="guide-copy">
@@ -524,11 +667,20 @@ export default function CliGuide() {
             <p>
               Precedence is decided per setting, not per file. In this example a
               flag overrides <code>fail_on</code>, the file sets{" "}
-              <code>rps</code>, and with no <code>spec:</code> the spec
-              uploaded in the web stands.
+              <code>rps</code>, and with no <code>spec:</code> the spec uploaded
+              in the web stands.
             </p>
             <div className="prec-wrap" style={{ marginTop: 16 }}>
               <table className="prec">
+                <caption className="sr-only">
+                  Which configuration value wins for this run
+                </caption>
+                <colgroup>
+                  <col />
+                  <col />
+                  <col />
+                  <col />
+                </colgroup>
                 <thead>
                   <tr>
                     <th scope="col">layer</th>
@@ -547,7 +699,10 @@ export default function CliGuide() {
                         <small>{r.note}</small>
                       </th>
                       {r.cells.map((cell, ci) => (
-                        <td key={ci} className={PREC_WIN[ci] === ri ? "win" : undefined}>
+                        <td
+                          key={ci}
+                          className={PREC_WIN[ci] === ri ? "win" : undefined}
+                        >
                           {cell}
                         </td>
                       ))}
@@ -568,8 +723,8 @@ export default function CliGuide() {
             <ul>
               <li>
                 <b>Secrets.</b> A <code>token:</code> or <code>password:</code>{" "}
-                key is refused; each identity names its{" "}
-                <code>secret_env</code> instead.
+                key is refused; each identity names its <code>secret_env</code>{" "}
+                instead.
               </li>
               <li>
                 <b>Consent.</b> There is no <code>authorized:</code> key. A
@@ -583,8 +738,9 @@ export default function CliGuide() {
               </li>
             </ul>
             <p className="guide-note">
-              Settings the file owns show read-only in the web, marked &ldquo;set
-              by aidetector.yml&rdquo;, until someone hands them back.
+              Settings the file owns show read-only in the web, marked
+              &ldquo;set by runpentests.yml&rdquo;, until someone hands them
+              back.
             </p>
           </div>
           <Terminal title="my-project" lines={PROJECT_FILE} />
@@ -595,7 +751,7 @@ export default function CliGuide() {
         <SectionLabel>04 · Read the results</SectionLabel>
         <h2 className="h-lg">Findings, evidence, and what changed</h2>
         <p className="lead">
-          Where an ID is optional, <code>aidetector.yml</code> picks the scan,
+          Where an ID is optional, <code>runpentests.yml</code> picks the scan,
           and any ID can be shortened to its first four hex characters.{" "}
           <code>verified</code> means the evidence demonstrates the weakness;{" "}
           <code>heuristic</code> marks a lead worth checking.
@@ -606,8 +762,8 @@ export default function CliGuide() {
             <p>
               <code>findings</code> lists every finding, with a{" "}
               <code>--check</code>, <code>--min-severity</code> or{" "}
-              <code>--verified</code> filter. <code>findings show</code> takes an
-              ID or a fingerprint prefix and prints the description,
+              <code>--verified</code> filter. <code>findings show</code> takes
+              an ID or a fingerprint prefix and prints the description,
               remediation, references and redacted evidence.
             </p>
             <p>
@@ -617,10 +773,9 @@ export default function CliGuide() {
               Credentials are always masked.
             </p>
             <p>
-              Triage from here with{" "}
-              <code>findings dismiss 645d 1102</code>. A dismissed finding stays
-              dismissed on later runs, because triage follows the
-              finding&apos;s fingerprint.
+              Triage from here with <code>findings dismiss 645d 1102</code>. A
+              dismissed finding stays dismissed on later runs, because triage
+              follows the finding&apos;s fingerprint.
             </p>
           </div>
           <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
@@ -650,8 +805,8 @@ export default function CliGuide() {
             </ul>
             <p>
               The diff also warns when the two runs used different options or a
-              different executor (the web&apos;s server run vs. a CLI run), because either can make a
-              finding look new or fixed.
+              different executor (the web&apos;s server run vs. a CLI run),
+              because either can make a finding look new or fixed.
             </p>
           </div>
           <Terminal title="history" lines={DIFF} highlight />
@@ -709,18 +864,17 @@ export default function CliGuide() {
           <div className="guide-copy">
             <h3>In GitHub Actions</h3>
             <p>
-              With a committed <code>aidetector.yml</code> the step is one line.
-              The API key and each identity&apos;s secret come from repository
-              secrets, and <code>--authorized</code> is the pipeline&apos;s
-              explicit consent. Without a terminal, the CLI refuses to run
-              unless that flag is given.
+              With a committed <code>runpentests.yml</code> the step is one
+              line. The API key and each identity&apos;s secret come from
+              repository secrets, and <code>--authorized</code> is the
+              pipeline&apos;s explicit consent. Without a terminal, the CLI
+              refuses to run unless that flag is given.
             </p>
             <p>
               <code>--output github</code> prints one workflow command per
               failing finding, and GitHub turns each into an annotation on the
-              job. For code scanning, upload{" "}
-              <code>report --format sarif</code>. Only verified evidence maps to
-              the <code>error</code> level.
+              job. For code scanning, upload <code>report --format sarif</code>.
+              Only verified evidence maps to the <code>error</code> level.
             </p>
             <p>
               The scan runs on the CI machine, so the job needs Docker and the
@@ -738,18 +892,19 @@ export default function CliGuide() {
         <p className="lead">
           Every CLI run sends its traffic from your machine, so it reaches an
           API only you can see: an internal host, a service behind a VPN,{" "}
-          <code>localhost</code>. The results and the full request log go to
-          the service, which grades, fingerprints and diffs them, runs the AI
+          <code>localhost</code>. The results and the full request log go to the
+          service, which grades, fingerprints and diffs them, runs the AI
           analysis and renders the reports. A run needs Docker on your machine.
         </p>
         <div className="lanes">
           <div className="lane lane-mine">
             <h3>Your machine</h3>
             <div className="lane-box">
-              <strong>aidetector CLI</strong>
+              <strong>runpentests CLI</strong>
               <span>
                 Finds each secret locally: a <code>--secrets-file</code>,{" "}
-                <code>secret_env</code> or <code>AIDETECTOR_SECRET_&lt;NAME&gt;</code>.
+                <code>secret_env</code> or{" "}
+                <code>RUNPENTESTS_SECRET_&lt;NAME&gt;</code>.
               </span>
             </div>
             <div className="lane-box locked">
@@ -784,7 +939,7 @@ export default function CliGuide() {
           </ol>
           <div style={{ display: "grid", gap: 14 }}>
             <div className="lane">
-              <h3>aidetector server</h3>
+              <h3>runpentests server</h3>
               <div className="lane-box">
                 <strong>Grades the run</strong>
                 <span>
@@ -797,7 +952,9 @@ export default function CliGuide() {
               <h3>Target API</h3>
               <div className="lane-box">
                 <strong>Private or internal</strong>
-                <span>Reachable from your machine, not the server&apos;s worker.</span>
+                <span>
+                  Reachable from your machine, not the server&apos;s worker.
+                </span>
               </div>
             </div>
           </div>
@@ -806,14 +963,14 @@ export default function CliGuide() {
           <div className="guide-copy">
             <h3>What runs where</h3>
             <p>
-              Every pass that sends traffic runs here: the engine checks and,
-              at <code>--level deep</code>, the tools. ZAP and Kali start as
+              Every pass that sends traffic runs here: the engine checks and, at{" "}
+              <code>--level deep</code>, the tools. ZAP and Kali start as
               sibling containers on your <code>--docker-network</code>; sqlmap,
               dalfox, commix, tplmap and testssl run inside the runner. The
               model calls happen on the service, which holds the keys and the
               spend cap: <code>--plan</code> before the first check, the in-loop
-              AI while the run asks, then verdicts and the security review
-              after the upload, while the CLI waits.
+              AI while the run asks, then verdicts and the security review after
+              the upload, while the CLI waits.
             </p>
             <p>
               A loopback server or target is rewritten to{" "}
@@ -822,9 +979,9 @@ export default function CliGuide() {
               <code>--runner-server</code> and <code>--docker-network</code>.
             </p>
             <p>
-              Ctrl-C stops the container and the run ends{" "}
-              <code>cancelled</code>. If the container dies, the CLI closes the
-              run so the scan is never left locked.
+              Ctrl-C stops the container and the run ends <code>cancelled</code>
+              . If the container dies, the CLI closes the run so the scan is
+              never left locked.
             </p>
           </div>
           <Terminal title="local run" lines={LOCAL} highlight />
@@ -836,17 +993,22 @@ export default function CliGuide() {
         <h2 className="h-lg">What a run tests, by where you start it</h2>
         <p className="lead">
           Both lanes run the same engine and land on the same scan page. The
-          difference is where the traffic comes from and how deep a run can
-          go. A run from the web is sent by the service&apos;s own worker, so
-          the target must be reachable from the service; an internal host only
-          your machine can see is a CLI run. In either lane a public host needs
-          a verified domain.
+          difference is where the traffic comes from and whether local source
+          code is available. A run from the web is sent by the service&apos;s
+          own worker, so the target must be reachable from the service; an
+          internal host only your machine can see is a CLI run. In either lane a
+          public host needs a verified domain. Local CLI execution is available
+          on Free; web execution and server schedules require Premium.
         </p>
-        <div className="lvl" role="table" aria-label="What each lane runs at each level">
+        <div
+          className="lvl"
+          role="table"
+          aria-label="What each lane runs at each level"
+        >
           <div className="lvl-row lvl-head" role="row">
             <span role="columnheader">Level / switch</span>
             <span role="columnheader">
-              <b>Run from the web</b>
+              <b>Run from the web <PlanBadge premium /></b>
               <small>traffic from the service&apos;s worker</small>
             </span>
             <span role="columnheader">
@@ -868,7 +1030,9 @@ export default function CliGuide() {
                     </span>
                   ))
                 ) : (
-                  <span className="lvl-chip off">not offered — use the CLI</span>
+                  <span className="lvl-chip off">
+                    not offered — use the CLI
+                  </span>
                 )}
               </span>
               <span className="lvl-cell" role="cell" data-lane="CLI">
@@ -890,7 +1054,9 @@ export default function CliGuide() {
           callback collector and the target can reach it.
         </p>
 
-        <h3 className="flow-h">What goes to the service, and what never leaves your machine</h3>
+        <h3 className="flow-h">
+          What goes to the service, and what never leaves your machine
+        </h3>
         <div className="flow">
           <div className="flow-col flow-up">
             <h4>Uploaded to the service</h4>
@@ -931,7 +1097,7 @@ export default function CliGuide() {
         <SectionLabel>08 · Command reference</SectionLabel>
         <h2 className="h-lg">Every command</h2>
         <p className="lead">
-          <code>aidetector help &lt;command&gt;</code> prints a command&apos;s
+          <code>runpentests help &lt;command&gt;</code> prints a command&apos;s
           flags, what each pass costs, and examples. Every pass flag (
           <code>--writes</code>, <code>--zap</code>, <code>--adjudicate</code>,
           …) is off unless you ask for it.
@@ -959,8 +1125,8 @@ export default function CliGuide() {
         <p className="guide-note">
           Prefer the browser? The same scans open under{" "}
           <Link href="/scans">Scans</Link>, and{" "}
-          <Link href="/coverage">Coverage</Link> explains what each check
-          looks for.
+          <Link href="/coverage">Coverage</Link> explains what each check looks
+          for.
         </p>
       </section>
     </>

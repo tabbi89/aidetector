@@ -1,10 +1,15 @@
-# aidetector
+# runpentests
 
 An OpenAPI-driven API security scanner. Upload a Swagger/OpenAPI spec — or a HAR capture or Postman collection, which
 are converted to one — plus credentials, run active security tests across the OWASP API Top 10
 (BOLA/BFLA, broken auth, reflected injection, SSRF, excessive data exposure, misconfiguration), and get
 a per-scan cost. The `/coverage` page in the UI lists every check, the literal
 signal it uses, and what is **not** covered.
+
+Free workspaces execute scans locally with the CLI and review their results in
+the web. Starting scans from the web or enabling automatic server schedules
+requires Premium. This is enforced by the API at every scan level, independently
+of whether premium detection passes are selected.
 
 Every finding carries its evidence tier (`heuristic` or `verified`) and the
 change to make. The tier lets the exports, the report and a CI gate tell a lead
@@ -46,7 +51,8 @@ Agent SDK), **DeepSeek V4** executes the high-volume work as a delegated tool.
 > [next-phase-roadmap.md](docs/roadmap/next-phase-roadmap.md),
 > [tooling-expansion-roadmap.md](docs/roadmap/tooling-expansion-roadmap.md),
 > [services/api/ai_runtime/README.md](services/api/ai_runtime/README.md), and
-> [docs/ui-ux-review-2026-10-20.md](docs/ui-ux-review-2026-10-20.md).
+> [docs/ui-ux-review-2026-10-20.md](docs/ui-ux-review-2026-10-20.md), and the
+> [production UX improvements and next priorities](docs/ui-ux-production-review-2026-10-22.md).
 
 ## Stack
 

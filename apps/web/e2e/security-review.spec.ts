@@ -48,9 +48,9 @@ for (const state of ["not_requested", "unavailable", "completed"] as const) {
     }] }));
     await page.goto(`/scans/${sid}`);
     await page.getByRole("tab", { name: /Security improvements/ }).click();
-    const message = state === "not_requested" ? "heavy-lane pass"
+    const message = state === "not_requested" ? "Choose AI passes"
       : state === "unavailable" ? "The review could not finish"
         : "OpenAPI only: the configured database metadata was unavailable";
-    await expect(page.getByText(message, { exact: state === "not_requested" })).toBeVisible();
+    await expect(page.getByText(message, { exact: false }).first()).toBeVisible();
   });
 }

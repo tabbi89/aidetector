@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"aidetector/cli/internal/api"
+	"runpentests/cli/internal/api"
 )
 
 // passColumn is where a pass's state starts in `status`.

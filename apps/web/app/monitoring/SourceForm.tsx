@@ -1,11 +1,15 @@
 "use client";
+
+import { ValidatedForm } from "../components/ValidatedForm";
+
+import { ExpandingTextarea } from "../components/ExpandingTextarea";
 import { useState } from "react";
 import { api, type EvidenceSourceInput } from "@/lib/api";
 
 export function SourceForm({ onSaved, onError }: { onSaved: () => void; onError: (error: string) => void }) {
   const [connector, setConnector] = useState<NonNullable<EvidenceSourceInput["connector"]>>("json_snapshot");
   const [busy, setBusy] = useState(false);
-  return <form className="monitor-card" onSubmit={async (event) => {
+  return <ValidatedForm className="monitor-card" onSubmit={async (event) => {
     event.preventDefault(); const form = event.currentTarget; const fields = new FormData(form);
     const value = (name: string) => String(fields.get(name) || "").trim();
     const input: EvidenceSourceInput = { name: value("name"), target_binding: value("target"), connector };
@@ -50,9 +54,9 @@ export function SourceForm({ onSaved, onError }: { onSaved: () => void; onError:
       <details><summary>Pin exact files at a commit (optional)</summary>
         <p>Only route metadata from these files is retained.</p>
         <label>Commit SHA<input name="commit" pattern="[0-9a-f]{40}" placeholder="Full 40-character commit SHA" /></label>
-        <label>File paths (one per line, up to 10)<textarea name="paths" placeholder="src/routes.py" /></label>
+        <label>File paths (one per line, up to 10)<ExpandingTextarea name="paths" placeholder="src/routes.py" /></label>
       </details>
     </>}
     <button className="btn" disabled={busy}>{busy ? "Saving…" : "Save source"}</button>
-  </form>;
+  </ValidatedForm>;
 }

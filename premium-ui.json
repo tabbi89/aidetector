@@ -1,0 +1,46 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": [
+    "apps/web/app",
+    "apps/web/lib"
+  ],
+  "locale": "en",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": [
+    "Select/Listbox",
+    "Scrollbar",
+    "Form",
+    "CRUD"
+  ],
+  "ownership": {
+    "Select/Listbox": "native",
+    "Date": "native"
+  },
+  "commands": {
+    "typecheck": "cd apps/web && npx tsc --noEmit",
+    "build": "cd apps/web && npm run build",
+    "e2e": "cd apps/web && npm run test:e2e"
+  },
+  "requiredCommands": [
+    "typecheck",
+    "build",
+    "e2e"
+  ],
+  "evidence": {
+    "crudFullFlow": "apps/web/e2e/scans.spec.ts",
+    "failurePaths": "apps/web/e2e/visual-guides.spec.ts",
+    "selectOpenState": "apps/web/e2e/coverage-selects.spec.ts"
+  },
+  "ownershipVariants": {
+    "Select/Listbox": {
+      "catalogue-filter": {
+        "owner": "apps/web/app/components/Select.tsx",
+        "behavior": "authored Radix Select"
+      },
+      "settings": {
+        "owner": "apps/web/app/globals.css",
+        "behavior": "native; OS popup accepted"
+      }
+    }
+  }
+}

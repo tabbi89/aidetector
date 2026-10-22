@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from app.core.config import settings
 from app.core.target_guard import TargetNotAllowed, check_target_allowed
+from app.scans.run_levels import Lane
 from app.scans.run_options import RunOptions
 
 
@@ -19,7 +20,7 @@ class RunNotAuthorized(Exception):
 
 
 class PremiumRequired(Exception):
-    """The run asked for a pass the tenant is not entitled to."""
+    """The tenant is not entitled to this execution lane or selected pass."""
 
 
 class RunOptionConflict(Exception):
@@ -41,12 +42,14 @@ def authorize_run(
     options: RunOptions,
     tenant_id: str,
     premium: bool | None = None,
+    lane: Lane = "server",
 ) -> None:
     """Answer the gates every path that starts scans must pass.
 
     Active scanning fires real payloads at a live host, so ``authorized`` is
-    mandatory. The premium passes are re-checked here rather than trusted from
-    the request, and the refinement flags must not contradict each other.
+    mandatory. Server execution requires Premium; local CLI execution remains
+    available on Free. Premium passes are re-checked independently in either
+    lane, and the refinement flags must not contradict each other.
 
     ``premium`` is the caller's workspace-plan answer; when omitted (unit tests,
     legacy callers) the configuration entitlement is used.
@@ -56,6 +59,11 @@ def authorize_run(
     entitled = (
         settings.tenant_is_premium(tenant_id) if premium is None else premium
     )
+    if lane == "server" and not entitled:
+        raise PremiumRequired(
+            "Web and scheduled scans require a Premium workspace. "
+            "Use the local CLI runner on the Free plan."
+        )
     premium_feature = options.premium or options.adaptive or options.resource_refine
     if premium_feature and not entitled:
         raise PremiumRequired("premium tier required for this run")

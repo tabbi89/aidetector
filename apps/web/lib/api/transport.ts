@@ -1,4 +1,4 @@
-// Transport for the aidetector FastAPI service: base URL, API key, errors and
+// Transport for the runpentests FastAPI service: base URL, API key, errors and
 // the two fetch paths (JSON and file). Feature modules build on `request`.
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 

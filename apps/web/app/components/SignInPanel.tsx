@@ -1,5 +1,7 @@
 "use client";
 
+import { ValidatedForm } from "./ValidatedForm";
+
 import {
   useEffect,
   useId,
@@ -24,7 +26,7 @@ const noSubscription = () => () => {};
 
 const COPY: Record<Mode, { title: string; lead: string; submit: string; busy: string }> = {
   signin: {
-    title: "Sign in to aidetector",
+    title: "Sign in to runpentests",
     lead: "Use the email and password for your workspace.",
     submit: "Sign in",
     busy: "Signing in…",
@@ -172,7 +174,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
 
             <ServerState status={status} serverUrl={serverUrl} retry={() => void refresh()} />
 
-            <form className="auth-form" onSubmit={submit}>
+            <ValidatedForm key={mode} className="auth-form" onSubmit={submit}>
               {mode === "signup" && (
                 <label className="field">
                   <span>Full name</span>
@@ -248,7 +250,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn?: () => void }) {
               >
                 {busy ? copy.busy : copy.submit}
               </button>
-            </form>
+            </ValidatedForm>
 
             <footer className="auth-foot">
               {mode === "signin" ? (
