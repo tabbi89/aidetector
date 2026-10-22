@@ -394,7 +394,10 @@ def runner_complete(
     # Engine-tier keys plus the curated set the heavy-lane sandbox may emit
     # (each has a remediation catalogue entry). Nothing else is accepted: a
     # runner cannot invent a check key the product does not know.
-    valid_keys = {getattr(c, "key", None) for c in ALL_CHECKS} | set(SANDBOX_CHECK_KEYS)
+    valid_keys = (
+        {getattr(c, "key", None) for c in ALL_CHECKS}
+        | set(SANDBOX_CHECK_KEYS) | {"source_runtime_cve"}
+    )
     op_ids = {str(op.id) for op in scan.operations}
     # Pattern-only second pass — the runner already redacted with the secrets it
     # holds; this is defence in depth over what crossed the wire.
@@ -441,6 +444,7 @@ def runner_complete(
     run.gaps = {
         "not_run": sorted({str(t)[:40] for t in not_run[:20]}) if isinstance(not_run, list) else [],
         "budget_exhausted": body.gaps.get("budget_exhausted") is True,
+        "source_audit_complete": body.gaps.get("source_audit_complete") is True,
     }
     if isinstance(missing, list) and missing:
         run.gaps["identities_missing"] = sorted({str(n)[:120] for n in missing[:50]})

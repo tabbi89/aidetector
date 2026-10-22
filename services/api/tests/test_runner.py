@@ -106,6 +106,36 @@ def test_a_local_run_uploads_graded_findings_the_server_persists(
     assert link.post("/heartbeat", {}).status_code == 409
 
 
+def test_directory_run_uploads_runtime_cves_and_source_coverage(
+    client, make_scan, bridges, tmp_path, monkeypatch
+):
+    from app.runner import source_audit
+
+    (tmp_path / ".php-version").write_text("8.2.0")
+    found = EngineFinding(
+        check="source_runtime_cve", owasp_id="API8:2023", severity=Severity.high,
+        confidence=Confidence.heuristic, title="CVE-2025-12345: PHP 8.2.0",
+        description="Source version matches a published advisory.",
+        evidence={"ecosystem": "php", "package": "php", "advisory": "CVE-2025-12345",
+                  "location": ".php-version", "version": "8.2.0"},
+        remediation="Upgrade PHP to the vendor's supported patched release.",
+    )
+    def audit(directory, *, emit, cancelled):
+        assert directory == str(tmp_path)
+        emit("source_inventory", "PHP 8.2.0")
+        return [found], True
+
+    monkeypatch.setattr(source_audit, "audit", audit)
+    scan = make_scan(target_base_url="http://127.0.0.1")
+    claim = _claim(client, scan)
+    cfg = {**_cfg(claim), "source_dir": str(tmp_path)}
+    link = ServerLink("http://testserver", claim["run_id"], claim["token"], client=client)
+    assert execute(cfg, link, out=io.StringIO()) == EXIT_OK
+    findings = client.get(f"/scans/{scan.id}/findings").json()
+    assert any(row["check"] == "source_runtime_cve" for row in findings)
+    assert client.get(f"/scans/{scan.id}/runs").json()[0]["gaps"]["source_audit_complete"]
+
+
 def test_a_local_run_is_recorded_like_a_server_run(client, make_scan, bridges):
     scan = make_scan(target_base_url="http://127.0.0.1")
     claim = _claim(client, scan)

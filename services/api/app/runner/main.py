@@ -498,6 +498,7 @@ def execute(cfg: dict[str, Any], link: ServerLink, out: TextIO | None = None) ->
     #: Producing-tool names (``kali``/``sqlmap``) the agent could not run, so the
     #: server diff reads their findings as not-retested rather than resolved.
     agent_not_run: set[str] = set()
+    source_audit_complete = False
     _cancel_on_signal(journal)
 
     try:
@@ -590,6 +591,8 @@ def execute(cfg: dict[str, Any], link: ServerLink, out: TextIO | None = None) ->
             agent_not_run.update(_run_adjuncts(cfg, run, ctx, journal, opts, redactor))
         finally:
             _clean_up_provisioned(ctx, journal)
+        if cfg.get("source_dir") and not journal.cancelled():
+            source_audit_complete = _audit_source(cfg["source_dir"], journal)
         source_index = _annotate_with_source(cfg.get("source_dir"), journal, redactor)
         # Heavy-lane bounded agent: a small, capped pass driving sandboxed tools
         # to confirm/widen the engine's leads. Off unless opts.agent; it never
@@ -637,6 +640,7 @@ def execute(cfg: dict[str, Any], link: ServerLink, out: TextIO | None = None) ->
             "identities_missing": left_out,
             "skipped_checks": sorted(set(ctx.skipped_checks)),
             "failed_checks": sorted(set(ctx.failed_checks)),
+            "source_audit_complete": source_audit_complete,
         },
     )
     if schema_record is not None:
@@ -981,6 +985,23 @@ def _annotate_with_source(source_dir: Any, journal: HttpRunJournal, redactor: Re
             f"added file:line to {annotated} finding(s)",
         )
     return source_index
+
+
+def _audit_source(source_dir: str, journal: HttpRunJournal) -> bool:
+    try:
+        from app.runner.source_audit import audit
+
+        findings, complete = audit(
+            source_dir, emit=lambda stage, message: journal.event(stage, journal.progress, message),
+            cancelled=journal.cancelled,
+        )
+        for finding in findings:
+            journal.record(finding)
+        return complete
+    except Exception as exc:  # noqa: BLE001 — advisory access cannot fail an API scan
+        journal.event("source_audit_gap", journal.progress,
+                      f"source advisory checks unavailable: {type(exc).__name__}")
+        return False
 
 
 def _result_bundle(

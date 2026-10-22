@@ -225,6 +225,77 @@ def test_complete_persists_findings_and_ends_the_run(client, scan_with_spec, loc
     assert client.post(f"/runner/runs/{run_id}/complete", json=bundle, headers=h).status_code == 409
 
 
+@pytest.mark.parametrize("complete", [True, False])
+def test_complete_accepts_runtime_cve_leads_and_archives_source_coverage(
+    client, scan_with_spec, local_runner, complete
+):
+    sid = scan_with_spec("http://127.0.0.1")
+    cfg = _claim(client, sid).json()
+    result = client.post(
+        f"/runner/runs/{cfg['run_id']}/complete",
+        headers={"X-Run-Token": cfg["token"]},
+        json={"requests": 0, "gaps": {"source_audit_complete": complete}, "findings": [{
+            "check": "source_runtime_cve", "severity": "high", "confidence": "heuristic",
+            "title": "CVE-2025-12345: PHP 8.2.0", "description": "Declared runtime CVE lead",
+            "evidence": {"ecosystem": "php", "package": "php", "advisory": "CVE-2025-12345",
+                         "location": ".php-version", "version": "8.2.0"},
+        }]},
+    )
+    assert result.status_code == 200, result.text
+    finding = client.get(f"/scans/{sid}/findings").json()[0]
+    assert finding["check"] == "source_runtime_cve" and finding["remediation"]
+    assert finding["confidence"] == "heuristic" and finding["fingerprint"]
+    assert client.get(f"/scans/{sid}/runs").json()[0]["gaps"]["source_audit_complete"] is complete
+
+
+def test_grouped_runtime_cve_preserves_all_stages_after_server_deduplication(
+    client, scan_with_spec, local_runner, tmp_path, monkeypatch
+):
+    from dataclasses import asdict
+
+    import httpx
+
+    from app.engine.fingerprint import fingerprint
+    from app.runner import source_audit
+
+    monkeypatch.setattr(source_audit, "REQUEST_INTERVAL", 0)
+    (tmp_path / "Dockerfile").write_text(
+        "FROM php:8.2.0 AS build\nFROM php:8.3.0-fpm AS production\n"
+    )
+    def handle(request):
+        return httpx.Response(200, json={"totalResults": 1, "vulnerabilities": [{"cve": {
+            "id": "CVE-2025-12345", "descriptions": [], "metrics": {},
+        }}]})
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as advisory_client:
+        findings, complete = source_audit.audit(
+            str(tmp_path), emit=lambda *_: None, client=advisory_client,
+        )
+    assert complete and len(findings) == 1
+    sid = scan_with_spec("http://127.0.0.1")
+    cfg = _claim(client, sid).json()
+    result = client.post(
+        f"/runner/runs/{cfg['run_id']}/complete",
+        headers={"X-Run-Token": cfg["token"]},
+        json={"requests": 0, "gaps": {"source_audit_complete": complete},
+              "findings": [asdict(finding) for finding in findings]},
+    )
+    assert result.status_code == 200, result.text
+    persisted = client.get(f"/scans/{sid}/findings").json()
+    assert len(persisted) == 1
+    finding = persisted[0]
+    assert finding["evidence"]["affected_versions"] == ["8.2.0", "8.3.0"]
+    assert finding["evidence"]["declarations"] == [
+        {"version": "8.2.0", "stage": "build"},
+        {"version": "8.3.0", "stage": "production"},
+    ]
+    old_evidence = {"ecosystem": "php", "package": "php", "advisory": "CVE-2025-12345",
+                    "location": "Dockerfile"}
+    assert finding["fingerprint"] == fingerprint(
+        "source_runtime_cve", "API8:2023", "Old single-version title", old_evidence,
+    )
+
+
 def _row(sequence: int, **response) -> dict:
     return {
         "sequence": sequence, "method": "GET", "route": "GET /accounts/{id}",
@@ -377,6 +448,7 @@ def test_complete_keeps_only_the_gap_shape_the_diff_reads(
     assert gaps == {
         "not_run": ["zap"], "budget_exhausted": True, "identities_missing": [],
         "skipped_checks": [], "failed_checks": [],
+        "source_audit_complete": False,
     }
 
 

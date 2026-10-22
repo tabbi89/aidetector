@@ -354,6 +354,8 @@ export interface ScanRun {
     skipped_checks: string[];
     /** Engine checks that raised before finishing (e.g. a timeout); not fixed either. */
     failed_checks: string[];
+    /** Whether a local directory scan completed its language-version CVE lookups. */
+    source_audit_complete: boolean;
   };
   /**
    * How many request-trace rows this run archived. The rows themselves are not

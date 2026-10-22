@@ -201,7 +201,7 @@ test-cli: ## gofmt + vet + race-enabled tests for the CLI
 	@echo "CLI tests passed."
 
 runner-image: ## Build the runner image every `aidetector` CLI run uses (OAST + the confirm/testssl tools)
-	docker build --build-arg WITH_INTERACTSH=1 --build-arg WITH_KALI_TOOLS=1 \
+	docker build -f services/api/runner.Dockerfile \
 	    --label org.opencontainers.image.revision=$(CLI_VERSION) \
 	    -t aidetector-runner:latest services/api
 

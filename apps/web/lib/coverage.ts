@@ -67,6 +67,22 @@ export const PREMIUM_HELP =
 
 export const GROUPS: CheckGroup[] = [
   {
+    title: "Local project language versions",
+    blurb:
+      "CLI directory scans inspect PHP, Python, Kotlin, Java, Node.js and Go version declarations without executing project code. Dependency packages are not scanned.",
+    checks: [
+      {
+        name: "Declared language/runtime CVEs",
+        confidence: "heuristic",
+        signal:
+          "Exact versions from supported version files, Dockerfiles, Kotlin build declarations and Go toolchain pins are matched against live NVD CVEs. Findings include the declaring file, advisory link and upgrade guidance.",
+        caveat:
+          "A declaration does not prove the deployed runtime or exploitability. Java uses upstream OpenJDK matching; vendor backports and Kotlin component applicability require confirmation. Version ranges, unavailable lookups and limits are recorded as gaps. Requires a directory and internet access from the local runner.",
+        source: "runner/source_audit.py",
+      },
+    ],
+  },
+  {
     title: "Premium adaptive validation",
     blurb:
       "A bounded, schema-shaped loop that selects a critical parameter, sends a valid control, and inspects only response structure. GET query/path inputs are read-only; JSON body fields on POST/PUT/PATCH are available only with writes on.",

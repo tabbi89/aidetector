@@ -835,6 +835,64 @@ func TestAMissingRunnerImageIsCaughtBeforeTheClaim(t *testing.T) {
 	}
 }
 
+func TestReleaseRunnerImageSelectionAndPull(t *testing.T) {
+	saved := RunnerImage
+	t.Cleanup(func() { RunnerImage = saved })
+	image := "ghcr.io/example/aidetector-runner@sha256:" + strings.Repeat("a", 64)
+	RunnerImage = image
+	for _, tc := range []struct {
+		name string
+		env  map[string]string
+		flag string
+		want string
+	}{
+		{"release default", nil, "", image},
+		{"environment override", map[string]string{"AIDETECTOR_RUNNER_IMAGE": "custom:env"}, "", "custom:env"},
+		{"flag override", map[string]string{"AIDETECTOR_RUNNER_IMAGE": "custom:env"}, "custom:flag", "custom:flag"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &fake{}
+			h, calls := localHarness(t, f, "completed", nil, tc.env)
+			h.env.IsTTY = func() bool { return true }
+			h.env.Stdin = strings.NewReader("y\n")
+			h.env.ImageExists = func(context.Context, string) (bool, error) { return false, nil }
+			pulled := ""
+			h.env.PullImage = func(_ context.Context, name string, _ io.Writer) error {
+				pulled = name
+				if f.sawRequest("POST " + fakeScanPath + "/local-runs") {
+					t.Fatal("pull must happen before the claim")
+				}
+				return nil
+			}
+			args := []string{"run", fakeScanID, "--authorized"}
+			if tc.flag != "" {
+				args = append(args, "--image", tc.flag)
+			}
+			if code := h.run(args...); code != ExitOK {
+				t.Fatalf("exit = %d: %s", code, h.errOut.String())
+			}
+			if pulled != tc.want || len(*calls) != 1 || !strings.Contains(strings.Join((*calls)[0].args, " "), tc.want) {
+				t.Fatalf("wanted %s in pull and run: pulled=%s, calls=%v", tc.want, pulled, *calls)
+			}
+		})
+	}
+}
+
+func TestMissingReleaseImageInCINeverClaimsAScan(t *testing.T) {
+	saved := RunnerImage
+	t.Cleanup(func() { RunnerImage = saved })
+	RunnerImage = "ghcr.io/example/runner@sha256:" + strings.Repeat("b", 64)
+	f := &fake{}
+	h, calls := localHarness(t, f, "completed", nil, nil)
+	h.env.ImageExists = func(context.Context, string) (bool, error) { return false, nil }
+	if code := h.run("run", fakeScanID, "--authorized"); code != ExitUsage {
+		t.Fatalf("exit = %d", code)
+	}
+	if !strings.Contains(h.errOut.String(), "docker pull "+RunnerImage) || len(*calls) != 0 || f.sawRequest("POST "+fakeScanPath+"/local-runs") {
+		t.Fatalf("a missing release image needs a pull hint before claiming: %s", h.errOut.String())
+	}
+}
+
 func TestAStaleRunnerImageIsCalledOutBeforeTheRun(t *testing.T) {
 	saved := Version
 	t.Cleanup(func() { Version = saved })

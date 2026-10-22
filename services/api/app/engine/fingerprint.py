@@ -70,6 +70,10 @@ _LINE_INDEX = re.compile(r"(?:text-line|line)-\d+$")
 #: exactly that before this was narrowed.) The counts in the title move for the
 #: same reason and stay out too.
 IDENTITY_KEYS: dict[str, tuple[str, ...]] = {
+    # Versions, suggested fixes and advisory text change; the advisory affecting
+    # this component in this project file is the same triage item. The source
+    # audit groups all affected stages/versions before reaching this identity.
+    "source_runtime_cve": ("ecosystem", "package", "advisory", "location"),
     "security_headers": ("missing", "weak"),
     "info_disclosure": ("headers",),
     "data_exposure": ("issue", "path"),

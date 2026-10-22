@@ -39,6 +39,8 @@ var mcpGuides = []struct{ file, title, description string }{
 		"What quick, standard and deep do, and what each opt-in pass costs the target or in tokens."},
 	{"local-runs.md", "Local runs",
 		"Sending the scan from this machine: internal hosts, localhost, and reading the code."},
+	{"distribution.md", "Installing and distributing aidetector",
+		"Public CLI archives, the matching runner image, and the bundled MCP helper."},
 	{"ci-gate.md", "CI gate",
 		"Failing a pipeline on findings: flags, output formats and exit codes."},
 	{"safety.md", "Safety rules",

@@ -50,6 +50,9 @@ func defaultRunnerImage(e *Env) string {
 	if v := e.Getenv("AIDETECTOR_RUNNER_IMAGE"); v != "" {
 		return v
 	}
+	if RunnerImage != "" {
+		return RunnerImage
+	}
 	return runnerImageDefault
 }
 

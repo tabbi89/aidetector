@@ -6,6 +6,10 @@ import "runtime"
 // -ldflags "-X aidetector/cli/internal/commands.Version=...".
 var Version = "dev"
 
+// RunnerImage is stamped into release binaries alongside Version. Releases
+// use a fully qualified, digest-pinned image; local builds keep the build hint.
+var RunnerImage = ""
+
 // cmdVersion prints the build and the platform it runs on — the first thing to
 // ask for in a bug report.
 func cmdVersion(e *Env, args []string) int {

@@ -8,6 +8,10 @@ the full request log), runs the AI analysis and renders the reports.
 Go is **not** required on your machine: everything builds and tests in the official
 `golang:1.23` image.
 
+Public binary/image publishing is described in [docs/distribution.md](docs/distribution.md).
+Release binaries use a matching, immutable GHCR runner image; development builds
+use the locally built image below. The MCP helper is part of the same binary.
+
 ```bash
 make cli            # build cli/bin/aidetector for this machine
 make cli-all        # macOS, Linux and Windows binaries into cli/bin
@@ -103,6 +107,16 @@ aidetector                                              # inside a project: run 
 
 **A directory adds your code**, as with `run --source DIR`: the project is mounted
 read-only into the runner and findings carry file:line citations.
+
+Directory scans also check declared **PHP, Python, Kotlin, Java, Node.js and Go
+versions** against live NVD CVEs and report upgrade guidance. Supported inputs
+include `.php-version`, `.python-version`, `.node-version`, `.nvmrc`,
+`.go-version`, `.java-version`, `.kotlin-version`, `.tool-versions`, `.sdkmanrc`,
+Dockerfile base-image pins, Kotlin build versions and Go `toolchain` pins.
+Only exact versions are queried; ranges and missing versions are reported as gaps.
+These are source leads: vendor backports, deployment and exploitability need
+confirmation. Dependency packages are not scanned. Only runtime identifiers and
+versions go to NVD; project code stays local. Offline lookups are reported as gaps.
 
 Every run option of `run` works here too: `--level quick|standard|deep`, `--writes` and
 `--ai`, plus the advanced pass flags (`--agent`, `--zap`, …). `--writes` and

@@ -87,4 +87,19 @@ The runner image is built by hand, so it can fall behind the CLI. A run warns wh
 `aidetector-runner:latest` was built from another version — rebuild it with
 `make runner-image`. An old image is why `aidetector runs trace` can show no requests.
 
-The runner image is large (~1.4 GB: it is the API image).
+Release binaries pull a digest-pinned GHCR runner image, with a confirmation in
+a terminal; CI needs to pull the image in the release's `runner.json` first.
+The dedicated runner exports only reviewed scanner files, not the API/worker
+source tree. See [distribution.md](distribution.md).
+
+When a source directory is mounted, its PHP, Python, Kotlin, Java, Node.js and Go
+version declarations are checked against live NVD CVEs. The runner reads supported
+version/build files without executing project commands and sends only runtime
+CPE identifiers to NVD. Dependency packages are not inspected. Findings are leads
+with file/advisory references and upgrade guidance; incomplete lookups or uncertain
+versions are explicit gaps and do not resolve older runtime CVE findings.
+
+asdf declarations support inline comments and multiple fallback versions; an
+unresolved fallback or a skipped symlinked version file makes coverage incomplete.
+When several Docker stages in one file match the same CVE, one finding retains
+every affected stage and version, with the existing fingerprint and triage.

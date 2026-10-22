@@ -19,6 +19,7 @@ from tests import factories
 
 # Check keys produced outside the registry, by the adjunct tools.
 ADJUNCT_KEYS = [
+    "source_runtime_cve",
     "zap",
     "testssl",
     "kali_nuclei",

@@ -26,6 +26,11 @@ from app.engine.fingerprint import fingerprint, identity_parts
 
 # check key -> (owasp_id, title, evidence) shaped like the check's real output.
 SAMPLES: dict[str, tuple[str, str, dict]] = {
+    "source_runtime_cve": (
+        "API8:2023", "CVE-2025-12345: PHP 8.2.0",
+        {"ecosystem": "php", "package": "php", "advisory": "CVE-2025-12345",
+         "location": ".php-version", "version": "8.2.0"},
+    ),
     "bola": (
         "API1:2023",
         "Cross-identity read (BOLA) on GET /accounts/{account_id}",
@@ -417,6 +422,7 @@ SAMPLES: dict[str, tuple[str, str, dict]] = {
 }
 
 GOLDEN_FINGERPRINTS: dict[str, str] = {
+    "source_runtime_cve": "87345adcfa3dd217962d8fb5970a45d3",
     "bfla": "8e3b2127bc884c1267f5956fd5a00d2f",
     "bola": "52fc07460b6ad9c67e8a1e18fafbbf86",
     "broken_auth": "bfef64b1df012b2e0f6b214bddfedb25",

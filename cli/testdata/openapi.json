@@ -15132,6 +15132,11 @@
             "type": "array",
             "title": "Failed Checks",
             "default": []
+          },
+          "source_audit_complete": {
+            "type": "boolean",
+            "title": "Source Audit Complete",
+            "default": false
           }
         },
         "type": "object",
@@ -15140,7 +15145,8 @@
           "budget_exhausted",
           "identities_missing",
           "skipped_checks",
-          "failed_checks"
+          "failed_checks",
+          "source_audit_complete"
         ],
         "title": "RunGaps",
         "description": "What a run was asked to do and did not.\n\n``not_run`` names requested adjunct tools that never ran; ``budget_exhausted``\nsays the request cap refused later requests. The diff counts findings those\ngaps could have hidden as not re-tested, never as fixed."

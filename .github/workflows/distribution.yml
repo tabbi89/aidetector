@@ -1,0 +1,171 @@
+name: distribution
+
+# Preview builds are the default. Publishing is an explicit manual choice;
+# neither a push nor opening a pull request distributes private source.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (v1.2.3 or v1.2.3-rc.1)
+        required: true
+        type: string
+      publish:
+        description: Publish the runner and a draft release in the distribution repository
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: distribution-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.config.outputs.image }}
+      repository: ${{ steps.config.outputs.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate version and destinations
+        id: config
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          PUBLISH: ${{ inputs.publish }}
+          RUNNER_IMAGE: ${{ vars.RUNNER_IMAGE }}
+          DISTRIBUTION_REPOSITORY: ${{ vars.DISTRIBUTION_REPOSITORY }}
+        run: |
+          python - <<'PY'
+          import importlib.util, os, re, subprocess
+          spec = importlib.util.spec_from_file_location('release', 'scripts/build_cli_release.py')
+          release = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(release)
+          version = os.environ['RELEASE_VERSION']
+          image = os.environ['RUNNER_IMAGE'] or ('ghcr.io/' + os.environ['GITHUB_REPOSITORY_OWNER'].lower() + '/aidetector-runner')
+          release.validate(version, image + '@sha256:' + '0' * 64)
+          repository = os.environ['DISTRIBUTION_REPOSITORY']
+          if os.environ['PUBLISH'] == 'true':
+              if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
+                  raise SystemExit('Set DISTRIBUTION_REPOSITORY to a separate public owner/repository')
+              if repository.lower() == os.environ['GITHUB_REPOSITORY'].lower():
+                  raise SystemExit('Distribution repository must differ from the source repository')
+              tag = subprocess.check_output(['git', 'rev-parse', 'refs/tags/' + version + '^{commit}'], text=True).strip()
+              head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+              if tag != head:
+                  raise SystemExit('Release tag must point to this exact checkout')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'image={image}\nrepository={repository}\n')
+          PY
+
+  verify:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - run: test -z "$(gofmt -l .)" && go vet ./... && go test -race -count=1 ./...
+        working-directory: cli
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+        working-directory: services/api
+      - run: ruff check . && mypy app
+        working-directory: services/api
+      - run: pytest tests/test_source_audit.py tests/test_runner_distribution.py tests/test_layering.py tests/test_char_fingerprint.py tests/test_coverage_mirror.py -q
+        working-directory: services/api
+
+  runner:
+    needs: [prepare, verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: inputs.publish
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: services/api
+          file: services/api/runner.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ inputs.publish }}
+          outputs: ${{ !inputs.publish && 'type=oci,dest=/tmp/runner-image.tar' || '' }}
+          tags: ${{ needs.prepare.outputs.image }}:${{ inputs.version }}
+          labels: |
+            org.opencontainers.image.version=${{ inputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          # No private Git URL, source context or build arguments in public attestations.
+          provenance: false
+      - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.publish }}
+        with:
+          name: runner-preview
+          path: /tmp/runner-image.tar
+          retention-days: 7
+
+  cli:
+    needs: [prepare, runner]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - name: Package binaries with this runner digest
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_IMAGE: ${{ needs.prepare.outputs.image }}@${{ needs.runner.outputs.digest }}
+        run: python scripts/build_cli_release.py --version "$RELEASE_VERSION" --image "$RELEASE_IMAGE" --output /tmp/cli-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-release
+          path: /tmp/cli-release/*
+          retention-days: 14
+
+  publish:
+    if: inputs.publish
+    needs: [prepare, cli]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-release
+          path: release
+      - name: Create draft public distribution release
+        env:
+          GH_TOKEN: ${{ secrets.DISTRIBUTION_TOKEN }}
+          RELEASE_REPOSITORY: ${{ needs.prepare.outputs.repository }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          test -n "$GH_TOKEN" || { echo 'Set DISTRIBUTION_TOKEN with contents:write on the distribution repository'; exit 1; }
+          test "$(gh api "repos/$RELEASE_REPOSITORY" --jq .visibility)" = public
+          cd release
+          sha256sum --check SHA256SUMS
+          printf '%s\n' 'CLI binaries include the MCP setup helper (aidetector mcp).' 'runner.json records the immutable runner image for this release.' > /tmp/release-notes.md
+          gh release create "$RELEASE_VERSION" ./* --repo "$RELEASE_REPOSITORY" --draft --title "aidetector $RELEASE_VERSION" --notes-file /tmp/release-notes.md

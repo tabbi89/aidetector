@@ -64,6 +64,14 @@ class _Evidence(dict):
 
 
 CATALOGUE: dict[str, CheckKnowledge] = {
+    "source_runtime_cve": CheckKnowledge(
+        summary="Declared runtime version matches a published vulnerability advisory.",
+        cwe="CWE-1395",
+        remediation=("Update the runtime declared in {location} to a supported patched release. "
+                     "Confirm the deployed version and vendor backports against the advisory, "
+                     "rebuild the image, deploy it and rerun the source advisory checks."),
+        references=("https://nvd.nist.gov/",),
+    ),
     "adaptive_validation": CheckKnowledge(
         summary="Controlled validation variant accepted after a valid baseline.",
         cwe="CWE-20",

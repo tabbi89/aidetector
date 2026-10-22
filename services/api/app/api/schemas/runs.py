@@ -206,6 +206,9 @@ class RunGaps(ResponseModel):
     # Engine checks that raised before finishing (a transport timeout, a bug):
     # they did not look everywhere, so not fixed either.
     failed_checks: list[str] = []
+    # Only a local directory scan with complete runtime CVE coverage can resolve
+    # source findings. Web runs and older runners leave this false.
+    source_audit_complete: bool = False
 
 
 class ScanRunOut(ResponseModel):

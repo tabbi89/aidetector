@@ -364,9 +364,10 @@ type CoverageRow struct {
 
 // RunGaps is what a run was asked to do and did not.
 type RunGaps struct {
-	NotRun          []string `json:"not_run"`
-	BudgetExhausted bool     `json:"budget_exhausted"`
-	FailedChecks    []string `json:"failed_checks"`
+	NotRun              []string `json:"not_run"`
+	BudgetExhausted     bool     `json:"budget_exhausted"`
+	FailedChecks        []string `json:"failed_checks"`
+	SourceAuditComplete bool     `json:"source_audit_complete"`
 }
 
 // ScanRun is one past execution of a scan, as the run history lists it.

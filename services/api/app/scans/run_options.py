@@ -223,6 +223,10 @@ def unperformed(check: str, gaps: dict[str, Any] | None) -> bool:
     and an identity check in a run that left an identity out lacked the
     credentials. Either way its absence is not a fix.
     """
+    # A web run, an older runner, no directory or an offline advisory service
+    # cannot establish that an older source finding has been fixed.
+    if check == "source_runtime_cve":
+        return not gaps or gaps.get("source_audit_complete") is not True
     if not gaps:
         return False
     tool = producing_tool(check)

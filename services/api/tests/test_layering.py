@@ -48,6 +48,7 @@ PURE_MODULES = [
     "app.engine.adjunct_run",
     # The local runner executes a scan with no database: prove it never needs one.
     "app.runner.main",
+    "app.runner.source_audit",
     # Schema context is read inside the runner: the reader, the adapter and the
     # upload contract must never pull the ORM in with them.
     "app.runner.schema",
