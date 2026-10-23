@@ -19,6 +19,3 @@ schemathesis==4.25.2
 jsonschema==4.26.0
 detect-secrets==1.5.0
 prance==26.7.19.0
-
-# Explicit AWS SigV4 signing only; no ambient credential chain.
-botocore==1.43.90

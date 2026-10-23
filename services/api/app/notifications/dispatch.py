@@ -23,6 +23,7 @@ from app.core import vault
 from app.core.config import settings
 from app.core.target_guard import TargetNotAllowed, check_target_allowed
 from app.models.notification import NotificationDelivery, NotificationEndpoint
+from app.notifications.events import KNOWN_EVENTS
 
 _RETRYABLE_STATUS = {408, 425, 429}
 
@@ -67,16 +68,6 @@ def _slack_text(payload: dict[str, Any]) -> str:
         )
     if event == "run.recovered":
         return f"Scan recovered: {payload.get('scan_id')} (run {payload.get('run_number')})"
-    if event == "monitor.alert":
-        return (
-            f"Monitoring alert: {payload.get('monitor')} is "
-            f"{payload.get('state')} on {payload.get('observation_date')}"
-        )
-    if event == "monitor.recovered":
-        return (
-            f"Monitoring recovered: {payload.get('monitor')} on "
-            f"{payload.get('observation_date')}"
-        )
     return str(payload.get("message") or "aidetector notification")
 
 
@@ -115,6 +106,10 @@ def deliver_one(
     *,
     client: httpx.Client | None = None,
 ) -> str:
+    if delivery.event_type not in KNOWN_EVENTS:
+        _mark(delivery, "dead", error="event type is no longer supported")
+        db.commit()
+        return "dead"
     endpoint = db.get(NotificationEndpoint, delivery.endpoint_id)
     if endpoint is None:
         _mark(delivery, "dead", error="endpoint no longer exists")

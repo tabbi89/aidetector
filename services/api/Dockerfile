@@ -71,23 +71,15 @@ RUN if [ "$WITH_KALI_TOOLS" = "1" ]; then \
 # and set AI_PYTHON=/opt/venv-ai/bin/python plus ANTHROPIC_API_KEY in .env.
 ARG WITH_AI=0
 COPY ai_runtime/requirements.txt /tmp/ai-requirements.txt
-ARG WITH_CURSOR=0
-COPY ai_runtime/cursor_requirements.txt /tmp/cursor-requirements.txt
-RUN if [ "$WITH_AI" = "1" ] || [ "$WITH_CURSOR" = "1" ]; then \
+RUN if [ "$WITH_AI" = "1" ]; then \
       set -e; \
       apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git && \
       python -m venv /opt/venv-ai; \
-      if [ "$WITH_AI" = "1" ]; then \
-        /opt/venv-ai/bin/pip install --no-cache-dir -r /tmp/ai-requirements.txt && \
-        curl -fsSL https://claude.ai/install.sh | bash && \
-        ln -sf /root/.local/bin/claude /usr/local/bin/claude && \
-        /usr/local/bin/claude --version && \
-        /opt/venv-ai/bin/python -c "import claude_agent_sdk"; \
-      fi; \
-      if [ "$WITH_CURSOR" = "1" ]; then \
-        /opt/venv-ai/bin/pip install --no-cache-dir -r /tmp/cursor-requirements.txt && \
-        /opt/venv-ai/bin/python -c "import cursor_sdk"; \
-      fi; \
+      /opt/venv-ai/bin/pip install --no-cache-dir -r /tmp/ai-requirements.txt && \
+      curl -fsSL https://claude.ai/install.sh | bash && \
+      ln -sf /root/.local/bin/claude /usr/local/bin/claude && \
+      /usr/local/bin/claude --version && \
+      /opt/venv-ai/bin/python -c "import claude_agent_sdk"; \
       apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*; \
     fi
 

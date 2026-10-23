@@ -114,7 +114,7 @@ const SECTIONS: SectionDef[] = [
     label: "Notifications",
     group: "Integrations",
     title: "Notifications",
-    description: "Send scan and monitoring events to a signed webhook or a Slack channel.",
+    description: "Send scan events to a signed webhook or a Slack channel.",
     adminOnly: true,
   },
   {
@@ -138,8 +138,6 @@ const EVENTS: { id: NotificationEvent; label: string; detail: string }[] = [
   { id: "run.failed", label: "Run failed", detail: "A scan run failed." },
   { id: "run.recovered", label: "Run recovered", detail: "A run completed after the previous one failed." },
   { id: "work.overdue", label: "Overdue task", detail: "An assigned finding passed its due date." },
-  { id: "monitor.alert", label: "Monitoring alert", detail: "A traffic monitor raised an alert." },
-  { id: "monitor.recovered", label: "Monitor recovered", detail: "A monitor's alert cleared." },
 ];
 const EVENT_LABEL = new Map(EVENTS.map((event) => [event.id as string, event.label]));
 
@@ -189,7 +187,7 @@ function usd(micros: number): string {
   return dollars >= 1 || dollars === 0 ? `$${dollars.toFixed(2)}` : `$${dollars.toFixed(4)}`;
 }
 
-/** `monitoring.setup_updated` → "Monitoring · setup updated". */
+/** `scan.target_updated` → "Scan · target updated". */
 function humanAction(action: string): string {
   const [area, ...rest] = action.split(".");
   const verb = rest.join(".").replaceAll("_", " ");
@@ -585,7 +583,7 @@ function General({ workspace }: { workspace: Workspace }) {
         <Field label="Name">
           <span className="sp-value">{workspace.name}</span>
         </Field>
-        <Field label="Slug" help="Scans, monitors and API keys are scoped to it.">
+        <Field label="Slug" help="Scans and API keys are scoped to it.">
           <code className="sp-value">{workspace.tenant}</code>
         </Field>
         <Field label="Plan">
@@ -1743,7 +1741,7 @@ function Notifications({
       <Panel title="Endpoints" actions={addButton} flush>
         {endpoints.length === 0 ? (
           <Empty title="No endpoints yet" action={addButton}>
-            Point new findings, failed runs and monitoring alerts at a webhook or a Slack channel.
+            Point new findings and failed runs at a webhook or a Slack channel.
             Delivery is retried, and an unchanged run state is not sent twice.
           </Empty>
         ) : (
@@ -1886,7 +1884,7 @@ function Audit({ rows }: { rows: WorkspaceAuditRow[] }) {
     >
       {rows.length === 0 ? (
         <Empty title="No activity yet">
-          Membership, token, limit, notification and monitoring changes are recorded here as they
+          Membership, token, limit and notification changes are recorded here as they
           happen.
         </Empty>
       ) : shown.length === 0 ? (

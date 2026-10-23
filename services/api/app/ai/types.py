@@ -7,7 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class Usage:
     model: str
-    phase: str  # "execute" | "adjudicate" | "monitoring"
+    phase: str  # "execute" | "adjudicate"
     tokens_in: int
     tokens_out: int
     # Prompt-cache traffic the provider reports beside ``tokens_in`` (the

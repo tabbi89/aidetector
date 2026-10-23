@@ -48,7 +48,7 @@ def create_example_scan(
     principal: ScanWriteDep, db: Session = Depends(get_db)
 ) -> Scan:
     """Dev only: the bundled target with its live spec and both seed identities, not run."""
-    from app.monitoring.setup import create_example_scan as create
+    from app.scans.examples import create_example_scan as create
 
     scan = create(db, principal.tenant)
     workspace.record_audit(

@@ -421,10 +421,8 @@ def _open_run(
     )
 
     from app.engine.methodology import build_manifest
-    from app.monitoring.correlation import configure_probe
 
     probe.manifest = build_manifest(ctx, opts.to_dict())
-    configure_probe(db, scan, probe)
     run.manifest = probe.manifest
 
     announce_missing_identity_pair(

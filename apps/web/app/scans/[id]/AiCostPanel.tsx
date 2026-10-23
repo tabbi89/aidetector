@@ -11,7 +11,6 @@ const STEP_LABELS: Record<string, string> = {
   security_review: "Security design review",
   qa: "Questions",
   genai_payloads: "Payload design",
-  monitoring: "Monitoring",
   agent: "Agent",
 };
 

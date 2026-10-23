@@ -14,8 +14,6 @@ from app.api.routes import (
     auth,
     domains,
     health,
-    monitoring,
-    monitoring_mcp,
     notifications,
     ops,
     runner,
@@ -25,7 +23,6 @@ from app.api.routes import (
     workspace,
 )
 from app.core.config import settings
-from app.monitoring.body_limit import MonitoringBodyLimit
 
 log = logging.getLogger("aidetector.api")
 
@@ -97,11 +94,6 @@ app.include_router(domains.router)
 app.include_router(ops.router)
 app.include_router(runner.router)
 app.include_router(schema_context.router)
-app.include_router(monitoring_mcp.router)
-app.include_router(monitoring.router)
-
-
-app.add_middleware(MonitoringBodyLimit)
 
 
 @app.get("/")
@@ -117,13 +109,11 @@ async def safe_connection_validation(request: Request, exc: RequestValidationErr
             status_code=422,
             content={"detail": _auth_validation_detail(exc)},
         )
-    if "/database-connection" in request.url.path or request.url.path.startswith("/monitoring"):
+    if "/database-connection" in request.url.path:
         return JSONResponse(
             status_code=422,
             content={
-                "detail": "invalid monitoring request"
-                if request.url.path.startswith("/monitoring")
-                else "invalid database connection request"
+                "detail": "invalid database connection request"
             },
         )
     return await request_validation_exception_handler(request, exc)

@@ -1,6 +1,6 @@
 # Database schema context
 
-Schema context is **local-only**. The server never connects to a target database and holds no database credentials. A project's `schema:` block in `aidetector.yml` is read by the `aidetector` CLI (every CLI run is local) on the CLI machine, which uploads a structure-only snapshot with its results. The scan then reuses the newest available snapshot for its server-side AI passes and for a monitor's database context.
+Schema context is **local-only**. The server never connects to a target database and holds no database credentials. A project's `schema:` block in `runpentests.yml` is read by the `runpentests` CLI (every CLI run is local) on the CLI machine, which uploads a structure-only snapshot with its results. The scan then reuses the newest available snapshot for its server-side AI passes.
 
 Migration `0052` adds `scan_runs.schema_context` and drops `database_connections` together with the encrypted passwords it held (the downgrade recreates an empty table; the secrets are gone by design). Run `alembic upgrade head` in `services/api`. There are no `DB_SCHEMA_*` settings and nothing to configure on the server or worker for schema access.
 
@@ -83,9 +83,8 @@ All consumers now share that one value:
 - Adaptive validation uses it as its schema context.
 - AI resource refinement passes it to provisioning.
 - The security design review sends it as the database structure.
-- A monitor's attached context uses `latest_snapshot` directly, requires one when `include_database` is set (otherwise HTTP 409), and binds to that run's ID; a newer snapshot or a forgotten one makes the stored binding read as `binding_changed`.
 
-Previously each of these opened its own database connection, and the adaptive stage, resource refinement and monitoring read only the first configured table. A snapshot now covers every configured table, including expanded wildcards, and is read once per run with no server-side socket.
+Previously each of these opened its own database connection, and adaptive validation and resource refinement read only the first configured table. A snapshot now covers every configured table, including expanded wildcards, and is read once per run with no server-side socket.
 
 ## API
 

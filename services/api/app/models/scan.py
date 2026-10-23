@@ -82,7 +82,7 @@ class Scan(Base):
     # Null for scans created before this column existed.
     spec_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Real uploaded OpenAPI/Swagger versus a HAR/Postman-derived contract.
-    # Legacy rows remain unknown and cannot enable contract-gated monitoring.
+    # Legacy rows retain unknown provenance.
     spec_origin: Mapped[str] = mapped_column(
         String(16), default="unknown", server_default="unknown"
     )

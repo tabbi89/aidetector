@@ -10,7 +10,6 @@ import { useConnection } from "@/lib/connection";
 const APP_LINKS = [
   { href: "/scans", label: "Scans" },
   { href: "/scans/new", label: "New scan" },
-  { href: "/monitoring", label: "Monitoring" },
 ];
 
 /** Signed out, the header is the product's public pages. */
@@ -22,7 +21,7 @@ const PUBLIC_LINKS = [
 
 /**
  * The link for the section a page belongs to: a scan's page is under Scans and
- * a monitor's under Monitoring, while "New scan" keeps its own entry.
+ * "New scan" keeps its own entry.
  */
 function isCurrent(pathname: string, href: string): boolean {
   if (pathname === href) return true;

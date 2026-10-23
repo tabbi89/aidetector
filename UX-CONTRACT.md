@@ -29,7 +29,7 @@ Existing plan descriptions remain the source for plan presentation.
 | Scrollbar | Global `globals.css` baseline | `DESIGN.md` | stable gutter for document | computed styles, narrow browser checks |
 | Toast | Existing inline `ErrorBanner` and persistent status regions | Existing workspace feedback | inline alert/polite status; no new toast system | API-failure browser tests |
 | CRUD | `api` client, existing wizard and scan-detail owners | API lifecycle | wizard continues; detail edits stay inline | `apps/web/e2e/scans.spec.ts` |
-| Dialog | `ConfirmationProvider`, `useConfirmation` | `DESIGN.md` and existing API action contracts | danger/warning; typed monitor-name confirmation | `apps/web/e2e/visual-guides.spec.ts`, `scans.spec.ts` |
+| Dialog | `ConfirmationProvider`, `useConfirmation` | `DESIGN.md` and existing API action contracts | danger/warning; typed object-name confirmation | `apps/web/e2e/visual-guides.spec.ts`, `scans.spec.ts` |
 
 ## Changed-surface behavior ledger
 
@@ -103,8 +103,7 @@ Confirmation dialogs name the object and consequence. Cancel receives initial
 focus; Tab stays inside, Escape cancels while idle, and focus returns to the
 trigger or main context. While the API mutation runs, actions and Escape are
 blocked. API errors keep the dialog and allow retry; successful actions retain
-their existing destination and feedback. Monitor deletion preserves typed-name
-confirmation. Workspace `act` routes errors to the dialog for these actions;
+their existing destination and feedback. Workspace `act` routes errors to the dialog for these actions;
 ordinary saves continue using the page's persistent feedback.
 
 New search is local and IME-safe; no remote race or offline mutation queue exists.
@@ -128,9 +127,7 @@ Ask your scan starts collapsed to prioritize findings; its stored disclosure
 preference still wins on later visits.
 
 This slice improves public learning/coverage, the shared run-level choice, and
-shared validation/editor and confirmation foundations used by auth, monitors,
-scan details and workspace settings. Result triage, long forms and detailed
-monitor analysis remain candidates for further information-design work;
+shared validation/editor and confirmation foundations used by auth, scan details and workspace settings. Result triage, long forms remain candidates for further information-design work;
 recording owners is not evidence that every legacy state is production-ready. Prioritized remaining work is recorded in
 `docs/ui-ux-production-review-2026-10-22.md`.
 
@@ -140,3 +137,12 @@ Playwright flows, coverage mirror tests, strict premium audit. Browser evidence
 must include light/dark, narrow desktop/mobile, keyboard, no results, URL restore,
 IME, reduced motion, and unchanged consent/write/AI defaults. Compare the
 coverage filters with existing findings filters and RunPanel in wizard/detail.
+
+## Retired infrastructure monitoring
+
+Infrastructure monitoring, telemetry sources, monitor notifications and their
+background jobs are removed. Existing links to /monitoring return the app-owned
+404; navigation offers Scans and New scan. The bundled example scan remains
+available independently under app/scans/examples.py. Migration 0059 drops only
+retired feature tables, removes retired subscriptions and cancels their queued
+notifications. Scan configuration, scan schedules, results and history remain.

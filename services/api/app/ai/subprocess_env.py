@@ -1,8 +1,7 @@
 """The environment an AI runtime subprocess may inherit from the worker.
 
-Both AI subprocesses (``planner`` → ``plan_agent.py``, ``provider`` →
-``monitoring_agent.py``) send data to an external model, so they get an
-allowlist rather than a copy of the worker's environment: enough to run and
+The planner subprocess (``plan_agent.py``) sends data to an external model,
+so it gets an allowlist rather than a copy of the worker's environment: enough to run and
 reach TLS endpoints, never the vault key, database URL, broker URL or cloud
 credentials. Callers add the one or two keys their agent actually needs.
 """

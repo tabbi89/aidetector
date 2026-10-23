@@ -4,9 +4,7 @@ export type NotificationEvent =
   | "finding.new"
   | "work.overdue"
   | "run.failed"
-  | "run.recovered"
-  | "monitor.alert"
-  | "monitor.recovered";
+  | "run.recovered";
 
 export type NotificationSeverity = "info" | "low" | "medium" | "high" | "critical";
 export type NotificationKind = "webhook" | "slack";

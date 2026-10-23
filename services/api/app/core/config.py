@@ -204,51 +204,6 @@ class Settings(BaseSettings):
     # Isolated Agent SDK runtime (its own venv). Empty → services/api/.venv-ai.
     ai_python: str = ""
     ai_timeout_seconds: int = 300
-    # Phase K monitoring explanations are optional and never create findings.
-    # Cursor runs in the isolated AI runtime with a strict MCP-only toolset.
-    monitoring_ai_provider: str = "none"
-    cursor_api_key: str = ""
-    cursor_model: str = "composer-2.5"
-    # Extra JSON object of HTTPS MCP endpoints merged into the GitHub server the
-    # provider builds. Stdio/executable servers are rejected by the runtime.
-    cursor_mcp_servers_json: str = ""
-    monitoring_hmac_key: str = ""
-    # Remote evidence integrations are deployment opt-ins, exact names only.
-    # AWS entries are log-group ARNs (a trailing ":*" is fine) or region:group.
-    monitoring_aws_log_groups: str = ""
-    # Application Load Balancer ARNs whose CloudWatch metrics the worker may read, for
-    # the response codes and latency AWS WAF logs do not carry. Needs no access logging;
-    # the worker's identity needs cloudwatch:GetMetricData.
-    monitoring_aws_load_balancers: str = ""
-    # Ceiling for reading one day's load balancer metrics. Also clamped to what is left
-    # of the collection task's own time limit: a task killed mid-read saves nothing, so
-    # the WAF day it already read would be lost with it.
-    monitoring_alb_collect_seconds: int = 60
-    # Bounds for collecting one AWS day. Events are normalized page by page, so
-    # worker memory tracks the event cap rather than the raw log volume.
-    # Events are folded into aggregates page by page, so memory follows distinct
-    # clients and routes, not volume; these are safety bounds, time is the budget.
-    monitoring_aws_max_events: int = 5_000_000
-    monitoring_aws_max_calls: int = 20_000
-    monitoring_collect_seconds: int = 1800
-    # Hourly windows read at once; FilterLogEvents allows 5 requests/s per account.
-    #: Short-window detection: seconds a WAF record may take to reach CloudWatch,
-    #: the per-window read limits, and how often enabled monitors are evaluated.
-    monitoring_rapid_lag_seconds: int = 300
-    monitoring_rapid_collect_seconds: int = 180
-    monitoring_rapid_max_events: int = 200_000
-    monitoring_rapid_interval_seconds: int = 300
-    monitoring_aws_concurrency: int = 4
-    # Events kept per collected day, split evenly across its 24 UTC hours (the
-    # newest of each hour). 0 reads the whole day, which can take many minutes.
-    monitoring_aws_sample_events: int = 20_000
-    # GitHub's hosted MCP server for monitoring explanations. Each monitor brings
-    # its own repository and read-only token; there is no deployment allowlist.
-    monitoring_github_mcp_url: str = "https://api.githubcopilot.com/mcp/x/repos/readonly"
-    # One explanation reads a repository through many MCP calls, so it gets its
-    # own ceiling, longer than the scan-time AI timeout.
-    monitoring_ai_timeout_seconds: int = 600
-
     # Out-of-band (OAST) interaction server for blind-vuln confirmation. Empty →
     # OOB checks stay inactive (scans run with engine findings only). Point at a
     # self-hosted interactsh-server domain, e.g. "oast.internal".

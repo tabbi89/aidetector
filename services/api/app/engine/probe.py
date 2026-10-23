@@ -142,7 +142,6 @@ class HttpProbe:
         credentials: list[ResolvedCredential] | None = None,
         redact: Redactor | None = None,
     ) -> None:
-        self.correlation_id: str | None = None
         self._client = client
         self._max = max_requests
         self._max_429_retries = 2
@@ -328,7 +327,7 @@ class HttpProbe:
         if not self._reserve(method, path, fairness_exempt=fairness_exempt):
             return None
         kwargs: dict[str, Any] = {
-            "headers": self._correlated_headers(headers),
+            "headers": (headers or {}),
             "params": params or {},
         }
         if json is not None:
@@ -467,7 +466,7 @@ class HttpProbe:
             reserved += 1
         if reserved == 0:
             return None
-        kwargs: dict[str, Any] = {"headers": self._correlated_headers(headers)}
+        kwargs: dict[str, Any] = {"headers": (headers or {})}
         if json is not None:
             kwargs["json"] = json
         raw = client_burst(
@@ -552,19 +551,6 @@ class HttpProbe:
             else:
                 safe[name] = value[:240] + ("…" if len(value) > 240 else "")
         return safe
-
-    def set_correlation_id(self, token: str) -> None:
-        """Tag every request with ``token`` and keep the token out of the trace."""
-        self.correlation_id = token
-        self._redact.add_secret(token)
-
-    def _correlated_headers(self, headers: dict[str, str] | None) -> dict[str, str]:
-        if not self.correlation_id:
-            return headers or {}
-        return {
-            **{k: v for k, v in (headers or {}).items() if k.lower() != "x-aidetector-correlation"},
-            "X-AIDETECTOR-Correlation": self.correlation_id,
-        }
 
     def _identity_of(self, headers: dict[str, Any]) -> str:
         """Which credential sent this request, by matching its auth headers.

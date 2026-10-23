@@ -49,17 +49,28 @@ test("adding a member focuses the form and sends what was typed", async ({ page,
 test("on a phone the primary links fold into a menu and mark the current section", async ({ page, api }) => {
   void api;
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto("/monitoring");
+  await page.goto("/scans");
   const primary = page.getByRole("navigation", { name: "Primary" });
   await expect(primary.getByRole("link", { name: "Scans" })).toBeHidden();
   const menu = primary.getByRole("button", { name: "Menu" });
   await menu.click();
   await expect(menu).toHaveAttribute("aria-expanded", "true");
-  await expect(primary.getByRole("link", { name: "Monitoring" })).toHaveAttribute("aria-current", "page");
+  await expect(primary.getByRole("link", { name: "Scans", exact: true })).toHaveAttribute("aria-current", "page");
   await page.keyboard.press("Escape");
   await expect(menu).toHaveAttribute("aria-expanded", "false");
   await expect(menu).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+});
+
+test("retired infrastructure monitoring has no navigation or page", async ({ page, api }) => {
+  void api;
+  await page.goto("/scans");
+  const primary = page.getByRole("navigation", { name: "Primary" });
+  await expect(primary.getByRole("link")).toHaveText(["Scans", "New scan"]);
+  await expect(page.getByRole("link", { name: "Monitoring", exact: true })).toHaveCount(0);
+  await page.goto("/monitoring");
+  await expect(page.getByRole("heading", { name: /not found|404/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Infrastructure monitoring", exact: true })).toHaveCount(0);
 });
 
 test("member removal keeps API failures in the confirmation and refreshes after retry", async ({ page, api }) => {

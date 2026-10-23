@@ -41,7 +41,6 @@ services:
         # planner in-process here, so without this the endpoint 502s even when
         # scan-time adjudication (worker) works.
         WITH_AI: ${WITH_AI:-0}
-        WITH_CURSOR: ${WITH_CURSOR:-0}
         # ruff + mypy for `make lint`, which execs here.
         WITH_DEV: ${WITH_DEV:-1}
     # Run migrations before serving so a fresh/behind DB volume self-heals
@@ -53,11 +52,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       AI_PYTHON: ${AI_PYTHON:-/opt/venv-ai/bin/python}
       WEB_ORIGIN: http://localhost:${WEB_HOST_PORT:-3000}
-      MONITORING_AI_PROVIDER: ${MONITORING_AI_PROVIDER:-none}
-      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
-      CURSOR_MODEL: ${CURSOR_MODEL:-composer-2.5}
-      CURSOR_MCP_SERVERS_JSON: ${CURSOR_MCP_SERVERS_JSON:-}
-      MONITORING_HMAC_KEY: ${MONITORING_HMAC_KEY:-}
       # The CLI's `run --local` claims scans over POST /scans/{id}/local-runs.
       LOCAL_RUNNER_ENABLED: ${LOCAL_RUNNER_ENABLED:-false}
       # tests/test_coverage_mirror.py compares the engine with apps/web.
@@ -81,7 +75,6 @@ services:
         WITH_KALI_TOOLS: ${WITH_KALI_TOOLS:-0}
         WITH_INTERACTSH: ${WITH_INTERACTSH:-0}
         WITH_AI: ${WITH_AI:-0}
-        WITH_CURSOR: ${WITH_CURSOR:-0}
     command: celery -A app.workers.celery_app.celery worker --loglevel=info
     env_file: .env
     environment:
@@ -90,11 +83,6 @@ services:
       # AI runtime python (baked at /opt/venv-ai when WITH_AI=1; a missing path
       # degrades gracefully to no-AI). Credentials come from .env (ANTHROPIC_API_KEY).
       AI_PYTHON: ${AI_PYTHON:-/opt/venv-ai/bin/python}
-      MONITORING_AI_PROVIDER: ${MONITORING_AI_PROVIDER:-none}
-      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
-      CURSOR_MODEL: ${CURSOR_MODEL:-composer-2.5}
-      CURSOR_MCP_SERVERS_JSON: ${CURSOR_MCP_SERVERS_JSON:-}
-      MONITORING_HMAC_KEY: ${MONITORING_HMAC_KEY:-}
       # Opt-in adjuncts (empty unless the matching profile is up). See README.
       OAST_SERVER: ${OAST_SERVER:-}
       OAST_TOKEN: ${OAST_TOKEN:-}
@@ -126,7 +114,6 @@ services:
         WITH_KALI_TOOLS: ${WITH_KALI_TOOLS:-0}
         WITH_INTERACTSH: ${WITH_INTERACTSH:-0}
         WITH_AI: ${WITH_AI:-0}
-        WITH_CURSOR: ${WITH_CURSOR:-0}
     command: celery -A app.workers.celery_app.celery beat --loglevel=info
     env_file: .env
     environment:

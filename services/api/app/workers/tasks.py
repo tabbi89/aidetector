@@ -236,59 +236,6 @@ def dispatch_overdue_work() -> dict:
         db.close()
 
 
-@celery.task(name="run_monitoring", time_limit=settings.monitoring_collect_seconds + 120)
-def run_monitoring_task(monitor_id: str, run_id: str | None = None) -> dict:
-    from app.monitoring.collection import collect
-
-    return collect(monitor_id, run_id)
-
-
-@celery.task(name="dispatch_daily_monitoring")
-def dispatch_daily_monitoring() -> dict:
-    from app.monitoring.collection import dispatch
-
-    return dispatch(run_monitoring_task.delay)
-
-
-@celery.task(
-    name="run_rapid_monitoring", time_limit=settings.monitoring_rapid_collect_seconds + 60
-)
-def run_rapid_monitoring_task(monitor_id: str, window_end: str | None = None) -> dict:
-    from app.monitoring.rapid_service import collect_recent
-
-    return collect_recent(monitor_id, window_end)
-
-
-@celery.task(name="dispatch_rapid_monitoring")
-def dispatch_rapid_monitoring() -> dict:
-    from app.monitoring.rapid_service import dispatch
-
-    # A message older than one interval belongs to a window a newer tick has taken.
-    return dispatch(lambda monitor_id, window_end: run_rapid_monitoring_task.apply_async(
-        (monitor_id, window_end), expires=settings.monitoring_rapid_interval_seconds,
-    ))
-
-
-@celery.task(
-    name="explain_monitoring_observation",
-    time_limit=settings.monitoring_ai_timeout_seconds + 60,
-)
-def explain_monitoring_observation(monitor_id: str, run_id: str, fingerprint: str) -> dict:
-    from app.monitoring.explain import run_explanation
-
-    return run_explanation(monitor_id, run_id, fingerprint)
-
-
-@celery.task(
-    name="brief_monitoring_traffic",
-    time_limit=settings.monitoring_ai_timeout_seconds + 60,
-)
-def brief_monitoring_traffic(monitor_id: str) -> dict:
-    from app.monitoring.briefing import run_briefing
-
-    return run_briefing(monitor_id)
-
-
 class _AnalysisJournal:
     """The slice of a run journal the post-upload AI passes use.
 

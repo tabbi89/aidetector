@@ -23,8 +23,6 @@ clean when this was written.
 - **Whitebox.** The CLI "can execute inside the repository / project and has access to the
   codebase". The point is source-aware analysis (confirm a finding against code, explain it
   with file:line, steer which checks/params to probe) — what pentagi (blackbox) lacks.
-- **"Skip allowing adding repository in the web"** — the monitoring page's GitHub
-  repo/token fields were removed (done). The backend connector still exists, unused.
 - **Scans must be able to originate from the CLI machine** ("Go client … run all the prepared
   tests … nothing executed on the server") — done for the engine tier as `run --local`.
 - **AI = DeepSeek only, turn Opus off** — done: `PLANNER_PROVIDER=deepseek` is the default.
@@ -39,7 +37,7 @@ clean when this was written.
 
 | Area | What | Where |
 | --- | --- | --- |
-| Fast-lane web | Run panel offers only schema fuzzing, test-writes, premium; no preset turns on ZAP/Kali/confirm/AI; monitoring GitHub fields removed | `apps/web/app/components/RunPanel.tsx`, `checkScope.ts`, `apps/web/app/monitoring/page.tsx` |
+| Fast-lane web | Run panel offers only schema fuzzing, test-writes, premium; no preset turns on ZAP/Kali/confirm/AI | `apps/web/app/components/RunPanel.tsx`, `checkScope.ts` |
 | DeepSeek-only AI | `settings.planner_provider` (`deepseek` default, `anthropic` opt-in); every agent mode is one direct DeepSeek completion; no Agent SDK / `claude` CLI / `.venv-ai` needed | `app/ai/planner.py`, `ai_runtime/plan_agent.py`, `app/core/config.py` |
 | AI subprocess hardening | Env **allowlist**, so VAULT_KEY/DATABASE_URL/etc. never reach the AI subprocess | `app/ai/subprocess_env.py` |
 | Kali fix | nuclei remediation/CVE/CWE/references forwarded; info-level matches graded heuristic | `services/kali/app/main.py`, `app/engine/kali.py` |

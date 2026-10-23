@@ -60,11 +60,10 @@ test("a signed-out tab sees only sign-in, and signing in shows the page it asked
   await expect(page).toHaveURL(/\/workspace$/);
   // The page's own title replaces the form's.
   await expect(page).toHaveTitle(/^Workspace · .+ · runpentests$/);
-  // Signed in, the header is the app: Scans, New scan, Monitoring — nothing else.
+  // Signed in, the header is the app: Scans and New scan — nothing else.
   await expect(nav.getByRole("link")).toHaveText([
     "Scans",
     "New scan",
-    "Monitoring",
   ]);
   await expect(page.getByRole("heading", { name: "Sign in" })).toHaveCount(0);
   expect(api.requests.some((r) => r.path === "/auth/login")).toBe(true);

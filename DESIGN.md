@@ -103,8 +103,7 @@ errors, field associations, first-invalid focus, preserved values and IME-safe
 submission. `ExpandingTextarea` grows to 520px then scrolls; manual resizing is
 disabled. These adapters extend existing field markup rather than replacing its
 labels, constraint metadata, or server error handling.
-`ConfirmationProvider` owns destructive/costly confirmations across scan,
-monitor and workspace flows. The native dialog supplies background isolation;
+`ConfirmationProvider` owns destructive/costly confirmations across scan and workspace flows. The native dialog supplies background isolation;
 the shared owner supplies focus trapping/restoration, initial safe-action focus,
 pending/error/retry behavior and optional typed object-name confirmation.
 Native details/summary own progressive disclosure. Use native radios for scan
@@ -162,3 +161,6 @@ stay explicit and never become implied by a diagram or scan level.
 Motion communicates feedback only. Existing 150ms transitions are sufficient;
 global reduced-motion rules disable them. Charts have text equivalents. Global
 scrollbars stay visible, support forced colors, and require no opt-in class.
+
+Infrastructure monitoring is retired. The application navigation contains Scans
+and New scan; no telemetry-monitor screens or associated UI components remain.

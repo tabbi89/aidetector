@@ -1,4 +1,4 @@
-"""Turn scan/work/monitor state transitions into value-free outbox events.
+"""Turn scan/work state transitions into value-free outbox events.
 
 Every event has a stable ``dedup_key``: the delivery table's unique constraint
 turns "enqueue the same unchanged state twice" into one row. An endpoint sees
@@ -25,8 +25,6 @@ KNOWN_EVENTS = frozenset(
         "work.overdue",
         "run.failed",
         "run.recovered",
-        "monitor.alert",
-        "monitor.recovered",
         "test",
     }
 )
@@ -212,58 +210,3 @@ def work_overdue_events(db: Session, today: date | None = None) -> int:
             severity="medium",
         )
     return inserted
-
-
-def monitor_alert_event(
-    db: Session,
-    *,
-    tenant_slug: str,
-    monitor_id: object,
-    monitor_name: str,
-    state: str,
-    observation_date: date,
-) -> int:
-    severity = (
-        "high"
-        if state in {"anomaly", "degraded", "rapid_anomaly"}
-        else "medium"
-    )
-    return enqueue(
-        db,
-        tenant_slug=tenant_slug,
-        event_type="monitor.alert",
-        dedup_key=f"monitor:{monitor_id}:{observation_date.isoformat()}:{state}",
-        payload={
-            "event": "monitor.alert",
-            "monitor_id": str(monitor_id),
-            "monitor": monitor_name,
-            "state": state,
-            "observation_date": observation_date.isoformat(),
-            "occurred_at": datetime.now(UTC).isoformat(),
-        },
-        severity=severity,
-    )
-
-
-def monitor_recovered_event(
-    db: Session,
-    *,
-    tenant_slug: str,
-    monitor_id: object,
-    monitor_name: str,
-    observation_date: date,
-) -> int:
-    return enqueue(
-        db,
-        tenant_slug=tenant_slug,
-        event_type="monitor.recovered",
-        dedup_key=f"monitor:{monitor_id}:{observation_date.isoformat()}:recovered",
-        payload={
-            "event": "monitor.recovered",
-            "monitor_id": str(monitor_id),
-            "monitor": monitor_name,
-            "observation_date": observation_date.isoformat(),
-            "occurred_at": datetime.now(UTC).isoformat(),
-        },
-        severity="medium",
-    )

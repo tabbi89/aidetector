@@ -412,3 +412,24 @@ def test_a_refused_notification_destination_is_explained_as_one(client, monkeypa
     detail = response.json()["detail"]
     assert detail == "destination not allowed: its host does not resolve"
     assert "scan" not in detail
+
+
+def test_retired_event_backlog_is_not_sent(client, db_session, monkeypatch):
+    _endpoint(client, monkeypatch)
+    _enqueue(db_session)
+    row = db_session.scalar(select(NotificationDelivery))
+    row.event_type = "monitor.alert"
+    db_session.commit()
+    calls = []
+
+    def receive(request):
+        calls.append(request)
+        return httpx.Response(200)
+
+    with httpx.Client(transport=httpx.MockTransport(receive)) as http:
+        counts = dispatch_pending(db_session, client=http)
+    assert counts["dead"] == 1
+    assert calls == []
+    db_session.refresh(row)
+    assert row.state == "dead"
+    assert row.last_error == "event type is no longer supported"

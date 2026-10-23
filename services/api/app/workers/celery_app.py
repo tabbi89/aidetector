@@ -37,15 +37,6 @@ celery.conf.update(
             "task": "dispatch_overdue_work",
             "schedule": 3600.0,  # idempotent daily check, enqueue-deduped
         },
-        "dispatch-daily-monitoring": {
-            "task": "dispatch_daily_monitoring",
-            "schedule": 3600.0,  # idempotent UTC-day check for each monitor
-        },
-        "dispatch-rapid-monitoring": {
-            "task": "dispatch_rapid_monitoring",
-            # Opted-in monitors only; each tick scores the newest complete hour.
-            "schedule": float(settings.monitoring_rapid_interval_seconds),
-        },
     },
 )
 

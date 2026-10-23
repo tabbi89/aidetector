@@ -749,7 +749,7 @@ uploads a structure-only snapshot with its results, re-validated by
 `db_schema.contracts.accept_upload` (a bad one is stored as `invalid_upload`, never a refused
 run) onto `ScanRun.schema_context` (migration `0052`, which also dropped the old
 `database_connections` table and its encrypted passwords). Every consumer — adaptive, AI
-resource refinement, the security design review, monitor context — reads `ctx.schema_context`,
+resource refinement and the security design review — reads `ctx.schema_context`,
 set once per run: by the runner from its own read, or on a server run from the newest available
 snapshot (`db_schema/snapshots.py:latest_snapshot`). The schema-reading AI passes of a local
 run run on the server, since none sends target traffic: `security_review` after the upload

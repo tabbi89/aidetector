@@ -135,7 +135,6 @@ export const test = base.extend<{ api: State }>({
         : [];
       else if (path === "/workspace/tokens") response = [];
       else if (path === "/workspace/domains") response = [];
-      else if (path === "/monitoring" || path === "/monitoring/sources") response = [];
       else if (path === "/workspace/audit") response = [];
       else if (path === "/workspace/notifications") response = [];
       else if (path === "/workspace/notifications/deliveries") response = [];

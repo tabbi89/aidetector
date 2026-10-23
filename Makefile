@@ -13,7 +13,7 @@ WEB_HOST_PORT ?= $(or $(shell sed -n 's/^WEB_HOST_PORT=//p' .env 2>/dev/null),30
 DC_EXEC := $(COMPOSE) exec -T
 
 .DEFAULT_GOAL := help
-.PHONY: help env start stop up up-oob up-zap up-kali up-all up-aws migrate wait-db migration \
+.PHONY: help env start stop up up-oob up-zap up-kali up-all migrate wait-db migration \
         down down-v fresh logs ps rebuild test lint
 
 help: ## Show this help
@@ -56,14 +56,8 @@ up-kali: env ## Start the stack + Kali adjunct service (nuclei/ffuf) and migrate
 	@$(MAKE) --no-print-directory migrate
 	@echo "Kali enabled — set KALI_BASE_URL in .env and run scans with kali:true"
 
-# up-all also mounts the local AWS credential chain when there is one: running it
-# after up-aws would otherwise recreate the worker without it, and monitoring
-# collection fails with credential_unavailable.
-AWS_CONFIG_DIR ?= $(HOME)/.aws
-AWS_OVERLAY := $(if $(wildcard $(AWS_CONFIG_DIR)),-f docker-compose.yml -f docker-compose.aws.yml)
-
-up-all: env ## Start the stack + interactsh + ZAP + Kali (+ ~/.aws if present) and migrate
-	$(COMPOSE) $(AWS_OVERLAY) --profile oob --profile zap --profile kali up -d --build
+up-all: env ## Start the stack + interactsh + ZAP + Kali and migrate
+	$(COMPOSE) --profile oob --profile zap --profile kali up -d --build
 	@$(MAKE) --no-print-directory wait-db
 	@$(MAKE) --no-print-directory migrate
 
@@ -73,12 +67,6 @@ start: up-all ## Start everything (stack + interactsh + ZAP + Kali) and migrate
 	@echo "adjuncts: interactsh (oob), ZAP, Kali — stop everything with: make stop"
 
 stop: down ## Stop everything started by make start (keep the database volume)
-
-up-aws: env ## Start the stack with your local AWS profile mounted read-only into the worker
-	$(COMPOSE) -f docker-compose.yml -f docker-compose.aws.yml up -d --build
-	@$(MAKE) --no-print-directory wait-db
-	@$(MAKE) --no-print-directory migrate
-	@echo "AWS credential chain mounted — list log-group ARNs in MONITORING_AWS_LOG_GROUPS"
 
 wait-db: ## Block until Postgres accepts connections
 	@echo "waiting for postgres..."
