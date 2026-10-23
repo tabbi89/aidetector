@@ -17,6 +17,8 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/next.config.js ./
 COPY --from=build /app/.next ./.next
+# `next start` serves static files (the brand marks, …) from public/.
+COPY --from=build /app/public ./public
 USER node
 EXPOSE 3000
 CMD ["npx", "next", "start", "-H", "0.0.0.0", "-p", "3000"]
