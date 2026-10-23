@@ -219,78 +219,6 @@ html:has(.confirmation[open]) {
   gap: 24px;
   padding-bottom: 64px;
 }
-.setup-map {
-  margin-top: 28px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.setup-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-.setup-steps > li {
-  min-width: 0;
-  padding: 24px;
-}
-.setup-steps > li + li {
-  border-left: 1px solid var(--line);
-}
-.setup-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: 50%;
-  font: 12px var(--mono);
-}
-.setup-steps h3 {
-  font-size: 17px;
-  margin: 18px 0 8px;
-}
-.setup-steps p {
-  color: var(--ink-soft);
-  font-size: 14px;
-  min-height: 68px;
-  margin: 0 0 16px;
-}
-.setup-steps code,
-.setup-result {
-  font-size: 11px;
-  color: var(--accent);
-  overflow-wrap: anywhere;
-}
-.identity-pair {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font: 11px var(--mono);
-  color: var(--accent);
-}
-.identity-pair b {
-  font-family: var(--font);
-  font-weight: 500;
-  color: var(--ink-soft);
-}
-.setup-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-  font-size: 12px;
-  color: var(--muted);
-}
 .product-path {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -446,28 +374,9 @@ html:has(.confirmation[open]) {
   #premium-tier {
     scroll-margin-top: calc(var(--header-h) + 20px);
   }
-  .setup-steps,
   .product-path,
   .safety-strip {
     grid-template-columns: 1fr;
-  }
-  .setup-steps > li {
-    display: flex;
-    gap: 16px;
-    padding: 20px;
-  }
-  .setup-steps > li + li {
-    border-left: 0;
-    border-top: 1px solid var(--line);
-  }
-  .setup-number {
-    flex: 0 0 34px;
-  }
-  .setup-steps h3 {
-    margin-top: 4px;
-  }
-  .setup-steps p {
-    min-height: 0;
   }
   .level-presets {
     grid-template-columns: 1fr;
