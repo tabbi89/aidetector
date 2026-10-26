@@ -7047,6 +7047,23 @@ figure.stage::before {
   .nav-links.open .sep { width: auto; height: 1px; margin: 6px 0; }
 }
 
+/* The smallest phones: brand, menu, theme and sign-in must share 320px in any
+   system font, so the row tightens and the menu keeps only its icon on
+   screen (its name stays "Menu" for assistive technology). */
+@media (max-width: 380px) {
+  .topbar .inner { gap: 8px; }
+  .nav-toggle { padding: 7px 10px; }
+  .nav-toggle-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
 /* scan-run-panel (orchestrator): pass availability and the re-run note */
 .opt-unavailable { color: var(--red); font-weight: 600; }
 .run-replaces { margin: 10px 0 0; }

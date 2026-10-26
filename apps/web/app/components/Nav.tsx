@@ -70,7 +70,8 @@ export function Nav() {
         aria-controls="primary-links"
         onClick={() => setOpen((value) => !value)}
       >
-        <span aria-hidden="true">{open ? "✕" : "☰"}</span> Menu
+        <span aria-hidden="true">{open ? "✕" : "☰"}</span>{" "}
+        <span className="nav-toggle-label">Menu</span>
       </button>
       <div id="primary-links" className={open ? "nav-links open" : "nav-links"}>
         {links.map((l) => (
