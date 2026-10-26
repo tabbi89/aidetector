@@ -68,5 +68,26 @@ def capabilities(
     """
     from app.scans.capabilities import capabilities as current
     from app.scans.capabilities import entitlement
+    from app.scans.run_levels import LEVELS, expand
 
-    return {"passes": current(), "premium": entitlement(tenant, db)}
+    premium = entitlement(tenant, db)
+    entitled = bool(premium["available"])
+
+    def flags(level: str, *, ai: bool, writes: bool) -> frozenset[str]:
+        return expand(level, ai=ai, writes=writes, entitled=entitled, lane="local")  # type: ignore[arg-type]
+
+    # What each level turns on for this tenant on the local (CLI) lane, so a
+    # client previews the server's expansion instead of keeping its own copy.
+    levels = {
+        level: {
+            "passes": sorted(flags(level, ai=False, writes=False)),
+            "ai": sorted(
+                flags(level, ai=True, writes=False) - flags(level, ai=False, writes=False)
+            ),
+            "ai_with_writes": sorted(
+                flags(level, ai=True, writes=True) - flags(level, ai=True, writes=False)
+            ),
+        }
+        for level in LEVELS
+    }
+    return {"passes": current(), "premium": premium, "levels": levels}

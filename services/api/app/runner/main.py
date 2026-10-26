@@ -75,13 +75,13 @@ from app.engine.execution import (
     prepare_credentials,
 )
 from app.engine.journal import describe_failure
-from app.engine.methodology import finish_manifest, source_digest
+from app.engine.methodology import build_manifest, finish_manifest, source_digest
 from app.engine.oob import InteractshClient, NullOobClient, OobClient
 from app.engine.operations import render_path
 from app.engine.probe import budget_exhausted_message
 from app.engine.transport import AsyncHttpClientBridge
 from app.runner.schema import read_local_schema
-from app.scans.run_options import RunOptions
+from app.scans.run_options import RunOptions, supplied_resource_ids
 from app.specs.parser import load_spec
 
 log = logging.getLogger("aidetector.runner")
@@ -450,6 +450,7 @@ def build_coverage(ctx: ScanContext, findings: list[dict[str, Any]]) -> list[dic
             "requests": sum(per_check.values()),
             "responses": outcome.get("responses", 0),
             "ok": ok,
+            "denied": outcome.get("denied", 0),
             "exercised": ok > 0,
             "checks": sorted(per_check),
             "findings": per_op.get(str(op.id), 0),
@@ -485,6 +486,13 @@ def execute(cfg: dict[str, Any], link: ServerLink, out: TextIO | None = None) ->
     run = cfg["run"]
     target = run["target_base_url"]
     opts = RunOptions.from_dict(run.get("options") or {})
+    # Known resource ids come from the CLI on stdin, beside the claim: the
+    # server never saw them and the claim's options never carry them.
+    supplied = supplied_resource_ids(cfg.get("predefined_resource_ids"))
+    if supplied:
+        opts = dataclasses.replace(
+            opts, predefined_resource_ids={**opts.predefined_resource_ids, **supplied}
+        )
     operations = _operations(run)
     creds, pending, sensitive = _bind_credentials(run, cfg.get("secrets") or {})
     sensitive.append(run["token"])
@@ -553,12 +561,16 @@ def execute(cfg: dict[str, Any], link: ServerLink, out: TextIO | None = None) ->
             spec_text=spec_text,
             fuzz_cases=settings.schemathesis_cases_per_scan if opts.fuzz else 0,
             check_scope=frozenset(opts.checks),
+            predefined_resource_ids=dict(opts.predefined_resource_ids),
             redact=redactor,
             schema_context=schema_context,
             pins=pins,
             oob=oob,
         )
 
+        # The reproducibility record — seed, engine and payload digests — the
+        # server lane writes too, so `runs` can show which seed to reuse.
+        ctx.probe.manifest = build_manifest(ctx, opts.archived())
         journal.event("start", 0, f"scanning {len(operations)} operations from the local runner")
         for stage, message in pending:
             journal.event(stage, 0, message)

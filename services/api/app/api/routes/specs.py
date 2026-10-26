@@ -31,3 +31,22 @@ def spec_auth_hints(
     except SpecError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return hints_out(data)
+
+
+@router.post("/identity-pairs", response_model=schemas.IdentityPairsOut)
+def identity_pairs(
+    body: schemas.IdentityPairsIn, principal: ScanWriteDep
+) -> schemas.IdentityPairsOut:
+    """Which authorization boundaries these identity shapes can test.
+
+    The engine's own pairing, asked of shapes (name, role, rank, tenant) before
+    any run: setup can say which identity pair would test BOLA and which BFLA,
+    and what to add when one is missing. No secret is accepted or needed.
+    """
+    from app.engine.identity_pairs import IdentityShape, describe_pairs
+
+    shapes = [
+        IdentityShape(name=i.name, role=i.role, privilege=i.privilege, tenant=i.tenant)
+        for i in body.identities
+    ]
+    return schemas.IdentityPairsOut.model_validate(describe_pairs(shapes))

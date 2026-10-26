@@ -62,9 +62,8 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	levelFlag := fs.String("level", "", "how hard to look: quick | standard | deep (default quick)")
 	checks := fs.String("checks", "", "comma-separated check keys to scope the run to")
 	rps := fs.Int("rps", 0, "requests per second (1-100)")
-	failOn := fs.String("fail-on", "", "exit 1 if a finding at or above this severity remains")
-	verified := fs.Bool("verified-only", false, "with --fail-on, count only verified findings")
-	newOnly := fs.Bool("new-only", false, "with --fail-on, count only findings new since the previous run")
+	seed := fs.Int("seed", -1, "payload-rotation seed to reuse (from `runs --json` manifest.seed); default a fresh one")
+	failOn, verified, newOnly, baseline, complete, minExercised := addGateFlags(fs)
 	asJSON, outputFlag := addOutputFlags(fs, "print results as JSON")
 	specFlag := fs.String("spec", "", "OpenAPI/Swagger/HAR/Postman file to scan with")
 	configFlag := fs.String("config", "", "project file (default: runpentests.yml in the project directory)")
@@ -75,6 +74,7 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	fs.Var(&networks, "docker-network", "docker network the runner joins; repeat or comma-separate for several")
 	secretsFile := fs.String("secrets-file", "", "JSON {name: secret} file, mode 0600")
 	runnerServer := fs.String("runner-server", "", "server URL as the runner container sees it")
+	resourceIDsFile := fs.String("resource-ids", "", "JSON/YAML file of known resource ids {name: id} for path parameters (stays on this machine)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return e.parseFailed("target", fs, err)
@@ -156,14 +156,28 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	}
 
 	// Flags win over the file, the file over the web.
-	failSev := pick(explicit["fail-on"], *failOn, pf.FailOn)
-	verifiedOnly := *verified || (!explicit["verified-only"] && pf.VerifiedOnly)
-	newOnlyGate := *newOnly || (!explicit["new-only"] && pf.NewOnly)
-	if failSev != "" && !validSeverity(failSev) {
-		return e.usage("--fail-on must be one of info, low, medium, high, critical")
+	gp := gatePolicy{
+		failOn:       pick(explicit["fail-on"], *failOn, pf.FailOn),
+		verifiedOnly: *verified || (!explicit["verified-only"] && pf.VerifiedOnly),
+		newOnly:      *newOnly || (!explicit["new-only"] && pf.NewOnly),
+		baselineRun:  *baseline,
+		quality: qualityPolicy{
+			RequireComplete: *complete || (!explicit["require-complete"] && pf.RequireComplete),
+			MinExercised:    pf.MinExercised,
+		},
 	}
-	if (verifiedOnly || newOnlyGate) && failSev == "" {
-		return e.usage("--verified-only and --new-only refine --fail-on; set --fail-on too")
+	if explicit["min-exercised"] {
+		gp.quality.MinExercised = *minExercised
+	}
+	if code := e.checkGateFlags(&gp); code != ExitOK {
+		return code
+	}
+	if *seed < -1 || *seed >= 1<<31 {
+		return e.usage("--seed must be between 0 and 2147483647")
+	}
+	resourceIDs, err := resolveResourceIDs(file, *resourceIDsFile)
+	if err != nil {
+		return e.usage("%v", err)
 	}
 	rate := pf.RPS
 	if explicit["rps"] {
@@ -211,6 +225,9 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	if rate != 0 {
 		body["requests_per_second"] = rate
 	}
+	if *seed >= 0 {
+		body["seed"] = *seed
+	}
 
 	c, err := e.client()
 	if err != nil {
@@ -218,17 +235,8 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	}
 
 	// --- consent: before a single request goes to the target ------------------
-	if !*authorized {
-		if !e.IsTTY() {
-			return e.usage("refusing to run without --authorized: active scanning fires real " +
-				"payloads, and there is no terminal to confirm on")
-		}
-		e.errorf("This sends active security tests to %s.\nType y to confirm you own or are authorized to test it: ", target)
-		line, _ := e.readLine()
-		if strings.ToLower(strings.TrimSpace(line)) != "y" {
-			e.errorf("not authorized; nothing was run\n")
-			return ExitUsage
-		}
+	if code := e.consent(*authorized, "active security tests", func() (string, int) { return target, ExitOK }); code != ExitOK {
+		return code
 	}
 
 	// --- the scan: pinned, reused, or new -----------------------------------
@@ -334,21 +342,23 @@ func cmdTarget(ctx context.Context, e *Env, args []string) int {
 	if file != nil {
 		schemaDir = file.Dir
 	}
+	ranRun := 0
 	code = runLocal(ctx, e, c, scan.ID, body,
 		localFlags{image: *image, networks: networks, secretsFile: *secretsFile,
 			runnerServer: *runnerServer, source: sourceDir, secrets: secrets,
-			schema: pf.Schema, schemaDir: schemaDir},
-		"", false, false, outputTable)
+			schema: pf.Schema, schemaDir: schemaDir, resourceIDs: resourceIDs,
+			onClaim: func(n int) { ranRun = n }},
+		gatePolicy{}, outputTable)
 	if code != ExitOK {
 		return code
 	}
-	if failSev != "" {
+	if gp.active() {
 		// CI formats own stdout: a JUnit document or workflow commands must
 		// not be preceded by the human table.
 		if output == outputTable {
 			showFindings(ctx, e, c, scan.ID)
 		}
-		return gate(ctx, e, c, scan.ID, strings.ToLower(failSev), verifiedOnly, newOnlyGate, output)
+		return gate(ctx, e, c, scan.ID, ranRun, gp, output)
 	}
 	if output == outputJSON {
 		findings, err := c.Findings(ctx, scan.ID)
@@ -713,6 +723,7 @@ func showFindings(ctx context.Context, e *Env, c *api.Client, id string) int {
 	}
 	e.printf("%d finding(s), %d verified\n", len(live), verifiedCount)
 	printLimits(ctx, e, c, id)
+	printRunQuality(ctx, e, c, id, 0)
 	e.errorf("view: %s\n", scanPageURL(e, c.Base(), id))
 	e.errorf("details: runpentests findings %s · report: runpentests report %s --format html -o report.html\n", id, id)
 	return ExitOK

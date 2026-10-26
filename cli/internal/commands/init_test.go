@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -176,5 +177,67 @@ func TestCredAddUpdateReplacesAnExistingIdentity(t *testing.T) {
 	}
 	if body["secret"] != "new-secret" {
 		t.Errorf("the new secret should replace the stored one: %v", body)
+	}
+}
+
+func TestInitTenantsWritesBothBoundariesAndExplainsThem(t *testing.T) {
+	s := &stateful{pairs: map[string]any{
+		"tenants_declared": true,
+		"object_level":     map[string]any{"owner": "a-admin", "attacker": "b-user"},
+		"function_level":   map[string]any{"privileged": "a-admin", "lower": "a-user"},
+		"left_out":         []any{},
+	}}
+	h, _, _ := targetHarness(t, s, "", false, nil)
+	if code := h.run("init", "--yes", "--tenants"); code != ExitOK {
+		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
+	}
+	ids := loadInit(t, h).File.Identities
+	got := []string{}
+	for _, id := range ids {
+		got = append(got, id.Name+"/"+id.Role+"/"+id.Tenant)
+	}
+	if strings.Join(got, " ") != "a-admin/admin/a a-user/user/a b-user/user/b" {
+		t.Fatalf("identities = %v", got)
+	}
+	// The server was asked with shapes only, and its answer is shown.
+	sent := s.last("POST /specs/identity-pairs")
+	if raw, _ := json.Marshal(sent); strings.Contains(string(raw), "secret") {
+		t.Fatalf("shapes only: %s", raw)
+	}
+	out := h.errOut.String()
+	if !strings.Contains(out, "object-level (BOLA), across tenants: a-admin's objects read as b-user") ||
+		!strings.Contains(out, "function-level (BFLA): a-admin's functions called as a-user") {
+		t.Fatalf("pairs not explained:\n%s", out)
+	}
+}
+
+func TestInitAsksAboutTenantsOnATerminal(t *testing.T) {
+	s := &stateful{}
+	// roles, multi-tenant yes, then no extra identities.
+	h, _, _ := targetHarness(t, s, "roles\ny\n\n", true, nil)
+	if code := h.run("init"); code != ExitOK {
+		t.Fatalf("exit = %d\n%s", code, h.errOut.String())
+	}
+	if ids := loadInit(t, h).File.Identities; len(ids) != 3 || ids[2].Tenant != "b" {
+		t.Fatalf("got %+v", ids)
+	}
+}
+
+func TestInitTenantsNeedsRoles(t *testing.T) {
+	h, _, _ := targetHarness(t, &stateful{}, "public\n", true, nil)
+	if code := h.run("init", "--tenants"); code != ExitUsage {
+		t.Fatalf("exit = %d", code)
+	}
+}
+
+func TestInitKeepsTheShortcutsWithoutTenants(t *testing.T) {
+	h, _, _ := targetHarness(t, &stateful{}, "", false, nil)
+	if code := h.run("init", "--yes"); code != ExitOK {
+		t.Fatalf("exit = %d", code)
+	}
+	for _, id := range loadInit(t, h).File.Identities {
+		if id.Tenant != "" {
+			t.Fatalf("no tenant unless asked: %+v", id)
+		}
 	}
 }

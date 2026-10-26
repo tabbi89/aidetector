@@ -1989,6 +1989,102 @@
         }
       }
     },
+    "/scans/{scan_id}/resource-bindings": {
+      "post": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "Resource Bindings",
+        "description": "Which enabled route parameters each resource name would fill.\n\nTakes names only \u2014 the ids stay with the caller (the CLI keeps them on its\nmachine and hands them to the runner on stdin). Read-only: it changes\nnothing and sends nothing to the target. The matching is the engine's own,\nso the answer is what a run will render.",
+        "operationId": "resource_bindings_scans__scan_id__resource_bindings_post",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceBindingsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceBindingsOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or scan state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/scans/{scan_id}/run": {
       "post": {
         "tags": [
@@ -2397,6 +2493,101 @@
         }
       }
     },
+    "/scans/{scan_id}/runs/{run_number}": {
+      "get": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "Get Run",
+        "description": "One archived run by its number.\n\nA run number never changes once issued, so a pipeline can name the run it\ngates on (or the baseline it compares against) instead of whichever run\nhappens to be the newest by the time it asks.",
+        "operationId": "get_run_scans__scan_id__runs__run_number__get",
+        "parameters": [
+          {
+            "name": "run_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Run Number"
+            }
+          },
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanRunOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or scan state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/scans/{scan_id}/runs/{run_number}/trace": {
       "get": {
         "tags": [
@@ -2639,7 +2830,7 @@
           "scans"
         ],
         "summary": "Get Coverage",
-        "description": "Per-endpoint activity for the latest run: requests, checks, findings.\n\nEmpty until the scan has finished a run. Shows every operation, so a row with\n``requests: 0`` means the endpoint was in scope but no check exercised it (or\nit was excluded \u2014 see ``enabled``).",
+        "description": "Per-endpoint activity for one run (default: the latest): requests, checks, findings.\n\nEmpty until the scan has finished a run. Shows every operation, so a row with\n``requests: 0`` means the endpoint was in scope but no check exercised it (or\nit was excluded \u2014 see ``enabled``). ``run`` names an archived run, so a gate\nreads the run it is judging even after a later one started.",
         "operationId": "get_coverage_scans__scan_id__coverage_get",
         "parameters": [
           {
@@ -2650,6 +2841,23 @@
               "type": "string",
               "format": "uuid",
               "title": "Scan Id"
+            }
+          },
+          {
+            "name": "run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run"
             }
           },
           {
@@ -4477,6 +4685,102 @@
         }
       }
     },
+    "/specs/identity-pairs": {
+      "post": {
+        "tags": [
+          "specs"
+        ],
+        "summary": "Identity Pairs",
+        "description": "Which authorization boundaries these identity shapes can test.\n\nThe engine's own pairing, asked of shapes (name, role, rank, tenant) before\nany run: setup can say which identity pair would test BOLA and which BFLA,\nand what to add when one is missing. No secret is accepted or needed.",
+        "operationId": "identity_pairs_specs_identity_pairs_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityPairsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityPairsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
     "/workspace/budgets": {
       "get": {
         "tags": [
@@ -5986,8 +6290,26 @@
           "domains"
         ],
         "summary": "List Domains",
+        "description": "This workspace's domains; ``host`` narrows to one, in the server's spelling.\n\nThe filter is normalised exactly as ``add`` stores a host (IDNA, case,\ntrailing dot), so a client never has to reimplement that to find a record.\nListing never runs a check.",
         "operationId": "list_domains_workspace_domains_get",
         "parameters": [
+          {
+            "name": "host",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 255
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Host"
+            }
+          },
           {
             "name": "x-api-key",
             "in": "header",
@@ -6431,6 +6753,92 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LocalRunConfig"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scans/{scan_id}/auth-checks": {
+      "post": {
+        "tags": [
+          "runner"
+        ],
+        "summary": "Claim Auth Check",
+        "description": "Let the CLI check its identities against the target before a full scan.\n\nThe same consent and target rules as a run \u2014 ``authorized`` per call, the\negress guard and the ownership proof \u2014 but no run is opened and nothing is\narchived: the runner sends a few GETs per identity and prints its verdict on\nthe CLI machine. The routes are chosen here (GET only) and the request\ncount is bounded, so this can never become a scan.",
+        "operationId": "claim_auth_check_scans__scan_id__auth_checks_post",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthCheckConfig"
                 }
               }
             }
@@ -7509,6 +7917,62 @@
         ],
         "title": "AuditOut"
       },
+      "AuthCheckConfig": {
+        "properties": {
+          "target_base_url": {
+            "type": "string",
+            "title": "Target Base Url"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/OperationOut"
+            },
+            "type": "array",
+            "title": "Operations"
+          },
+          "credentials": {
+            "items": {
+              "$ref": "#/components/schemas/CredentialOut"
+            },
+            "type": "array",
+            "title": "Credentials"
+          },
+          "target_policy": {
+            "$ref": "#/components/schemas/TargetPolicy"
+          },
+          "max_requests": {
+            "type": "integer",
+            "title": "Max Requests"
+          },
+          "requests_per_second": {
+            "type": "integer",
+            "title": "Requests Per Second"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_base_url",
+          "operations",
+          "credentials",
+          "target_policy",
+          "max_requests",
+          "requests_per_second"
+        ],
+        "title": "AuthCheckConfig",
+        "description": "What the local runner needs to check credentials: no run, no token.\n\nThe routes are a few GET operations the server picked; the credentials are\nshapes only \u2014 secrets stay on the CLI machine. Nothing is uploaded back."
+      },
+      "AuthCheckRequest": {
+        "properties": {
+          "authorized": {
+            "type": "boolean",
+            "title": "Authorized",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "AuthCheckRequest",
+        "description": "Consent for one credential check: it sends live requests to the target."
+      },
       "AuthHintsOut": {
         "properties": {
           "suggested": {
@@ -7959,19 +8423,48 @@
             "default": 0
           },
           "responses": {
-            "type": "integer",
-            "title": "Responses",
-            "default": 0
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responses"
           },
           "ok": {
-            "type": "integer",
-            "title": "Ok",
-            "default": 0
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          },
+          "denied": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Denied"
           },
           "exercised": {
-            "type": "boolean",
-            "title": "Exercised",
-            "default": false
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exercised"
           },
           "checks": {
             "items": {
@@ -7996,6 +8489,7 @@
           "requests",
           "responses",
           "ok",
+          "denied",
           "exercised",
           "checks",
           "findings"
@@ -9077,6 +9571,24 @@
         ],
         "title": "FindingWorkOut"
       },
+      "FunctionLevelPair": {
+        "properties": {
+          "privileged": {
+            "type": "string",
+            "title": "Privileged"
+          },
+          "lower": {
+            "type": "string",
+            "title": "Lower"
+          }
+        },
+        "type": "object",
+        "required": [
+          "privileged",
+          "lower"
+        ],
+        "title": "FunctionLevelPair"
+      },
       "GrantType": {
         "type": "string",
         "enum": [
@@ -9119,6 +9631,137 @@
           "examples"
         ],
         "title": "HealthOut"
+      },
+      "IdentityPairsIn": {
+        "properties": {
+          "identities": {
+            "items": {
+              "$ref": "#/components/schemas/IdentityShapeIn"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Identities"
+          }
+        },
+        "type": "object",
+        "title": "IdentityPairsIn"
+      },
+      "IdentityPairsOut": {
+        "properties": {
+          "tenants_declared": {
+            "type": "boolean",
+            "title": "Tenants Declared"
+          },
+          "object_level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectLevelPair"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "object_level_gap": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Level Gap"
+          },
+          "function_level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FunctionLevelPair"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "function_level_gap": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function Level Gap"
+          },
+          "left_out": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Left Out",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenants_declared",
+          "object_level",
+          "object_level_gap",
+          "function_level",
+          "function_level_gap",
+          "left_out"
+        ],
+        "title": "IdentityPairsOut",
+        "description": "The pairs a run would use for each authorization boundary, or why none."
+      },
+      "IdentityShapeIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Role"
+          },
+          "privilege": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Privilege"
+          },
+          "tenant": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "role"
+        ],
+        "title": "IdentityShapeIn",
+        "description": "An identity's shape for pairing: never its secret."
       },
       "LedgerEntryOut": {
         "properties": {
@@ -9857,6 +10500,24 @@
         "title": "OastConfig",
         "description": "The out-of-band collector the runner registers with, when the service has one.\n\nThe token is the collector's, handed to the CLI user for this run; the\nrunner masks it in everything it uploads."
       },
+      "ObjectLevelPair": {
+        "properties": {
+          "owner": {
+            "type": "string",
+            "title": "Owner"
+          },
+          "attacker": {
+            "type": "string",
+            "title": "Attacker"
+          }
+        },
+        "type": "object",
+        "required": [
+          "owner",
+          "attacker"
+        ],
+        "title": "ObjectLevelPair"
+      },
       "OperationOut": {
         "properties": {
           "id": {
@@ -10065,6 +10726,107 @@
         ],
         "title": "ResourceAttemptRow",
         "description": "One bounded resource-create attempt, without its request values."
+      },
+      "ResourceBindingsIn": {
+        "properties": {
+          "names": {
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,79}$"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "title": "ResourceBindingsIn",
+        "description": "Resource names to preview \u2014 never their ids."
+      },
+      "ResourceBindingsOut": {
+        "properties": {
+          "names": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceNameBinding"
+            },
+            "type": "array",
+            "title": "Names",
+            "default": []
+          },
+          "unbound": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceRoute"
+            },
+            "type": "array",
+            "title": "Unbound",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "names",
+          "unbound"
+        ],
+        "title": "ResourceBindingsOut"
+      },
+      "ResourceNameBinding": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceRoute"
+            },
+            "type": "array",
+            "title": "Routes",
+            "default": []
+          },
+          "ambiguous_with": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ambiguous With",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "key",
+          "routes",
+          "ambiguous_with"
+        ],
+        "title": "ResourceNameBinding"
+      },
+      "ResourceRoute": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "param": {
+            "type": "string",
+            "title": "Param"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method",
+          "path",
+          "param"
+        ],
+        "title": "ResourceRoute"
       },
       "ResourceRow": {
         "properties": {
@@ -10292,6 +11054,17 @@
           },
           "verdict": {
             "$ref": "#/components/schemas/Verdict"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
           }
         },
         "type": "object",
@@ -10302,7 +11075,8 @@
           "fingerprint",
           "title",
           "owasp_id",
-          "verdict"
+          "verdict",
+          "operation_id"
         ],
         "title": "RunFindingOut"
       },

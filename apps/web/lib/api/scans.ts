@@ -148,6 +148,8 @@ export interface RunFinding {
   title: string;
   owasp_id: string | null;
   verdict: Verdict;
+  /** The operation the finding was on; null for run-wide findings and old snapshots. */
+  operation_id: string | null;
 }
 
 /**
@@ -182,10 +184,13 @@ export interface CoverageRow {
   /** Responses received, and how many were 2xx. `exercised` is true when the
    * endpoint was reached and answered successfully at least once — a row with
    * requests > 0 but exercised false was probed with the wrong auth, path or
-   * body, so its findings count is inconclusive. */
-  responses: number;
-  ok: number;
-  exercised: boolean;
+   * body, so its findings count is inconclusive. All three are null on runs
+   * recorded before the server kept them: unknown, not "never answered". */
+  responses: number | null;
+  ok: number | null;
+  /** Of the responses, how many were 401/403 refusals (null on older runs). */
+  denied: number | null;
+  exercised: boolean | null;
   checks: string[];
   findings: number;
 }

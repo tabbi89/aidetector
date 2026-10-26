@@ -36,6 +36,7 @@ type initIdentity struct {
 	Rank      *int       `yaml:"rank,omitempty"`
 	Auth      string     `yaml:"auth,omitempty"`
 	Header    string     `yaml:"header,omitempty"`
+	Tenant    string     `yaml:"tenant,omitempty"`
 	SecretEnv string     `yaml:"secret_env"`
 	Grant     *initGrant `yaml:"grant,omitempty"`
 }
@@ -61,6 +62,7 @@ func cmdInit(ctx context.Context, e *Env, args []string) int {
 	specFlag := fs.String("spec", "", "OpenAPI/Swagger file to read auth hints from")
 	force := fs.Bool("force", false, "overwrite an existing runpentests.yml")
 	yes := fs.Bool("yes", false, "take the suggested answers without prompting")
+	tenants := fs.Bool("tenants", false, "the API is multi-tenant: write identities in two tenants, so both BOLA and BFLA can be tested")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return e.parseFailed("init", fs, err)
@@ -133,7 +135,17 @@ func cmdInit(ctx context.Context, e *Env, args []string) int {
 		}
 	}
 
-	cfg := draftInitFile(e, kind, target, specPath, hints, interactive)
+	multi := *tenants
+	if interactive && kind == "roles" && !multi {
+		e.errorf("Do accounts belong to separate tenants (organisations, workspaces) whose data " +
+			"must not mix? [y/N]: ")
+		line, _ := e.readLine()
+		multi = strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "y")
+	}
+	if multi && kind != "roles" {
+		return e.usage("--tenants describes several identities: it needs the roles kind, not %s", kind)
+	}
+	cfg := draftInitFile(e, kind, target, specPath, hints, interactive, multi)
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return e.usage("cannot render %s: %v", project.FileName, err)
@@ -166,6 +178,8 @@ func cmdInit(ctx context.Context, e *Env, args []string) int {
 			project.FileName, grantPlaceholder)
 	}
 
+	explainPairs(ctx, e, cfg.Identities)
+
 	envs := identityEnvNames(cfg)
 	if len(envs) == 0 {
 		e.errorf("this API takes no credentials: nothing to export\n")
@@ -181,7 +195,7 @@ func cmdInit(ctx context.Context, e *Env, args []string) int {
 // draftInitFile is the file init writes for one kind of API (public, single
 // or roles), shared with the MCP server's suggest_config so an agent's draft
 // and init's file never differ.
-func draftInitFile(e *Env, kind, target, specPath string, hints api.AuthHints, interactive bool) initFile {
+func draftInitFile(e *Env, kind, target, specPath string, hints api.AuthHints, interactive, tenants bool) initFile {
 	cfg := initFile{Target: target, Spec: specPath}
 	switch kind {
 	case "public":
@@ -190,9 +204,67 @@ func draftInitFile(e *Env, kind, target, specPath string, hints api.AuthHints, i
 		cfg.TokenEnv = "RUNPENTESTS_TOKEN"
 		cfg.TokenAuth, cfg.TokenHeader = singleTokenShape(hints)
 	case "roles":
-		cfg.Identities = roleIdentities(e, hints, interactive)
+		cfg.Identities = roleIdentities(e, hints, interactive, tenants)
 	}
 	return cfg
+}
+
+// explainPairs says which authorization boundaries the written identities can
+// test, from the server's own pairing rules. Advisory: with no server or an
+// older one, it says nothing.
+func explainPairs(ctx context.Context, e *Env, ids []initIdentity) {
+	if len(ids) == 0 {
+		return
+	}
+	shapes := make([]api.IdentityShape, 0, len(ids))
+	for _, id := range ids {
+		s := api.IdentityShape{Name: id.Name, Role: id.Role, Privilege: id.Rank}
+		if id.Tenant != "" {
+			t := id.Tenant
+			s.Tenant = &t
+		}
+		shapes = append(shapes, s)
+	}
+	path, err := e.configPath()
+	if err != nil {
+		return
+	}
+	if cfg, err := config.Load(path, e.Getenv); err != nil || cfg.Server == "" || cfg.APIKey == "" {
+		return
+	}
+	c, err := e.client()
+	if err != nil {
+		return
+	}
+	pairs, err := c.IdentityPairs(ctx, shapes)
+	if err != nil {
+		return
+	}
+	printPairs(e.errorf, pairs)
+}
+
+// printPairs writes what each boundary is tested with, or what to add.
+func printPairs(write func(string, ...any), p api.IdentityPairs) {
+	write("authorization checks these identities support:\n")
+	if p.ObjectLevel != nil {
+		scope := "between identities"
+		if p.TenantsDeclared {
+			scope = "across tenants"
+		}
+		write("  ✓ object-level (BOLA), %s: %s's objects read as %s\n", scope,
+			printable(p.ObjectLevel.Owner), printable(p.ObjectLevel.Attacker))
+	} else if p.ObjectLevelGap != nil {
+		write("  ✗ object-level (BOLA): %s\n", printable(*p.ObjectLevelGap))
+	}
+	if p.FunctionLevel != nil {
+		write("  ✓ function-level (BFLA): %s's functions called as %s\n",
+			printable(p.FunctionLevel.Privileged), printable(p.FunctionLevel.Lower))
+	} else if p.FunctionLevelGap != nil {
+		write("  ✗ function-level (BFLA): %s\n", printable(*p.FunctionLevelGap))
+	}
+	if len(p.LeftOut) > 0 {
+		write("  ! no tenant, so left out of the pairing: %s\n", printableList(p.LeftOut))
+	}
 }
 
 // initHeader is the comment at the top of a generated project file.
@@ -279,7 +351,7 @@ func singleTokenShape(hints api.AuthHints) (string, string) {
 
 // roleIdentities builds the roles branch: one identity per hinted role, or the
 // classic user/admin pair. Interactive runs then let the user add more.
-func roleIdentities(e *Env, hints api.AuthHints, interactive bool) []initIdentity {
+func roleIdentities(e *Env, hints api.AuthHints, interactive, tenants bool) []initIdentity {
 	grant := grantFromHints(hints)
 	// Every identity is sent the way the spec says, unless a grant mints it a
 	// bearer token instead.
@@ -287,9 +359,9 @@ func roleIdentities(e *Env, hints api.AuthHints, interactive bool) []initIdentit
 	if grant == nil {
 		auth, header = singleTokenShape(hints)
 	}
-	identity := func(name, role string, rank int) initIdentity {
+	identity := func(name, role string, rank int, tenant string) initIdentity {
 		id := initIdentity{
-			Name: name, Role: role, Rank: &rank, Auth: auth, Header: header,
+			Name: name, Role: role, Rank: &rank, Auth: auth, Header: header, Tenant: tenant,
 			SecretEnv: secretEnvFor(name),
 		}
 		if grant != nil {
@@ -299,11 +371,37 @@ func roleIdentities(e *Env, hints api.AuthHints, interactive bool) []initIdentit
 		return id
 	}
 	var out []initIdentity
-	for _, r := range hints.Roles {
-		out = append(out, identity(r.Name, r.Name, r.Privilege))
-	}
-	if len(out) == 0 {
-		out = append(out, identity("user", "user", 1), identity("admin", "admin", 3))
+	switch {
+	case tenants:
+		// Both boundaries: an admin and a user in tenant a (function level,
+		// BFLA) and a user of the same role in tenant b (object level, BOLA).
+		// The spec's most and least privileged roles, else admin and user.
+		top, low := api.AuthHintRole{Name: "admin", Privilege: 3}, api.AuthHintRole{Name: "user", Privilege: 1}
+		if len(hints.Roles) >= 2 {
+			hi, lo := hints.Roles[0], hints.Roles[0]
+			for _, r := range hints.Roles[1:] {
+				if r.Privilege > hi.Privilege {
+					hi = r
+				}
+				if r.Privilege < lo.Privilege {
+					lo = r
+				}
+			}
+			if hi.Privilege > lo.Privilege {
+				top, low = hi, lo
+			}
+		}
+		out = append(out,
+			identity("a-"+top.Name, top.Name, top.Privilege, "a"),
+			identity("a-"+low.Name, low.Name, low.Privilege, "a"),
+			identity("b-"+low.Name, low.Name, low.Privilege, "b"))
+	default:
+		for _, r := range hints.Roles {
+			out = append(out, identity(r.Name, r.Name, r.Privilege, ""))
+		}
+		if len(out) == 0 {
+			out = append(out, identity("user", "user", 1, ""), identity("admin", "admin", 3, ""))
+		}
 	}
 	if !interactive {
 		return out
@@ -337,8 +435,16 @@ func roleIdentities(e *Env, hints api.AuthHints, interactive bool) []initIdentit
 			}
 			rank = n
 		}
+		tenant := ""
+		if tenants {
+			e.errorf("Tenant for %s (e.g. a, b) [a]: ", name)
+			tenant, _ = e.readLine()
+			if tenant = strings.TrimSpace(tenant); tenant == "" {
+				tenant = "a"
+			}
+		}
 		seen[name] = true
-		out = append(out, identity(name, role, rank))
+		out = append(out, identity(name, role, rank, tenant))
 	}
 	return out
 }

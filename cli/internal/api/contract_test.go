@@ -41,7 +41,7 @@ func TestEveryRouteTheClientCallsExistsOnTheServer(t *testing.T) {
 
 func TestUsedRoutesListsEveryRouteConstant(t *testing.T) {
 	// A route added above but forgotten in UsedRoutes would escape the check.
-	want := 30
+	want := 39
 	if len(UsedRoutes) != want {
 		t.Fatalf("UsedRoutes has %d entries, expected %d: add new Route* vars to UsedRoutes", len(UsedRoutes), want)
 	}

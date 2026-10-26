@@ -22,15 +22,18 @@ type commandDoc struct {
 
 var commandDocs = map[string]commandDoc{
 	"init": {
-		Invocation: "init [URL] [--spec FILE] [--force] [--yes]",
+		Invocation: "init [URL] [--spec FILE] [--tenants] [--force] [--yes]",
 		Synopsis:   "write a runpentests.yml that fits the API",
 		Description: "Find a spec on this machine (--spec, else openapi.* / swagger.* in the " +
 			"current directory), ask the server what it says about authentication, and write " +
 			"one of three shorthands: auth: public, token_env: RUNPENTESTS_TOKEN, or one identity " +
-			"per role. It never calls the target and never writes a secret, only the environment " +
-			"variables to export.",
+			"per role. --tenants (or a yes on a terminal) writes a tenant-a admin, a tenant-a user " +
+			"and a tenant-b user, so BOLA is tested across tenants and BFLA within one; init then " +
+			"says which pair tests which. It never calls the target and never writes a secret, " +
+			"only the environment variables to export.",
 		Examples: []string{
 			"runpentests init https://api.example.com",
+			"runpentests init --tenants --yes",
 			"runpentests init --spec docs/openapi.yaml --yes",
 			"runpentests init --force",
 		},
@@ -62,6 +65,19 @@ var commandDocs = map[string]commandDoc{
 			"whether a key is saved (never the key) and whether the server answers. An " +
 			"RUNPENTESTS_PROFILE or RUNPENTESTS_SERVER override is marked as such.",
 		Examples: []string{"runpentests status", "RUNPENTESTS_PROFILE=staging runpentests status"},
+	},
+	"doctor": {
+		Invocation: "doctor [--image I] [--docker-network N] [--zap] [--kali] [--json]",
+		Synopsis:   "check this machine can run a scan, without running one",
+		Description: "Check the server answers, the API key is accepted, which passes the server " +
+			"can run, that Docker is up, that the runner image is here and current, and that each " +
+			"--docker-network exists — plus ZAP's and Kali's images with --zap / --kali. Nothing " +
+			"is claimed, created or sent to a target. Each problem names the command that fixes " +
+			"it; the exit code is 2 when anything would stop a run, 0 otherwise.",
+		Examples: []string{
+			"runpentests doctor",
+			"runpentests doctor --docker-network runpentests --zap --json",
+		},
 	},
 	"profile": {
 		Invocation: "profile list | profile use NAME | profile rm NAME [--yes]",
@@ -197,9 +213,53 @@ var commandDocs = map[string]commandDoc{
 	},
 	"diff": {
 		Invocation:  "diff [ID] [flags]",
-		Synopsis:    "compare the two latest runs of a scan",
-		Description: "Show what is new, fixed, not retested and unchanged between the two latest runs.",
-		Examples:    []string{"runpentests diff 3f0c1a2b", "runpentests diff 3f0c1a2b --json"},
+		Synopsis:    "compare two runs of a scan",
+		Description: "Show what is new, fixed, not retested and unchanged between two runs: by default the latest and the one before it, or any archived pair with --from and --to. Not retested is never fixed: the newer run could not have found it again.",
+		Examples:    []string{"runpentests diff 3f0c1a2b", "runpentests diff 3f0c1a2b --from 12 --to 15 --json"},
+	},
+	"auth": {
+		Invocation: "auth check [SCAN] [--authorized] [--docker-network N] [--secrets-file F] [--json]",
+		Synopsis:   "check each identity's credential is accepted, before a full scan",
+		Description: "From the same runner container and network a scan uses, send a few GET " +
+			"requests per identity and the same ones anonymously, then say per identity: " +
+			"accepted (a route that refuses anonymous callers answered 2xx), rejected, unproven " +
+			"(2xx only where anyone gets 2xx), inconclusive, missing secret or grant failed. No " +
+			"payload, no write, no redirect followed and no run opened; consent and the ownership " +
+			"gate apply. Exit 0 when every identity is accepted, 1 when one is not, 3 when the " +
+			"target did not answer.",
+		Examples: []string{
+			"runpentests auth check 3f0c1a2b --authorized",
+			"runpentests auth check --authorized --docker-network staging_default --json",
+		},
+	},
+	"retest": {
+		Invocation: "retest [SCAN] FINDING [flags]",
+		Synopsis:   "run the check behind one finding again, after a fix",
+		Description: "Re-run the engine check that produced FINDING (an ID or fingerprint prefix), " +
+			"with the original run's seed and passes, then compare with that run: exit 0 when the " +
+			"check ran and its endpoint answered but did not find it again, 1 when it is still " +
+			"there, 5 when the retest could not have found it (not a fix). The scope is the whole " +
+			"check on every in-scope endpoint, not one request, and it is a real run: consent, the " +
+			"ownership gate and the request budget apply, and writes and AI need their own flags.",
+		Examples: []string{
+			"runpentests retest 3f0c1a2b 9e41 --authorized",
+			"runpentests retest 9e41 --authorized --writes   # the original run had writes on",
+		},
+	},
+	"domains": {
+		Invocation: "domains list | add HOST | verify HOST [--url URL] [--wait D] | check [SCAN] | rm HOST --yes",
+		Synopsis:   "prove this workspace controls a public scan target",
+		Description: "A public target is scanned only after the workspace proves it controls the " +
+			"host: a DNS TXT record proves the name, an HTTP token served from the target proves " +
+			"the machine. `add` prints exactly what to publish; `verify` runs both proofs on the " +
+			"server and says which failed; `check` tells whether a scan's target needs proof at " +
+			"all, without contacting it. add, verify and rm need a workspace admin. Every run " +
+			"still re-proves ownership live; none of these starts a scan.",
+		Examples: []string{
+			"runpentests domains add api.example.com",
+			"runpentests domains verify api.example.com --wait 10m",
+			"runpentests domains check 3f0c1a2b",
+		},
 	},
 	"report": {
 		Invocation: "report [ID] --format FORMAT [-o FILE]",

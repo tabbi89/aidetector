@@ -15,7 +15,7 @@ from app.scans import credentials, domains, operations, policy, workspace
 from app.scans.views import CredentialInput
 from app.specs.parser import SpecError, load_spec
 
-from ._shared import SCAN_ROUTER_KWARGS, EditableScanDep, LightScanDep, ScanWriteDep
+from ._shared import SCAN_ROUTER_KWARGS, EditableScanDep, LightScanDep, ScanDep, ScanWriteDep
 
 router = APIRouter(**SCAN_ROUTER_KWARGS)
 
@@ -240,4 +240,23 @@ def target_ownership(
         verified_at=record.verified_at if record else None,
         last_error=record.last_error if record else None,
         reason=None,
+    )
+
+
+@router.post("/{scan_id}/resource-bindings", response_model=schemas.ResourceBindingsOut)
+def resource_bindings(
+    body: schemas.ResourceBindingsIn, scan: ScanDep
+) -> schemas.ResourceBindingsOut:
+    """Which enabled route parameters each resource name would fill.
+
+    Takes names only — the ids stay with the caller (the CLI keeps them on its
+    machine and hands them to the runner on stdin). Read-only: it changes
+    nothing and sends nothing to the target. The matching is the engine's own,
+    so the answer is what a run will render.
+    """
+    from app.engine.resource_map import preview_bindings
+
+    operations_ = [(op.method, op.path) for op in scan.operations if op.enabled]
+    return schemas.ResourceBindingsOut.model_validate(
+        preview_bindings(operations_, list(dict.fromkeys(n.strip() for n in body.names)))
     )

@@ -7,9 +7,20 @@ are part of the product, and no file, flag default or tool can turn them off.
   or an interactive `y` to a prompt that names the target. With no terminal and no flag
   it refuses *before sending a single request*. There is no config option to skip it, and
   `runpentests.yml` has no `authorized:` key.
-- **A public target needs proven ownership.** The workspace verifies a public host once
-  (Workspace → Domains: a DNS TXT record and an HTTP token) before any scan reaches it.
-  Hosts that resolve only to private addresses are exempt.
+- **A public target needs proven ownership.** The workspace verifies a public host once —
+  a DNS TXT record proves the name, an HTTP token served from the target proves the
+  machine — before any scan reaches it, and every run proves it again live. Hosts that
+  resolve only to private addresses are exempt (decided by the resolved address, never
+  the name). From the terminal, a workspace admin runs:
+
+  ```bash
+  runpentests domains check SCAN              # does this target need proof? (no traffic to it)
+  runpentests domains add api.example.com     # prints the TXT record and the HTTP token to publish
+  runpentests domains verify api.example.com --wait 10m   # runs both proofs, says which failed
+  ```
+
+  The same records are under Workspace → Domains in the web. The CLI never edits DNS or
+  uploads the token for you, and a verified domain never replaces `--authorized`.
 - **Writes are opt-in.** A default scan only reads and fuzzes GET query and path
   parameters. Tests that change target data run only with `--writes` (`passes: [writes]`),
   and they restore or delete what they create. A level never turns writes on.

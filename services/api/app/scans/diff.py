@@ -39,6 +39,89 @@ class RunDiff:
     unmatchable: int = 0
 
 
+#: Checks whose fix *is* the endpoint refusing the caller the finding was
+#: about, with no other caller of that endpoint getting a 2xx: a 401/403 on the
+#: retest is then the answer, not a failure to test. BOLA and BFLA are not here:
+#: fixed, their owner/privileged reference still succeeds, so the endpoint is
+#: still exercised and needs no exception.
+REFUSAL_IS_AN_ANSWER = frozenset({"broken_auth", "write_authz", "seeded_bola"})
+
+
+@dataclass(frozen=True)
+class Unexercised:
+    """Endpoints a run did not test properly, by how badly."""
+
+    #: Sent nothing, got no response, was excluded, or was left out of a run
+    #: that recorded coverage for others.
+    unanswered: frozenset[str] = frozenset()
+    #: Answered, but never with a 2xx.
+    no_success: frozenset[str] = frozenset()
+    #: Of ``no_success``, those that answered with a 401/403 refusal.
+    refused: frozenset[str] = frozenset()
+    #: Whether any endpoint in the run got a 2xx. A run with none (every key
+    #: expired, every path 404) proves nothing about any endpoint.
+    any_exercised: bool = True
+
+    def __bool__(self) -> bool:
+        return bool(self.unanswered or self.no_success)
+
+    def hides(self, check: str, operation_id: str | None) -> bool:
+        """Whether a missing finding of ``check`` on this endpoint is unproven."""
+        if not operation_id:
+            return False
+        if operation_id in self.unanswered:
+            return True
+        if operation_id not in self.no_success:
+            return False
+        refusal_answers = (
+            check in REFUSAL_IS_AN_ANSWER and self.any_exercised and operation_id in self.refused
+        )
+        return not refusal_answers
+
+
+def unexercised_operations(
+    coverage: list[dict[str, Any]], known_operations: frozenset[str] = frozenset()
+) -> Unexercised:
+    """The endpoints a run reached without a 2xx, split by how it answered.
+
+    A finding on such an endpoint that the run did not reproduce was usually not
+    tested again — wrong auth, path or body — so it is not fixed. Only an
+    explicit ``exercised: false`` counts as "no 2xx": a row archived before the
+    field existed says nothing either way. ``known_operations`` are the scan's
+    current operation ids: one of them absent from a run that recorded coverage
+    (the local runner records enabled operations only) was not tested either.
+    """
+    unanswered: set[str] = set()
+    no_success: set[str] = set()
+    refused: set[str] = set()
+    covered: set[str] = set()
+    any_exercised = False
+    for row in coverage:
+        if not row.get("operation_id"):
+            continue
+        oid = str(row["operation_id"])
+        covered.add(oid)
+        if not row.get("enabled", True):
+            unanswered.add(oid)
+            continue
+        if row.get("exercised") is True:
+            any_exercised = True
+            continue
+        if row.get("exercised") is not False:
+            continue
+        if not row.get("requests") or not row.get("responses"):
+            unanswered.add(oid)
+        else:
+            no_success.add(oid)
+            if row.get("denied"):
+                refused.add(oid)
+    if covered:
+        unanswered |= set(known_operations) - covered
+    return Unexercised(
+        frozenset(unanswered), frozenset(no_success), frozenset(refused), any_exercised
+    )
+
+
 def _by_fingerprint(rows: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], int]:
     """Index a snapshot by fingerprint, counting rows that have none.
 

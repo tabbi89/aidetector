@@ -551,6 +551,18 @@ def test_domain_routes(client, monkeypatch):
     assert client.get("/workspace/domains").json() == []
 
 
+def test_domain_list_finds_one_host_in_the_server_s_spelling(client):
+    """A client looks a record up by the name it typed, IDNA and case included."""
+    assert client.post("/workspace/domains", json={"host": "bücher.example"}).status_code == 201
+    assert client.post("/workspace/domains", json={"host": "api.example.com"}).status_code == 201
+
+    found = client.get("/workspace/domains", params={"host": "BÜCHER.example."}).json()
+    assert [d["host"] for d in found] == ["xn--bcher-kva.example"]
+    assert client.get("/workspace/domains", params={"host": "nope.example"}).json() == []
+    assert client.get("/workspace/domains", params={"host": "https://x.io"}).status_code == 422
+    assert len(client.get("/workspace/domains").json()) == 2
+
+
 # ---- the local runner ----------------------------------------------------------
 
 

@@ -90,6 +90,17 @@ class RunOptions:
             data.pop("checks", None)
         return data
 
+    def archived(self) -> dict[str, Any]:
+        """What a run's record keeps: :meth:`to_dict` without supplied resource ids.
+
+        Those ids are target data the user handed in for this run; the archive,
+        the diff and the manifest's options digest describe what was asked, not
+        which fixtures it was pointed at.
+        """
+        data = self.to_dict()
+        data.pop("predefined_resource_ids", None)
+        return data
+
     def selects(self, check: str) -> bool:
         """Whether this run's scope includes the engine check ``check``."""
         return not self.checks or check in self.checks
@@ -130,6 +141,35 @@ class RunOptions:
             k for k, v in self.to_dict().items()
             if isinstance(v, bool) and v
         )
+
+
+#: The grammar of a ``predefined_resource_ids`` entry. A name is
+#: identifier-shaped (it cannot smuggle path syntax); an id is opaque and
+#: target-owned but cannot break out of the path segment it is rendered into.
+RESOURCE_NAME_PATTERN = r"^[A-Za-z][A-Za-z0-9_.-]{0,79}$"
+RESOURCE_ID_PATTERN = r"^[^/?#\r\n]+$"
+MAX_RESOURCE_IDS = 50
+
+
+def supplied_resource_ids(value: Any) -> dict[str, str]:
+    """A resource-id map from outside the API (the local runner's stdin), validated.
+
+    Entries that break the grammar are dropped rather than trusted: the map is
+    rendered into request paths, so it gets the same rule the run request does.
+    """
+    import re
+
+    if not isinstance(value, dict):
+        return {}
+    name_re, id_re = re.compile(RESOURCE_NAME_PATTERN), re.compile(RESOURCE_ID_PATTERN)
+    out: dict[str, str] = {}
+    for raw_name, raw_id in list(value.items())[:MAX_RESOURCE_IDS]:
+        if not isinstance(raw_name, str) or not isinstance(raw_id, str):
+            continue
+        name, ident = raw_name.strip(), raw_id.strip()
+        if name_re.match(name) and 0 < len(ident) <= 256 and id_re.match(ident):
+            out[name] = ident
+    return out
 
 
 #: Passes that decide whether a finding can exist at all. ``adjudicate`` and

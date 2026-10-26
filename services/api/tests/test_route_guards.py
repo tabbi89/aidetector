@@ -19,6 +19,10 @@ from app.api.routes.scans import load_editable_scan, load_scan, load_scan_light,
 #: Mutating routes that deliberately do NOT take the editable guard, and why.
 #: Each is a write whose whole point is the state the guard would refuse.
 GUARD_EXEMPT = {
+    # A read in POST's clothing: it previews which route parameters resource
+    # names would fill (names in the body, nothing stored), so it is safe
+    # while a run is going and edits nothing.
+    ("POST", "/scans/{scan_id}/resource-bindings"),
     # Cancelling requires the scan to be running.
     ("POST", "/scans/{scan_id}/cancel"),
     # Queueing answers the authorization gate first, then raises its own 409

@@ -31,6 +31,10 @@ const (
 	ExitUsage    = 2 // bad flags, bad config, refused, or the server said no
 	ExitFailed   = 3 // the scan failed or was cancelled, or the server is unreachable
 	ExitTimeout  = 4 // --wait gave up
+	// ExitIncomplete: ran, no finding reached --fail-on, but an opted-in
+	// quality policy (--require-complete, --min-exercised) failed. Findings
+	// (1) win over it: a finding the run did make stands.
+	ExitIncomplete = 5
 )
 
 // Env is everything a command needs from the outside world.
@@ -63,6 +67,11 @@ type Env struct {
 	// org.opencontainers.image.revision label; "" when it has none). Nil skips
 	// the stale-runner check (tests).
 	ImageRevision func(ctx context.Context, image string) (string, error)
+	// DockerVersion reports the Docker daemon's version (an error when docker
+	// is missing or the daemon is down); NetworkExists whether a named network
+	// exists. `doctor` uses both; nil skips the check (tests).
+	DockerVersion func(ctx context.Context) (string, error)
+	NetworkExists func(ctx context.Context, name string) (bool, error)
 	// GitHead returns a directory's current commit for the run record; nil
 	// asks git. Tests replace it.
 	GitHead func(dir string) string
@@ -95,7 +104,44 @@ func DefaultEnv() Env {
 		ImageRevision:  dockerImageRevision,
 		StartContainer: startContainer,
 		StopContainer:  stopContainer,
+		DockerVersion:  dockerVersion,
+		NetworkExists:  dockerNetworkExists,
 	}
+}
+
+// dockerVersion asks the daemon its version: proof it is installed and up.
+func dockerVersion(ctx context.Context) (string, error) {
+	bin, err := exec.LookPath("docker")
+	if err != nil {
+		return "", errors.New("docker was not found on PATH")
+	}
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, bin, "version", "--format", "{{.Server.Version}}")
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("the Docker daemon did not answer: %s", strings.TrimSpace(stderr.String()))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// dockerNetworkExists reports whether a network exists. The built-in modes
+// (host, bridge, none) always do.
+func dockerNetworkExists(ctx context.Context, name string) (bool, error) {
+	bin, err := exec.LookPath("docker")
+	if err != nil {
+		return false, errors.New("docker was not found on PATH")
+	}
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, bin, "network", "inspect", "--format", "{{.Name}}", name)
+	cmd.Stdout, cmd.Stderr = io.Discard, &stderr
+	if err := cmd.Run(); err != nil {
+		if strings.Contains(strings.ToLower(stderr.String()), "not found") {
+			return false, nil
+		}
+		return false, fmt.Errorf("docker could not be asked about network %s: %s", name, strings.TrimSpace(stderr.String()))
+	}
+	return true, nil
 }
 
 // startContainer runs `docker run --detach …`; args follow `run`.

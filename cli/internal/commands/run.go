@@ -74,8 +74,8 @@ var PassHelp = map[string]string{
 // "forgotten" from "decided".
 var RunRequestNotFlags = map[string]string{
 	"authorized":              "set by --authorized or the interactive prompt, never a pass",
-	"seed":                    "not exposed: reproducibility is a web/advanced concern",
-	"predefined_resource_ids": "not exposed: needs a structured map",
+	"seed":                    "--seed",
+	"predefined_resource_ids": "--resource-ids / resource_ids: — sent to the runner on stdin, never in the request body",
 	"adaptive_attempts":       "not exposed: bounded default",
 	"resource_attempts":       "not exposed: bounded default",
 	"requests_per_second":     "--rps",
@@ -183,9 +183,8 @@ func cmdRun(ctx context.Context, e *Env, args []string) int {
 	level := fs.String("level", "", "how hard to look: quick | standard | deep (default quick)")
 	checks := fs.String("checks", "", "comma-separated check keys to scope the run to")
 	rps := fs.Int("rps", 0, "requests per second (1-100); 0 keeps the scan's saved rate")
-	failOn := fs.String("fail-on", "", "exit 1 if a finding at or above this severity remains")
-	verified := fs.Bool("verified-only", false, "with --fail-on, count only verified findings")
-	newOnly := fs.Bool("new-only", false, "with --fail-on, count only findings new since the previous run")
+	seed := fs.Int("seed", -1, "payload-rotation seed to reuse (from `runs --json` manifest.seed); default a fresh one")
+	failOn, verified, newOnly, baseline, complete, minExercised := addGateFlags(fs)
 	asJSON, outputFlag := addOutputFlags(fs, "print the gate result as JSON")
 	image := fs.String("image", defaultRunnerImage(e), "runner image")
 	var networks dockerNetworks
@@ -193,9 +192,14 @@ func cmdRun(ctx context.Context, e *Env, args []string) int {
 	secretsFile := fs.String("secrets-file", "", "JSON {name: secret} file, mode 0600")
 	runnerServer := fs.String("runner-server", "", "server URL as the container sees it (default: loopback -> host.docker.internal)")
 	source := fs.String("source", "", "project directory to mount read-only for whitebox analysis")
+	resourceIDsFile := fs.String("resource-ids", "", "JSON/YAML file of known resource ids {name: id} for path parameters (stays on this machine)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return e.parseFailed("run", fs, err)
+	}
+	resourceIDs, err := resolveResourceIDs(nil, *resourceIDsFile)
+	if err != nil {
+		return e.usage("%v", err)
 	}
 	output, code := e.resolveOutput(fs, *asJSON, *outputFlag)
 	if code != ExitOK {
@@ -207,13 +211,13 @@ func cmdRun(ctx context.Context, e *Env, args []string) int {
 	if len(pos) != 1 {
 		return e.usage("run needs exactly one scan ID")
 	}
-	if *failOn != "" {
-		if !validSeverity(*failOn) {
-			return e.usage("--fail-on must be one of info, low, medium, high, critical")
-		}
+	gp := gatePolicy{failOn: *failOn, verifiedOnly: *verified, newOnly: *newOnly, baselineRun: *baseline,
+		quality: qualityPolicy{RequireComplete: *complete, MinExercised: *minExercised}}
+	if code := e.checkGateFlags(&gp); code != ExitOK {
+		return code
 	}
-	if (*verified || *newOnly) && *failOn == "" {
-		return e.usage("--verified-only and --new-only refine --fail-on; set --fail-on too")
+	if *seed < -1 || *seed >= 1<<31 {
+		return e.usage("--seed must be between 0 and 2147483647")
 	}
 
 	c, err := e.client()
@@ -228,21 +232,8 @@ func cmdRun(ctx context.Context, e *Env, args []string) int {
 	// The authorization gate is a product requirement: an active scan fires
 	// real payloads. It is answered before a single request leaves this process,
 	// and a pipe with no --authorized is refused rather than assumed.
-	if !*authorized {
-		if !e.IsTTY() {
-			return e.usage("refusing to run without --authorized: active scanning fires real " +
-				"payloads, and there is no terminal to confirm on")
-		}
-		scan, err := c.GetScan(ctx, id)
-		if err != nil {
-			return e.exitFor(err)
-		}
-		e.errorf("This sends active security tests to %s.\nType y to confirm you own or are authorized to test it: ", scan.TargetBaseURL)
-		line, _ := e.readLine()
-		if strings.ToLower(strings.TrimSpace(line)) != "y" {
-			e.errorf("not authorized; nothing was run\n")
-			return ExitUsage
-		}
+	if code := e.consent(*authorized, "active security tests", scanTarget(ctx, e, c, id)); code != ExitOK {
+		return code
 	}
 
 	body, code := e.runBody(passes, *level, *checks, *rps)
@@ -250,6 +241,9 @@ func cmdRun(ctx context.Context, e *Env, args []string) int {
 		return code
 	}
 	body["authorized"] = true
+	if *seed >= 0 {
+		body["seed"] = *seed
+	}
 
 	sourcePath := ""
 	if *source != "" {
@@ -259,10 +253,52 @@ func cmdRun(ctx context.Context, e *Env, args []string) int {
 		}
 		sourcePath = abs
 	}
-	return runLocal(ctx, e, c, id, body,
+	ranRun := 0
+	code = runLocal(ctx, e, c, id, body,
 		localFlags{image: *image, networks: networks, secretsFile: *secretsFile,
-			runnerServer: *runnerServer, source: sourcePath},
-		*failOn, *verified, *newOnly, output)
+			runnerServer: *runnerServer, source: sourcePath, resourceIDs: resourceIDs,
+			onClaim: func(n int) { ranRun = n }},
+		gp, output)
+	if code == ExitOK && !gp.active() && output == outputTable {
+		printRunQuality(ctx, e, c, id, ranRun)
+	}
+	return code
+}
+
+// consent answers the authorization gate: nothing reaches the target until
+// --authorized was given or a person typed y to a prompt naming it. A pipe
+// with no --authorized is refused, never assumed. target is asked for only
+// when a prompt needs it. sends says what is about to be sent.
+func (e *Env) consent(authorized bool, sends string, target func() (string, int)) int {
+	if authorized {
+		return ExitOK
+	}
+	if !e.IsTTY() {
+		return e.usage("refusing to continue without --authorized: this sends %s, and there is no "+
+			"terminal to confirm on", sends)
+	}
+	host, code := target()
+	if code != ExitOK {
+		return code
+	}
+	e.errorf("This sends %s to %s.\nType y to confirm you own or are authorized to test it: ", sends, host)
+	line, _ := e.readLine()
+	if strings.ToLower(strings.TrimSpace(line)) != "y" {
+		e.errorf("not authorized; nothing was sent\n")
+		return ExitUsage
+	}
+	return ExitOK
+}
+
+// scanTarget returns a lookup of a scan's target, for consent's prompt.
+func scanTarget(ctx context.Context, e *Env, c *api.Client, id string) func() (string, int) {
+	return func() (string, int) {
+		scan, err := c.GetScan(ctx, id)
+		if err != nil {
+			return "", e.exitFor(err)
+		}
+		return scan.TargetBaseURL, ExitOK
+	}
 }
 
 // waitForRun polls until the scan leaves queued/running, streaming new events
@@ -334,9 +370,7 @@ func waitForRun(ctx context.Context, e *Env, c *api.Client, id string, timeout t
 func cmdWait(ctx context.Context, e *Env, args []string) int {
 	fs := e.newFlagSet("wait")
 	timeout := fs.Duration("timeout", 30*time.Minute, "give up waiting after this long")
-	failOn := fs.String("fail-on", "", "exit 1 if a finding at or above this severity remains")
-	verified := fs.Bool("verified-only", false, "with --fail-on, count only verified findings")
-	newOnly := fs.Bool("new-only", false, "with --fail-on, count only findings new since the previous run")
+	failOn, verified, newOnly, baseline, complete, minExercised := addGateFlags(fs)
 	asJSON, outputFlag := addOutputFlags(fs, "print the gate result as JSON")
 	pos, err := parse(fs, args)
 	if err != nil {
@@ -349,11 +383,10 @@ func cmdWait(ctx context.Context, e *Env, args []string) int {
 	if len(pos) > 1 {
 		return e.usage("wait takes at most one scan ID")
 	}
-	if *failOn != "" && !validSeverity(*failOn) {
-		return e.usage("--fail-on must be one of info, low, medium, high, critical")
-	}
-	if (*verified || *newOnly) && *failOn == "" {
-		return e.usage("--verified-only and --new-only refine --fail-on; set --fail-on too")
+	gp := gatePolicy{failOn: *failOn, verifiedOnly: *verified, newOnly: *newOnly, baselineRun: *baseline,
+		quality: qualityPolicy{RequireComplete: *complete, MinExercised: *minExercised}}
+	if code := e.checkGateFlags(&gp); code != ExitOK {
+		return code
 	}
 	c, err := e.client()
 	if err != nil {
@@ -389,42 +422,151 @@ func cmdWait(ctx context.Context, e *Env, args []string) int {
 		return e.usage("scan %s has not started a run (status %s): start one with `runpentests run %s`",
 			shortID(id), scan.Status, shortID(id))
 	}
-	if *failOn == "" {
+	if !gp.active() {
+		if output == outputTable {
+			printRunQuality(ctx, e, c, id, 0)
+		}
 		return ExitOK
 	}
-	return gate(ctx, e, c, id, strings.ToLower(*failOn), *verified, *newOnly, output)
+	return gate(ctx, e, c, id, 0, gp, output)
+}
+
+// printRunQuality writes the execution-quality summary of a run to stderr, as
+// information: no policy, so it never changes the exit code. Best effort.
+func printRunQuality(ctx context.Context, e *Env, c *api.Client, id string, runNumber int) {
+	q, err := loadQuality(ctx, c, id, runNumber, qualityPolicy{})
+	if err != nil || q.Run == 0 {
+		return
+	}
+	e.errorf("\n")
+	printQualitySummary(e.errorf, q)
 }
 
 type gateRow struct{ ID, Severity, Confidence, Verdict, Check, Title string }
 
-// gate decides the exit code from the finished run. A finding a person already
-// dismissed does not fail a pipeline: that is what triage is for.
-func gate(ctx context.Context, e *Env, c *api.Client, id, failOn string, verifiedOnly, newOnly bool, output string) int {
-	var rows []gateRow
-	if newOnly {
-		d, err := c.Diff(ctx, id)
-		var apiErr *api.APIError
-		switch {
-		case err == nil:
-			for _, f := range d.Added {
-				// A diff row has no finding ID; its fingerprint is the stable
-				// name both runs use.
-				rows = append(rows, gateRow{f.Fingerprint, f.Severity, f.Confidence, f.Verdict, f.Check, f.Title})
-			}
-		case errors.As(err, &apiErr) && apiErr.Status == 409:
-			// A first run has nothing to compare with: everything is new.
-			newOnly = false
-		default:
-			return e.exitFor(err)
-		}
+// gatePolicy is everything a pipeline can ask the gate. The finding half is
+// --fail-on and its refinements; the execution-quality half is opt-in.
+type gatePolicy struct {
+	failOn       string
+	verifiedOnly bool
+	newOnly      bool
+	// baselineRun compares against this archived run instead of the one just
+	// before the gated run. It implies newOnly.
+	baselineRun int
+	quality     qualityPolicy
+}
+
+func (p gatePolicy) active() bool { return p.failOn != "" || p.quality.active() }
+
+// addGateFlags registers the gate's flags on a command that can end in one.
+func addGateFlags(fs *flag.FlagSet) (*string, *bool, *bool, *int, *bool, *int) {
+	failOn := fs.String("fail-on", "", "exit 1 if a finding at or above this severity remains")
+	verified := fs.Bool("verified-only", false, "with --fail-on, count only verified findings")
+	newOnly := fs.Bool("new-only", false, "with --fail-on, count only findings new since the previous run")
+	baseline := fs.Int("baseline-run", 0, "with --fail-on, count only findings new since this run number (implies --new-only)")
+	complete := fs.Bool("require-complete", false, "exit 5 unless the run did everything it was asked and exercised the API")
+	minExercised := fs.Int("min-exercised", 0, "exit 5 unless at least this percent (1-100) of in-scope endpoints answered a 2xx")
+	return failOn, verified, newOnly, baseline, complete, minExercised
+}
+
+// checkGateFlags validates the gate flags together; it returns ExitOK or the
+// usage exit code it already reported.
+func (e *Env) checkGateFlags(p *gatePolicy) int {
+	if p.failOn != "" && !validSeverity(p.failOn) {
+		return e.usage("--fail-on must be one of info, low, medium, high, critical")
 	}
-	if !newOnly {
-		findings, err := c.Findings(ctx, id)
-		if err != nil {
+	if p.baselineRun < 0 {
+		return e.usage("--baseline-run must be a run number")
+	}
+	if p.baselineRun > 0 {
+		p.newOnly = true
+	}
+	if (p.verifiedOnly || p.newOnly) && p.failOn == "" {
+		return e.usage("--verified-only, --new-only and --baseline-run refine --fail-on; set --fail-on too")
+	}
+	if p.quality.MinExercised < 0 || p.quality.MinExercised > 100 {
+		return e.usage("--min-exercised must be a percentage from 1 to 100")
+	}
+	p.failOn = strings.ToLower(p.failOn)
+	return ExitOK
+}
+
+// gate decides the exit code from a finished run (runNumber; 0 = the newest).
+// A finding a person already dismissed does not fail a pipeline: that is what
+// triage is for. Precedence: findings at --fail-on exit 1 before an incomplete
+// run exits 5 — a finding the run did make stands whatever it missed.
+func gate(ctx context.Context, e *Env, c *api.Client, id string, runNumber int, p gatePolicy, output string) int {
+	// Pin the run first, so every half of the answer is about the same run even
+	// if another starts meanwhile.
+	run, err := fetchRun(ctx, c, id, runNumber)
+	if err != nil {
+		if p.quality.active() {
 			return e.exitFor(err)
 		}
-		for _, f := range findings {
-			rows = append(rows, gateRow{f.ID, f.Severity, f.Confidence, f.Verdict, f.Check, f.Title})
+		// The finding half stands on its own: a server that cannot say which
+		// run this was must not turn a --fail-on gate into a usage error.
+		run = nil
+	}
+	if run != nil {
+		runNumber = run.RunNumber
+	}
+	var quality *runQuality
+	if run != nil || p.quality.active() {
+		q := assessQuality(run, nil, p.quality)
+		if run != nil {
+			rows := run.Coverage
+			if rows == nil {
+				rows, err = c.Coverage(ctx, id, runNumber)
+				if err != nil && p.quality.active() {
+					return e.exitFor(err)
+				}
+			}
+			q = assessQuality(run, rows, p.quality)
+		}
+		quality = &q
+	}
+
+	var rows []gateRow
+	baseline := 0
+	var diff *api.Diff
+	findingsStatus := qualityNotEvaluated
+	if p.failOn != "" {
+		newOnly := p.newOnly
+		if newOnly {
+			d, err := c.Diff(ctx, id, p.baselineRun, runNumber)
+			var apiErr *api.APIError
+			switch {
+			case err == nil:
+				diff, baseline = &d, d.FromRun
+				for _, f := range d.Added {
+					// A diff row has no finding ID; its fingerprint is the stable
+					// name both runs use.
+					rows = append(rows, gateRow{f.Fingerprint, f.Severity, f.Confidence, f.Verdict, f.Check, f.Title})
+				}
+			case errors.As(err, &apiErr) && apiErr.Status == 409 && p.baselineRun == 0:
+				// A first run has nothing to compare with: everything is new.
+				newOnly = false
+			default:
+				return e.exitFor(err)
+			}
+		}
+		if !newOnly {
+			// The live findings are the newest run's. When the gated run is no
+			// longer the newest, judge what that run archived instead, so both
+			// halves of the answer are about one run.
+			if run != nil && !isNewestRun(ctx, c, id, run.RunNumber) {
+				for _, f := range run.FindingsSnapshot {
+					rows = append(rows, gateRow{f.Fingerprint, f.Severity, f.Confidence, f.Verdict, f.Check, f.Title})
+				}
+			} else {
+				findings, err := c.Findings(ctx, id)
+				if err != nil {
+					return e.exitFor(err)
+				}
+				for _, f := range findings {
+					rows = append(rows, gateRow{f.ID, f.Severity, f.Confidence, f.Verdict, f.Check, f.Title})
+				}
+			}
 		}
 	}
 
@@ -435,37 +577,120 @@ func gate(ctx context.Context, e *Env, c *api.Client, id, failOn string, verifie
 		if r.Verdict == "dismissed" {
 			continue
 		}
-		if verifiedOnly && r.Confidence != "verified" {
+		if p.verifiedOnly && r.Confidence != "verified" {
 			continue
 		}
 		considered = append(considered, r)
-		if severityRank[strings.ToLower(r.Severity)] >= severityRank[failOn] {
+		if severityRank[strings.ToLower(r.Severity)] >= severityRank[p.failOn] {
 			failing = append(failing, r)
 		}
 	}
 	sort.SliceStable(failing, func(i, j int) bool {
 		return severityRank[failing[i].Severity] > severityRank[failing[j].Severity]
 	})
+	if p.failOn != "" {
+		findingsStatus = qualityPass
+		if len(failing) > 0 {
+			findingsStatus = qualityFail
+		}
+	}
+	code := ExitOK
+	switch {
+	case len(failing) > 0:
+		code = ExitFindings
+	case quality != nil && quality.Status == qualityFail:
+		code = ExitIncomplete
+	}
+
+	baselineNote := ""
+	if p.newOnly {
+		switch {
+		case diff != nil:
+			baselineNote = fmt.Sprintf("compared with run %d (baseline) -> run %d", diff.FromRun, diff.ToRun)
+			if diff.OptionsChanged || diff.ExecutorChanged || diff.ConfigChanged {
+				baselineNote += "; the runs differ in options, executor or config, so the comparison is partial"
+			}
+		default:
+			baselineNote = "no baseline: this is the scan's first run, so every finding counts as new"
+		}
+	}
 
 	switch output {
 	case outputJSON:
-		printJSON(e, map[string]any{"fail_on": failOn, "failing": len(failing), "findings": failing})
+		doc := map[string]any{
+			"fail_on": p.failOn, "failing": len(failing), "findings": failing,
+			"findings_status": findingsStatus, "exit_code": code,
+		}
+		if failing == nil {
+			doc["findings"] = []gateRow{}
+		}
+		if runNumber > 0 {
+			doc["run"] = runNumber
+		}
+		if p.newOnly {
+			if baseline > 0 {
+				doc["baseline_run"] = baseline
+			} else {
+				doc["baseline_run"] = nil
+			}
+		}
+		if quality != nil {
+			doc["quality"] = quality
+		}
+		printJSON(e, doc)
 	case outputGitHub:
-		printGitHubGate(e, failOn, failing)
+		if p.failOn != "" {
+			printGitHubGate(e, p.failOn, failing)
+		}
+		if baselineNote != "" {
+			e.printf("::notice title=baseline::%s\n", githubMessageEscape.Replace(baselineNote))
+		}
+		if quality != nil && p.quality.active() {
+			printGitHubQuality(e, *quality)
+		}
 	case outputJUnit:
-		if code := printJUnitGate(e, considered, failing); code != ExitOK {
+		var q *runQuality
+		if p.quality.active() {
+			q = quality
+		}
+		if code := printJUnitGate(e, considered, failing, q); code != ExitOK {
 			return code
 		}
 	default:
-		for _, r := range failing {
-			e.printf("%-8s %-9s %-24s %s\n", r.Severity, r.Confidence, r.Check, printable(r.Title))
+		if p.failOn != "" {
+			for _, r := range failing {
+				e.printf("%-8s %-9s %-24s %s\n", r.Severity, r.Confidence, r.Check, printable(r.Title))
+			}
+			e.printf("%d finding(s) at or above %s\n", len(failing), p.failOn)
 		}
-		e.printf("%d finding(s) at or above %s\n", len(failing), failOn)
+		if baselineNote != "" {
+			e.printf("%s\n", baselineNote)
+		}
+		if quality != nil && p.quality.active() {
+			printQualitySummary(e.printf, *quality)
+		}
 	}
-	if len(failing) > 0 {
-		return ExitFindings
+	return code
+}
+
+// isNewestRun reports whether run is the scan's newest; true when unknown, so
+// an older server keeps the live findings it always used.
+func isNewestRun(ctx context.Context, c *api.Client, id string, run int) bool {
+	newest, err := fetchRun(ctx, c, id, 0)
+	return err != nil || newest == nil || newest.RunNumber == run
+}
+
+// printGitHubQuality annotates the job with the execution-quality verdict.
+func printGitHubQuality(e *Env, q runQuality) {
+	if q.Status == qualityFail {
+		for _, f := range q.Failures {
+			e.printf("::error title=scan quality::%s\n", githubMessageEscape.Replace(f))
+		}
 	}
-	return ExitOK
+	for _, m := range q.Incomplete {
+		e.printf("::warning title=scan quality::%s\n", githubMessageEscape.Replace(m))
+	}
+	e.printf("scan quality: %s — %s endpoints exercised\n", q.Status, shareLabel(q.Share))
 }
 
 // GitHub's workflow-command escaping. Nothing is rescanned, so % first is safe.
@@ -524,12 +749,27 @@ type junitDoc struct {
 // printJUnitGate writes a JUnit XML document to stdout, the format CI systems
 // read as a test report. A marshal failure is the server's data, not a usage
 // error, so it exits failed.
-func printJUnitGate(e *Env, considered, failing []gateRow) int {
+func printJUnitGate(e *Env, considered, failing []gateRow, quality *runQuality) int {
 	isFailing := make(map[string]bool, len(failing))
 	for _, r := range failing {
 		isFailing[r.ID] = true
 	}
 	suite := junitSuite{Name: "runpentests", Tests: len(considered), Failures: len(failing)}
+	if quality != nil {
+		// One case for the run itself: a suite of zero findings must not read
+		// green when the run never exercised the API.
+		qc := junitCase{Classname: "runpentests.quality", Name: "execution quality: " + shareLabel(quality.Share) + " endpoints exercised"}
+		if quality.Status == qualityFail {
+			qc.Failures = []junitFailure{{
+				Message: strings.Join(quality.Failures, "; "),
+				Type:    "incomplete",
+				Text:    strings.Join(append(append([]string{}, quality.Incomplete...), quality.Caveat), "\n"),
+			}}
+			suite.Failures++
+		}
+		suite.Tests++
+		suite.Cases = append(suite.Cases, qc)
+	}
 	for _, r := range considered {
 		c := junitCase{Classname: printable(r.Check), Name: printable(r.Title)}
 		if isFailing[r.ID] {

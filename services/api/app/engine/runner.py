@@ -422,7 +422,7 @@ def _open_run(
 
     from app.engine.methodology import build_manifest
 
-    probe.manifest = build_manifest(ctx, opts.to_dict())
+    probe.manifest = build_manifest(ctx, opts.archived())
     run.manifest = probe.manifest
 
     announce_missing_identity_pair(
@@ -462,7 +462,7 @@ def _new_run_row(
     It archives which passes ran (the diff needs it) but not the user's resource
     ids: those are target identifiers, and run history is returned by the API.
     """
-    archived_options = {k: v for k, v in opts.to_dict().items() if k != "predefined_resource_ids"}
+    archived_options = opts.archived()
     run = ScanRun(
         run_number=len(scan.runs) + 1,
         options=archived_options,

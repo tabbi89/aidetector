@@ -50,10 +50,12 @@ var (
 	RouteUpdateCred     = Route{"PATCH", "/scans/{scan_id}/credentials/{cred_id}"}
 	RouteDeleteCred     = Route{"DELETE", "/scans/{scan_id}/credentials/{cred_id}"}
 	RouteAuthHints      = Route{"POST", "/specs/auth-hints"}
+	RouteIdentityPairs  = Route{"POST", "/specs/identity-pairs"}
 	RouteManagedConfig  = Route{"PUT", "/scans/{scan_id}/managed-config"}
 	RouteCancel         = Route{"POST", "/scans/{scan_id}/cancel"}
 	RouteEvents         = Route{"GET", "/scans/{scan_id}/events"}
 	RouteListRuns       = Route{"GET", "/scans/{scan_id}/runs"}
+	RouteGetRun         = Route{"GET", "/scans/{scan_id}/runs/{run_number}"}
 	RouteRunTrace       = Route{"GET", "/scans/{scan_id}/runs/{run_number}/trace"}
 	RouteFindings       = Route{"GET", "/scans/{scan_id}/findings"}
 	RouteSetVerdict     = Route{"PATCH", "/scans/{scan_id}/findings/{finding_id}"}
@@ -69,18 +71,30 @@ var (
 	// The local runner: the claim is authenticated by the API key; the fail
 	// route by the per-run token the claim returned, never the API key.
 	RouteClaimLocalRun = Route{"POST", "/scans/{scan_id}/local-runs"}
-	RouteRunnerFail    = Route{"POST", "/runner/runs/{run_id}/fail"}
+	// A credential check: consent and target rules like a run, but no run.
+	RouteClaimAuthCheck = Route{"POST", "/scans/{scan_id}/auth-checks"}
+	// Ownership of a public target: workspace domains and the scan's advisory view.
+	RouteListDomains  = Route{"GET", "/workspace/domains"}
+	RouteAddDomain    = Route{"POST", "/workspace/domains"}
+	RouteVerifyDomain = Route{"POST", "/workspace/domains/{domain_id}/verify"}
+	RouteDeleteDomain = Route{"DELETE", "/workspace/domains/{domain_id}"}
+	RouteOwnership    = Route{"GET", "/scans/{scan_id}/ownership"}
+	// Which route parameters resource names fill: names only, never ids.
+	RouteResourceBindings = Route{"POST", "/scans/{scan_id}/resource-bindings"}
+	RouteRunnerFail       = Route{"POST", "/runner/runs/{run_id}/fail"}
 )
 
 // UsedRoutes lists every route above, for the contract test.
 var UsedRoutes = []Route{
 	RouteHealthReady, RouteCapabilities, RouteListScans, RouteCreateScan, RouteGetScan, RouteDeleteScan,
 	RouteUpdateScan, RouteUploadSpec, RouteAddCredential, RouteUpdateCred, RouteDeleteCred,
-	RouteAuthHints, RouteManagedConfig,
-	RouteCancel, RouteEvents, RouteListRuns, RouteRunTrace,
+	RouteAuthHints, RouteIdentityPairs, RouteManagedConfig,
+	RouteCancel, RouteEvents, RouteListRuns, RouteGetRun, RouteRunTrace,
 	RouteFindings, RouteSetVerdict, RouteFindingSummary, RouteCoverage, RouteCost,
 	RouteDiff, RouteReportPDF, RouteReportHTML, RouteReportPentest,
 	RouteSARIF, RouteExport, RouteClaimLocalRun, RouteRunnerFail,
+	RouteListDomains, RouteAddDomain, RouteVerifyDomain, RouteDeleteDomain, RouteOwnership,
+	RouteResourceBindings, RouteClaimAuthCheck,
 }
 
 // ReportFormats maps a --format value to its route.
@@ -352,15 +366,21 @@ type Cost struct {
 	Models   []AiModelUsage `json:"models"`
 }
 
-// CoverageRow is what the latest run did to one operation.
+// CoverageRow is what one run did to one operation.
 type CoverageRow struct {
-	OperationID *string  `json:"operation_id"`
-	Method      string   `json:"method"`
-	Path        string   `json:"path"`
-	Enabled     bool     `json:"enabled"`
-	Requests    int      `json:"requests"`
-	Checks      []string `json:"checks"`
-	Findings    int      `json:"findings"`
+	OperationID *string `json:"operation_id"`
+	Method      string  `json:"method"`
+	Path        string  `json:"path"`
+	Enabled     bool    `json:"enabled"`
+	Requests    int     `json:"requests"`
+	// Responses received, how many were 2xx, and whether at least one was:
+	// nil on a run recorded before the server kept them (or on an older
+	// server), which is unknown — never "no response".
+	Responses *int     `json:"responses"`
+	OK        *int     `json:"ok"`
+	Exercised *bool    `json:"exercised"`
+	Checks    []string `json:"checks"`
+	Findings  int      `json:"findings"`
 }
 
 // RunGaps is what a run was asked to do and did not.
@@ -368,6 +388,8 @@ type RunGaps struct {
 	NotRun              []string `json:"not_run"`
 	BudgetExhausted     bool     `json:"budget_exhausted"`
 	FailedChecks        []string `json:"failed_checks"`
+	SkippedChecks       []string `json:"skipped_checks"`
+	IdentitiesMissing   []string `json:"identities_missing"`
 	SourceAuditComplete bool     `json:"source_audit_complete"`
 }
 
@@ -382,7 +404,11 @@ type ScanRun struct {
 	Options       map[string]any `json:"options"`
 	Executor      map[string]any `json:"executor"`
 	Gaps          RunGaps        `json:"gaps"`
-	TraceCount    int            `json:"trace_count"`
+	Coverage      []CoverageRow  `json:"coverage"`
+	// FindingsSnapshot is what the run found, as archived (verdicts as of then).
+	FindingsSnapshot []RunFinding   `json:"findings_snapshot"`
+	Manifest         map[string]any `json:"manifest"`
+	TraceCount       int            `json:"trace_count"`
 	// Raw is the ScanRunOut exactly as the server sent it (runs --json).
 	Raw map[string]any `json:"-"`
 }
@@ -475,6 +501,7 @@ type Diff struct {
 	Unchanged       []RunFinding `json:"unchanged"`
 	OptionsChanged  bool         `json:"options_changed"`
 	ExecutorChanged bool         `json:"executor_changed"`
+	ConfigChanged   bool         `json:"config_changed"`
 	Unmatchable     int          `json:"unmatchable"`
 }
 
@@ -573,6 +600,47 @@ type PremiumCapability struct {
 type Capabilities struct {
 	Passes  map[string]PassCapability `json:"passes"`
 	Premium PremiumCapability         `json:"premium"`
+	// Levels is what each level turns on for this tenant on the local lane;
+	// nil from a server older than the field.
+	Levels map[string]LevelExpansion `json:"levels"`
+}
+
+// LevelExpansion is one level's run flags, as the server expands it.
+type LevelExpansion struct {
+	Passes       []string `json:"passes"`
+	AI           []string `json:"ai"`
+	AIWithWrites []string `json:"ai_with_writes"`
+}
+
+// IdentityShape is an identity as the pairing preview needs it: no secret.
+type IdentityShape struct {
+	Name      string  `json:"name"`
+	Role      string  `json:"role"`
+	Privilege *int    `json:"privilege,omitempty"`
+	Tenant    *string `json:"tenant,omitempty"`
+}
+
+// IdentityPairs is which authorization boundaries a set of identities tests.
+type IdentityPairs struct {
+	TenantsDeclared bool `json:"tenants_declared"`
+	ObjectLevel     *struct {
+		Owner    string `json:"owner"`
+		Attacker string `json:"attacker"`
+	} `json:"object_level"`
+	ObjectLevelGap *string `json:"object_level_gap"`
+	FunctionLevel  *struct {
+		Privileged string `json:"privileged"`
+		Lower      string `json:"lower"`
+	} `json:"function_level"`
+	FunctionLevelGap *string  `json:"function_level_gap"`
+	LeftOut          []string `json:"left_out"`
+}
+
+// IdentityPairs asks the server's engine which pairs these shapes make.
+func (c *Client) IdentityPairs(ctx context.Context, ids []IdentityShape) (IdentityPairs, error) {
+	var out IdentityPairs
+	_, err := c.do(ctx, RouteIdentityPairs, "", nil, map[string]any{"identities": ids}, &out)
+	return out, err
 }
 
 // --- calls -----------------------------------------------------------------
@@ -708,6 +776,19 @@ func (c *Client) Runs(ctx context.Context, id string, limit int) ([]ScanRun, err
 	return out, err
 }
 
+// Run returns one archived run by its number; a 404 means the scan has no
+// such run (or the server predates the route — see APIError.Detail).
+func (c *Client) Run(ctx context.Context, id string, run int) (ScanRun, error) {
+	u := c.base + strings.ReplaceAll(expand(RouteGetRun.Path, id), "{run_number}", strconv.Itoa(run))
+	headers := map[string]string{}
+	if c.key != "" {
+		headers["X-API-Key"] = c.key
+	}
+	var out ScanRun
+	_, err := c.send(ctx, RouteGetRun, u, headers, nil, &out)
+	return out, err
+}
+
 // RunTrace returns one page of a run's request/response log.
 func (c *Client) RunTrace(ctx context.Context, id string, run, offset, limit int) (RunTracePage, error) {
 	u := c.base + strings.ReplaceAll(expand(RouteRunTrace.Path, id), "{run_number}", strconv.Itoa(run))
@@ -768,10 +849,15 @@ func (c *Client) FindingSummary(ctx context.Context, id string) (FindingSummary,
 	return out, err
 }
 
-// Coverage returns what the latest run did to each operation.
-func (c *Client) Coverage(ctx context.Context, id string) ([]CoverageRow, error) {
+// Coverage returns what a run did to each operation: run 0 is the latest.
+func (c *Client) Coverage(ctx context.Context, id string, run int) ([]CoverageRow, error) {
+	var query url.Values
+	if run > 0 {
+		query = url.Values{}
+		query.Set("run", strconv.Itoa(run))
+	}
 	out := make([]CoverageRow, 0)
-	_, err := c.do(ctx, RouteCoverage, id, nil, nil, &out)
+	_, err := c.do(ctx, RouteCoverage, id, query, nil, &out)
 	return out, err
 }
 
@@ -782,10 +868,21 @@ func (c *Client) Cost(ctx context.Context, id string) (Cost, error) {
 	return out, err
 }
 
-// Diff compares the two most recent runs. A scan with one run answers 409.
-func (c *Client) Diff(ctx context.Context, id string) (Diff, error) {
+// Diff compares two runs. Zero means the server's default: to is the newest
+// run, from the run just before to. A scan with one run answers 409.
+func (c *Client) Diff(ctx context.Context, id string, from, to int) (Diff, error) {
+	var query url.Values
+	if from > 0 || to > 0 {
+		query = url.Values{}
+		if from > 0 {
+			query.Set("from_run", strconv.Itoa(from))
+		}
+		if to > 0 {
+			query.Set("to_run", strconv.Itoa(to))
+		}
+	}
 	var out Diff
-	_, err := c.do(ctx, RouteDiff, id, nil, nil, &out)
+	_, err := c.do(ctx, RouteDiff, id, query, nil, &out)
 	return out, err
 }
 
@@ -798,6 +895,127 @@ func (c *Client) Report(ctx context.Context, id, format string) ([]byte, error) 
 	return c.do(ctx, route, id, nil, nil, nil)
 }
 
+// DomainProof is one proof's outcome from a domain's last explicit check.
+type DomainProof struct {
+	Proof  string  `json:"proof"` // dns | http
+	OK     bool    `json:"ok"`
+	Detail *string `json:"detail"`
+}
+
+// Domain is one workspace domain: the host a public scan target must prove,
+// and exactly what to publish to prove it.
+type Domain struct {
+	ID             string        `json:"id"`
+	Host           string        `json:"host"`
+	Token          string        `json:"token"`
+	DNSRecordName  *string       `json:"dns_record_name"`
+	DNSRecordValue string        `json:"dns_record_value"`
+	HTTPPath       string        `json:"http_path"`
+	HTTPURL        string        `json:"http_url"`
+	VerifiedAt     *string       `json:"verified_at"`
+	LastCheckedAt  *string       `json:"last_checked_at"`
+	LastError      *string       `json:"last_error"`
+	LastChecks     []DomainProof `json:"last_checks"`
+	CreatedAt      string        `json:"created_at"`
+}
+
+// Ownership is GET /scans/{id}/ownership: whether a run of the scan's target
+// needs proof, answered without contacting the target.
+type Ownership struct {
+	Host       string  `json:"host"`
+	Allowed    bool    `json:"allowed"`
+	Required   bool    `json:"required"`
+	Exempt     *string `json:"exempt"`
+	DomainID   *string `json:"domain_id"`
+	VerifiedAt *string `json:"verified_at"`
+	LastError  *string `json:"last_error"`
+	Reason     *string `json:"reason"`
+}
+
+func (c *Client) domainURL(r Route, domainID string) string {
+	return c.base + strings.ReplaceAll(r.Path, "{domain_id}", url.PathEscape(domainID))
+}
+
+func (c *Client) keyHeaders() map[string]string {
+	headers := map[string]string{}
+	if c.key != "" {
+		headers["X-API-Key"] = c.key
+	}
+	return headers
+}
+
+// Domains lists the workspace's domains. host, when set, asks the server to
+// narrow to that host in its own canonical spelling (an older server ignores
+// the filter and lists everything; callers match on Host as well).
+func (c *Client) Domains(ctx context.Context, host string) ([]Domain, error) {
+	var query url.Values
+	if host != "" {
+		query = url.Values{}
+		query.Set("host", host)
+	}
+	out := make([]Domain, 0)
+	_, err := c.do(ctx, RouteListDomains, "", query, nil, &out)
+	return out, err
+}
+
+// AddDomain lists a host for verification and returns what to publish.
+func (c *Client) AddDomain(ctx context.Context, host string) (Domain, error) {
+	var out Domain
+	_, err := c.do(ctx, RouteAddDomain, "", nil, map[string]string{"host": host}, &out)
+	return out, err
+}
+
+// VerifyDomain runs both proofs now. A failed proof is a 200 with LastError
+// set: the check ran, the proof is what failed. fetchURL may be "".
+func (c *Client) VerifyDomain(ctx context.Context, domainID, fetchURL string) (Domain, error) {
+	body := map[string]any{}
+	if fetchURL != "" {
+		body["url"] = fetchURL
+	}
+	var out Domain
+	_, err := c.send(ctx, RouteVerifyDomain, c.domainURL(RouteVerifyDomain, domainID), c.keyHeaders(), body, &out)
+	return out, err
+}
+
+// DeleteDomain removes a domain; later scans of it need proof again.
+func (c *Client) DeleteDomain(ctx context.Context, domainID string) error {
+	_, err := c.send(ctx, RouteDeleteDomain, c.domainURL(RouteDeleteDomain, domainID), c.keyHeaders(), nil, nil)
+	return err
+}
+
+// Ownership asks whether a run of the scan's target needs ownership proof.
+func (c *Client) Ownership(ctx context.Context, scanID string) (Ownership, error) {
+	var out Ownership
+	_, err := c.do(ctx, RouteOwnership, scanID, nil, nil, &out)
+	return out, err
+}
+
+// ResourceRoute is one route parameter a resource name fills.
+type ResourceRoute struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+	Param  string `json:"param"`
+}
+
+// ResourceBindings is what the server says resource names would fill.
+type ResourceBindings struct {
+	Names []struct {
+		Name          string          `json:"name"`
+		Key           string          `json:"key"`
+		Routes        []ResourceRoute `json:"routes"`
+		AmbiguousWith []string        `json:"ambiguous_with"`
+	} `json:"names"`
+	Unbound []ResourceRoute `json:"unbound"`
+}
+
+// ResourceBindings previews which route parameters each name would fill. It
+// sends the names only: the ids never leave this machine for the server.
+func (c *Client) ResourceBindings(ctx context.Context, scanID string, names []string) (ResourceBindings, error) {
+	var out ResourceBindings
+	_, err := c.do(ctx, RouteResourceBindings, scanID, nil, map[string]any{"names": names}, &out)
+	return out, err
+}
+
 // LocalClaim is the answer to a local-run claim, kept as the server sent it:
 // the runner is handed the same document, so nothing is lost in translation.
 type LocalClaim map[string]any
@@ -806,6 +1024,12 @@ type LocalClaim map[string]any
 func (l LocalClaim) Str(key string) string {
 	s, _ := l[key].(string)
 	return s
+}
+
+// Int reads an integer field (0 when absent): JSON numbers decode as float64.
+func (l LocalClaim) Int(key string) int {
+	f, _ := l[key].(float64)
+	return int(f)
 }
 
 // Credentials lists the credential shapes (role, name, auth_type, ...).
@@ -826,6 +1050,15 @@ func (l LocalClaim) Credentials() []map[string]any {
 func (c *Client) ClaimLocalRun(ctx context.Context, id string, body map[string]any) (LocalClaim, error) {
 	var out LocalClaim
 	_, err := c.do(ctx, RouteClaimLocalRun, id, nil, body, &out)
+	return out, err
+}
+
+// ClaimAuthCheck asks for a credential check's config: a few GET routes and
+// the identity shapes. The server answers consent and the target rules; it
+// opens no run. The answer has the claim's shape (credentials, target policy).
+func (c *Client) ClaimAuthCheck(ctx context.Context, id string) (LocalClaim, error) {
+	var out LocalClaim
+	_, err := c.do(ctx, RouteClaimAuthCheck, id, nil, map[string]any{"authorized": true}, &out)
 	return out, err
 }
 

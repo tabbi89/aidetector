@@ -174,6 +174,34 @@ def list_runs(
     return result
 
 
+@router.get("/{scan_id}/runs/{run_number}", response_model=schemas.ScanRunOut)
+def get_run(
+    scan: LightScanDep,
+    run_number: int,
+    db: Session = Depends(get_db),
+) -> schemas.ScanRunOut:
+    """One archived run by its number.
+
+    A run number never changes once issued, so a pipeline can name the run it
+    gates on (or the baseline it compares against) instead of whichever run
+    happens to be the newest by the time it asks.
+    """
+    row = db.execute(
+        select(
+            ScanRun,
+            func.jsonb_array_length(ScanRun.mutations).label("trace_count"),
+        )
+        .where(ScanRun.scan_id == scan.id, ScanRun.run_number == run_number)
+        .options(defer(ScanRun.mutations))
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="no such run for this scan")
+    run, trace_count = row
+    out = schemas.ScanRunOut.model_validate(run)
+    out.trace_count = int(trace_count or 0)
+    return out
+
+
 @router.get("/{scan_id}/runs/{run_number}/trace", response_model=schemas.RunTraceOut)
 def run_trace(
     scan: LightScanDep,
@@ -233,10 +261,21 @@ def diff_runs(
         )
     ordered = sorted(runs)
     newer = to_run if to_run is not None else ordered[-1]
-    older = from_run if from_run is not None else ordered[-2]
-    for number in (older, newer):
-        if number not in runs:
-            raise HTTPException(status_code=404, detail=f"run {number} not found")
+    if newer not in runs:
+        raise HTTPException(status_code=404, detail=f"run {newer} not found")
+    if from_run is not None:
+        older = from_run
+    else:
+        # "The run before this one" — not the second-newest overall, which is
+        # the newer run itself once a later run exists.
+        earlier = [n for n in ordered if n < newer]
+        if not earlier:
+            raise HTTPException(
+                status_code=409, detail=f"run {newer} is this scan's first run"
+            )
+        older = earlier[-1]
+    if older not in runs:
+        raise HTTPException(status_code=404, detail=f"run {older} not found")
     if older >= newer:
         # A diff is directional ("older → newer"); reversing or collapsing the
         # pair would silently invert the added/resolved split, so refuse it.
@@ -256,6 +295,14 @@ def diff_runs(
     # What the newer run was asked to do but did not — a tool that never ran, or
     # a request budget spent — is not a retest either.
     gaps = runs[newer].gaps or {}
+    # An endpoint the newer run reached but never got a 2xx from (wrong auth,
+    # a 404 id, a target that stopped answering) was not tested again, so a
+    # finding on it that is now missing is not fixed. Only an explicit
+    # ``exercised: false`` counts: rows archived before the field are unknown.
+    unexercised = diff.unexercised_operations(
+        runs[newer].coverage or [],
+        frozenset(str(op.id) for op in scan.operations),
+    )
     result = diff.diff_snapshots(
         runs[older].findings_snapshot or [],
         runs[newer].findings_snapshot or [],
@@ -266,8 +313,9 @@ def diff_runs(
                 )
                 or descoped(str(row.get("check", "")), older_options, newer_options)
                 or unperformed(str(row.get("check", "")), gaps)
+                or unexercised.hides(str(row.get("check", "")), row.get("operation_id"))
             )
-            if dropped or scoped or gaps
+            if dropped or scoped or gaps or unexercised
             else None
         ),
     )
@@ -296,14 +344,22 @@ def diff_runs(
 
 
 @router.get("/{scan_id}/coverage", response_model=list[schemas.CoverageRow])
-def get_coverage(scan: ScanDep) -> list[schemas.CoverageRow]:
-    """Per-endpoint activity for the latest run: requests, checks, findings.
+def get_coverage(
+    scan: ScanDep, run: int | None = Query(default=None, ge=1)
+) -> list[schemas.CoverageRow]:
+    """Per-endpoint activity for one run (default: the latest): requests, checks, findings.
 
     Empty until the scan has finished a run. Shows every operation, so a row with
     ``requests: 0`` means the endpoint was in scope but no check exercised it (or
-    it was excluded — see ``enabled``).
+    it was excluded — see ``enabled``). ``run`` names an archived run, so a gate
+    reads the run it is judging even after a later one started.
     """
-    run = _latest_run(scan)
     if run is None:
-        return []
-    return [schemas.CoverageRow.model_validate(row) for row in (run.coverage or [])]
+        chosen = _latest_run(scan)
+        if chosen is None:
+            return []
+    else:
+        chosen = next((r for r in scan.runs if r.run_number == run), None)
+        if chosen is None:
+            raise HTTPException(status_code=404, detail="no such run for this scan")
+    return [schemas.CoverageRow.model_validate(row) for row in (chosen.coverage or [])]

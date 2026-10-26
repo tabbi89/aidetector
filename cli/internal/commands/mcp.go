@@ -162,6 +162,10 @@ func (t *mcpTools) tools() []mcp.Tool {
 					"type": "string", "enum": []string{"public", "single", "roles"},
 					"description": "how the API authenticates, if you have worked it out from the code",
 				},
+				"tenants": map[string]any{
+					"type":        "boolean",
+					"description": "roles only: the API is multi-tenant, so draft identities in two tenants (BOLA across them, BFLA within one)",
+				},
 			}),
 			ReadOnly:  true,
 			OpenWorld: true,
@@ -296,9 +300,10 @@ const mcpDraftHeader = "# runpentests.yml — see `runpentests help init` and th
 
 func (t *mcpTools) suggestConfig(ctx context.Context, raw json.RawMessage) (any, error) {
 	var args struct {
-		Spec   string `json:"spec"`
-		Target string `json:"target"`
-		Kind   string `json:"kind"`
+		Spec    string `json:"spec"`
+		Target  string `json:"target"`
+		Kind    string `json:"kind"`
+		Tenants bool   `json:"tenants"`
 	}
 	if err := decodeArgs(raw, &args); err != nil {
 		return nil, err
@@ -357,7 +362,10 @@ func (t *mcpTools) suggestConfig(ctx context.Context, raw json.RawMessage) (any,
 	if specPath != "" {
 		specRel = t.rel(specPath)
 	}
-	cfg := draftInitFile(t.e, kind, target, specRel, hints, false)
+	if args.Tenants && kind != "roles" {
+		return nil, fmt.Errorf("tenants needs kind roles")
+	}
+	cfg := draftInitFile(t.e, kind, target, specRel, hints, false, args.Tenants)
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return nil, err

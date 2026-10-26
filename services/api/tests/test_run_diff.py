@@ -410,8 +410,15 @@ def test_diff_does_not_call_findings_from_a_dropped_pass_fixed(
     # BFLA's only privileged target here is a POST, so it skips without writes.
     skipped = set(runs[0]["gaps"].get("skipped_checks") or [])
     assert "bfla" in skipped
+    # ... or a finding on an endpoint the read-only run never got a 2xx from
+    # (a POST it had no reason to send): it was not tested again either.
+    unexercised = {
+        c["operation_id"] for c in runs[0]["coverage"] if c.get("exercised") is False
+    }
     assert all(
-        "mutate" in required_passes(r["check"]) or r["check"] in skipped
+        "mutate" in required_passes(r["check"])
+        or r["check"] in skipped
+        or r["operation_id"] in unexercised
         for r in body["not_retested"]
     )
     assert not any(

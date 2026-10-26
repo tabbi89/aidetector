@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -58,13 +58,24 @@ def _owned(db: Session, tenant: str, domain_id: uuid.UUID) -> DomainVerification
 
 @router.get("", response_model=list[schemas.DomainVerificationOut])
 def list_domains(
-    principal: PrincipalDep, db: Session = Depends(get_db)
+    principal: PrincipalDep,
+    host: str | None = Query(default=None, max_length=255),
+    db: Session = Depends(get_db),
 ) -> list[schemas.DomainVerificationOut]:
-    rows = db.scalars(
-        select(DomainVerification)
-        .where(DomainVerification.tenant_slug == principal.tenant)
-        .order_by(DomainVerification.host)
-    ).all()
+    """This workspace's domains; ``host`` narrows to one, in the server's spelling.
+
+    The filter is normalised exactly as ``add`` stores a host (IDNA, case,
+    trailing dot), so a client never has to reimplement that to find a record.
+    Listing never runs a check.
+    """
+    query = select(DomainVerification).where(DomainVerification.tenant_slug == principal.tenant)
+    if host is not None:
+        try:
+            canonical = ownership.normalize_host(host)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        query = query.where(DomainVerification.host == canonical)
+    rows = db.scalars(query.order_by(DomainVerification.host)).all()
     return [_out(row) for row in rows]
 
 

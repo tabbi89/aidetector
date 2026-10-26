@@ -98,7 +98,11 @@ class CoverageRecorder:
         op_id = self.operation_id(method, path)
         if op_id is None:
             return
-        bucket = self.outcomes.setdefault(op_id, {"responses": 0, "ok": 0})
+        bucket = self.outcomes.setdefault(op_id, {"responses": 0, "ok": 0, "denied": 0})
         bucket["responses"] += 1
         if 200 <= status < 300:
             bucket["ok"] += 1
+        elif status in (401, 403):
+            # A refusal, told apart from a 404 or 5xx: for an authorization
+            # fix it is the answer, while a wrong path is not.
+            bucket["denied"] = bucket.get("denied", 0) + 1
