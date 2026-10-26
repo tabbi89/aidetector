@@ -197,6 +197,11 @@ class HttpProbe:
         return self._coverage.per_operation
 
     @property
+    def coverage_outcomes(self) -> dict[str, dict[str, int]]:
+        """operation id -> {"responses": total, "ok": 2xx}, for the run report."""
+        return self._coverage.outcomes
+
+    @property
     def client(self) -> HttpClient:
         """The underlying transport, so a second bounded pass (discovery) can
         reuse the same connection rather than opening a new one."""
@@ -367,6 +372,8 @@ class HttpProbe:
             attempt_statuses=tuple(attempt_statuses),
         )
         self._record_mutation(method, path, kwargs, result)
+        with self._lock:
+            self._coverage.note_result(method, path, result.status)
         return result
 
     def _transport(

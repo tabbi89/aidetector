@@ -48,6 +48,107 @@ def test_reflected_xss_marker_comes_back():
     assert on_q[0].evidence["location"] == "query"
 
 
+def test_an_escaped_reflection_is_not_a_lead():
+    """A target that HTML-escapes what it echoes is behaving correctly: the
+    payload's metacharacters came back encoded, so no injection lead fires."""
+    import html
+
+    from fastapi import FastAPI
+    from fastapi.responses import HTMLResponse
+    from fastapi.testclient import TestClient
+
+    from app.engine.checks.injection import ReflectedInjectionCheck
+
+    app = FastAPI()
+
+    @app.get("/search")
+    def search(q: str = ""):
+        return HTMLResponse(f"<html><body>{html.escape(q)}</body></html>")
+
+    op = TargetOperation(id="op-escaped", method="GET", path="/search",
+                         params=[{"name": "q", "in": "query", "required": False}])
+    ctx = factories.scan_context(
+        [op], credentials=CREDS,
+        probe=HttpProbe(TestClient(app), operations=[op]),
+    )
+    assert ReflectedInjectionCheck().run(ctx) == [], (
+        "correctly-escaped output must not be reported as a reflection lead"
+    )
+
+
+def test_ssti_command_and_traversal_reflections_are_not_leads():
+    """Those families prove nothing by a bare echo — they are confirmed by the
+    arithmetic oracle / OAST, so reflected_injection never flags them, even when
+    the target echoes the payload verbatim into its body."""
+    from fastapi import FastAPI
+    from fastapi.responses import PlainTextResponse
+    from fastapi.testclient import TestClient
+
+    from app.engine.checks.injection import ReflectedInjectionCheck
+
+    app = FastAPI()
+
+    @app.get("/echo")
+    def echo(x: str = ""):
+        # Echoes raw, but as text/plain: {{ }} ;echo ../ are all inert here.
+        return PlainTextResponse(f"you said: {x}")
+
+    op = TargetOperation(id="op-echo", method="GET", path="/echo",
+                         params=[{"name": "x", "in": "query", "required": False}])
+    findings = []
+    for seed in range(12):
+        ctx = factories.scan_context(
+            [op], credentials=CREDS, seed=seed,
+            probe=HttpProbe(TestClient(app), operations=[op]),
+        )
+        findings += ReflectedInjectionCheck().run(ctx)
+    families = {f.evidence.get("family") for f in findings}
+    assert not (families & {"ssti", "cmdi", "traversal"}), (
+        f"SSTI/command/traversal must not be reflection leads; saw {families}"
+    )
+
+
+def test_crlf_is_a_lead_only_when_it_splits_a_response_header():
+    """CRLF matters when it injects a response header, not when it echoes into
+    the body. The check confirms via the response headers and marks it verified."""
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+    from fastapi.testclient import TestClient
+
+    from app.engine.checks.injection import ReflectedInjectionCheck
+    from app.engine.payloads import Payload, PayloadProvider
+
+    app = FastAPI()
+
+    @app.get("/redirect")
+    def redirect(url: str = ""):
+        # VULN: percent-decodes the value (as many real sinks do) and copies it
+        # into response headers, so an embedded CRLF splits the response.
+        from urllib.parse import unquote
+
+        headers: dict[str, str] = {}
+        for line in unquote(url).split("\r\n"):
+            name, sep, value = line.partition(":")
+            if sep and name.strip() and name.strip() != "url":
+                headers[name.strip()] = value.strip()
+        return JSONResponse({"ok": True}, headers=headers)
+
+    op = TargetOperation(id="op-redirect", method="GET", path="/redirect",
+                         params=[{"name": "url", "in": "query", "required": False}])
+    ctx = factories.scan_context(
+        [op], credentials=CREDS,
+        probe=HttpProbe(TestClient(app), operations=[op]),
+    )
+    # Draw only the CRLF family so the probe lands its header payload here.
+    ctx.payload_provider = PayloadProvider(
+        [Payload("crlf", "%0d%0aX-aidx{m}:1", True)]
+    )
+    findings = ReflectedInjectionCheck().run(ctx)
+    crlf = [f for f in findings if f.evidence.get("family") == "crlf"]
+    assert crlf, "a response-splitting CRLF must be reported"
+    assert crlf[0].confidence.value == "verified"
+
+
 def test_reflected_injection_fuzzes_path_params():
     from app.engine.checks.injection import ReflectedInjectionCheck
 

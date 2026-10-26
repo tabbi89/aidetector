@@ -65,7 +65,11 @@ def test_attribution_never_refuses_anything():
     """
     rec = CoverageRecorder([])
     public = {n for n in dir(rec) if not n.startswith("_")}
-    assert public == {"operation_id", "note", "per_operation"}
+    # All observational: resolve an operation, count a request, count a response
+    # outcome. None can refuse a request, so the budget and the report stay apart.
+    assert public == {
+        "operation_id", "note", "note_result", "per_operation", "outcomes",
+    }
 
 
 # ---- 401 recovery -------------------------------------------------------------

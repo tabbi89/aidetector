@@ -3948,6 +3948,22 @@ a.domain-chip:hover { text-decoration: underline; }
   opacity: 0.55;
 }
 
+/* Reached but never answered a 2xx: findings here are inconclusive. */
+.cov-table tr.cov-unexercised td {
+  color: var(--amber);
+}
+
+.cov-table td.cov-status {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.cov-table tr.cov-unexercised td.cov-status {
+  color: var(--amber);
+  font-weight: 600;
+}
+
 /* Visually hidden but still focusable and screen-reader reachable. */
 .visually-hidden {
   position: absolute;

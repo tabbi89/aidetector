@@ -44,6 +44,8 @@ PURE_MODULES = [
     "app.engine.base",
     # The DB-free run core, so the local runner can execute checks without a DB.
     "app.engine.execution",
+    # Reachability preflight runs in both lanes, so it stays ORM-free.
+    "app.engine.preflight",
     # The adjunct phase core runs in the runner too: keep it ORM-free.
     "app.engine.adjunct_run",
     # The local runner executes a scan with no database: prove it never needs one.

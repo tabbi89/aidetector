@@ -440,12 +440,17 @@ def build_coverage(ctx: ScanContext, findings: list[dict[str, Any]]) -> list[dic
     rows = []
     for op in ctx.operations:
         per_check = ctx.probe.coverage.get(str(op.id), {})
+        outcome = ctx.probe.coverage_outcomes.get(str(op.id), {})
+        ok = outcome.get("ok", 0)
         rows.append({
             "operation_id": str(op.id),
             "method": op.method,
             "path": op.path,
             "enabled": True,
             "requests": sum(per_check.values()),
+            "responses": outcome.get("responses", 0),
+            "ok": ok,
+            "exercised": ok > 0,
             "checks": sorted(per_check),
             "findings": per_op.get(str(op.id), 0),
         })

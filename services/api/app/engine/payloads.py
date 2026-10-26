@@ -26,12 +26,49 @@ from typing import Any
 
 from app.engine.payload_corpus import reflection_templates
 
+#: How a family's lead is *earned*. The oracle decides what counts as evidence,
+#: because a bare marker echo means very different things per family:
+#:
+#: - ``reflection`` — a surviving metacharacter the response's own context would
+#:   neutralise (``< > " '`` in HTML, ``" { } [ ]`` in JSON) proves input is not
+#:   encoded. Correct for ``xss`` and ``sqli``: those payloads carry exactly
+#:   those characters, so an *escaped* page drops the signal and a raw one keeps
+#:   it. (See ``injection_probe.Attempt.injected``.)
+#: - ``header`` — a lead only when the injected header name comes back among the
+#:   *response headers*. A CRLF sequence echoed into a response *body* is inert
+#:   text; header splitting is the actual weakness.
+#: - ``evaluate`` — reflection proves nothing. ``{{7*7}}`` echoed verbatim is the
+#:   opposite of template injection; only the value computing to ``49`` is. The
+#:   arithmetic oracle (``engine/independent_injection``, opt-in ``confirm``)
+#:   carries this family, so a bare reflection is never a lead.
+#: - ``oob`` — command execution and traversal cannot be proven by an echo of
+#:   inert text (``;echo x`` or ``../`` are not metacharacters in any response
+#:   context). Confirmation is out-of-band (``engine/checks/oob_injection``).
+FAMILY_ORACLE: dict[str, str] = {
+    "xss": "reflection",
+    "sqli": "reflection",
+    "crlf": "header",
+    "ssti": "evaluate",
+    "cmdi": "oob",
+    "traversal": "oob",
+}
+
+#: Families whose evidence is a reflection or a response-header injection — the
+#: only ones ``reflected_injection`` can turn into a lead on its own. The rest
+#: are confirmed by a dedicated oracle and never by a bare echo.
+REFLECTION_ORACLES = frozenset({"reflection", "header"})
+
 
 @dataclass(frozen=True)
 class Payload:
     family: str            # "xss", "sqli", "traversal", "ssti", ...
     template: str          # contains "{m}" where the unique marker is inserted
     reflect_marker: bool   # True if a raw reflection of the marker is a signal
+
+    @property
+    def oracle(self) -> str:
+        """What counts as evidence for this payload's family (:data:`FAMILY_ORACLE`)."""
+        return FAMILY_ORACLE.get(self.family, "reflection")
 
 
 # Templates use {m} for the per-request unique marker. Kept deliberately benign —
@@ -41,7 +78,12 @@ _LIBRARY: list[Payload] = [
     Payload("xss", "<aidx{m}>", True),
     Payload("xss", "\"><svg/onload=aidx{m}>", True),
     Payload("xss", "'><img src=x onerror=aidx{m}>", True),
-    Payload("xss", "javascript:aidx{m}", True),
+    # NOTE: a bare ``javascript:aidx{m}`` scheme payload is deliberately absent.
+    # It carries no character a correct target would have to encode, so an app
+    # that echoes it verbatim into a body is indistinguishable from one that
+    # escaped it — ``Attempt.injected`` (rightly) finds no surviving active
+    # character, so it could never be a reflection lead here. Scheme-in-attribute
+    # XSS needs an attribute-context oracle, not a body reflection.
     # SQL injection (error/echo probes)
     Payload("sqli", "' OR aidx{m}='{m}", True),
     Payload("sqli", "1; SELECT 'aidx{m}'--", True),

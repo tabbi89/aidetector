@@ -1,0 +1,25 @@
+{
+  "target": "crAPI (OWASP completely ridiculous API)",
+  "source": "https://github.com/OWASP/crAPI",
+  "note": "Ground truth curated from crAPI's documented OWASP API Top 10 challenges. Routes follow crAPI's documented paths; refine against the running instance's spec. OWASP ids use the 2023 set the engine emits.",
+  "expected": [
+    {"owasp_id": "API1:2023", "method": "GET", "route": "/identity/api/v2/vehicle/{vehicleId}/location",
+     "note": "read another user's vehicle location (BOLA)"},
+    {"owasp_id": "API1:2023", "method": "GET", "route": "/workshop/api/shop/orders/{order_id}",
+     "note": "read another user's order (BOLA)"},
+    {"owasp_id": "API1:2023", "method": "GET", "route": "/community/api/v2/community/posts/{postId}",
+     "note": "post ids are guessable; cross-user read (BOLA)"},
+    {"owasp_id": "API2:2023", "method": "POST", "route": "/identity/api/auth/login",
+     "note": "no rate limiting / weak JWT (broken auth)"},
+    {"owasp_id": "API3:2023", "method": "GET", "route": "/workshop/api/mechanic/mechanic_report",
+     "check": "data_exposure", "note": "mechanic report leaks excessive fields"},
+    {"owasp_id": "API3:2023", "method": "GET", "route": "/identity/api/v2/user/dashboard",
+     "check": "data_exposure", "note": "dashboard exposes more than the UI shows"},
+    {"owasp_id": "API5:2023", "method": "GET", "route": "/workshop/api/mechanic/",
+     "note": "non-mechanic reaches a mechanic-only function (BFLA)"},
+    {"owasp_id": "API6:2023", "method": "POST", "route": "/workshop/api/shop/orders/{order_id}",
+     "check": "mass_assignment", "note": "order status / quantity writable by the client"},
+    {"owasp_id": "API7:2023", "method": "POST", "route": "/workshop/api/merchant/contact_mechanic",
+     "check": "ssrf", "note": "mechanic_api URL is fetched server-side (SSRF)"}
+  ]
+}

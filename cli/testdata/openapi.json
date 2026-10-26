@@ -7958,6 +7958,21 @@
             "title": "Requests",
             "default": 0
           },
+          "responses": {
+            "type": "integer",
+            "title": "Responses",
+            "default": 0
+          },
+          "ok": {
+            "type": "integer",
+            "title": "Ok",
+            "default": 0
+          },
+          "exercised": {
+            "type": "boolean",
+            "title": "Exercised",
+            "default": false
+          },
           "checks": {
             "items": {
               "type": "string"
@@ -7979,6 +7994,9 @@
           "path",
           "enabled",
           "requests",
+          "responses",
+          "ok",
+          "exercised",
           "checks",
           "findings"
         ],

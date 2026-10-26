@@ -353,6 +353,12 @@ def _run_engine_checks(
     result looks like, and a report that cannot tell those apart is a report
     that hides its own blind spots.
     """
+    # Reachability first: if nothing answers, say so and stop before the budget
+    # is spent (see app.engine.preflight). A target that answers anything — even
+    # errors everywhere — proceeds to the full run and the post-hoc diagnosis.
+    if not _preflight_ok(ctx, journal):
+        return
+
     if ctx.confirm and (not ctx.check_scope or "reflected_injection" in ctx.check_scope):
         from app.core.config import settings
         from app.engine.independent_injection import sample_sql_targets
@@ -446,6 +452,25 @@ def _run_engine_checks(
             return
         run_isolated(check, functools.partial(_invoke_check, check, ctx))
     announce_target_health(ctx, journal)
+
+
+def _preflight_ok(ctx: ScanContext, journal: RunJournal) -> bool:
+    """Probe a few endpoints for reachability before spending the budget.
+
+    Returns False (and emits a ``target_unreached`` event) only when the target
+    answered nothing at all — the run is then stopped here. Any answer, or too
+    few operations to judge, proceeds.
+    """
+    from app.engine.preflight import run_preflight
+
+    ctx.probe.check_context = "preflight"
+    try:
+        events = run_preflight(ctx.operations, ctx.primary_headers(), ctx.probe.send)
+    finally:
+        ctx.probe.check_context = None
+    for stage, note in events:
+        journal.event(stage, journal.progress, note)
+    return not events
 
 
 def announce_target_health(ctx: ScanContext, journal: RunJournal) -> None:

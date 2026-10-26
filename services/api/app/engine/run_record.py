@@ -209,13 +209,24 @@ def build_coverage(scan: Scan, probe: HttpProbe) -> list[dict[str, Any]]:
     for op in scan.operations:
         oid = str(op.id)
         per_check = probe.coverage.get(oid, {})
+        outcome = probe.coverage_outcomes.get(oid, {})
+        requests = sum(per_check.values())
+        responses = outcome.get("responses", 0)
+        ok = outcome.get("ok", 0)
         rows.append(
             {
                 "operation_id": oid,
                 "method": op.method,
                 "path": op.path,
                 "enabled": op.enabled,
-                "requests": sum(per_check.values()),
+                "requests": requests,
+                "responses": responses,
+                "ok": ok,
+                # Reached and answered at least one 2xx. An enabled operation the
+                # engine hit but that never succeeded (wrong auth, path or body)
+                # was *not* exercised, so its "0 findings" is inconclusive, not
+                # clean. A disabled op is neither.
+                "exercised": bool(op.enabled and ok > 0),
                 "checks": sorted(per_check),
                 "findings": finding_counts.get(oid, 0),
             }

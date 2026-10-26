@@ -90,6 +90,14 @@ class CoverageRow(ResponseModel):
     path: str
     enabled: bool = True
     requests: int = 0
+    #: Responses received, and how many were 2xx. ``exercised`` is true when the
+    #: operation was reached *and* answered successfully at least once — so a row
+    #: with ``requests > 0`` but ``exercised`` false was probed with the wrong
+    #: auth, path or body and its findings count is inconclusive. Defaulted for
+    #: runs archived before these fields existed.
+    responses: int = 0
+    ok: int = 0
+    exercised: bool = False
     checks: list[str] = []
     findings: int = 0
 

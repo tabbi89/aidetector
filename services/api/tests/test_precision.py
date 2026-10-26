@@ -67,12 +67,6 @@ class Waiver:
         return self.when is None or self.when(finding)
 
 
-#: Routes that render caller input back into their own response. Escaped
-#: correctly — but a marker-reflection lead is about *reachability*, and input
-#: does reach the response here. Every other route in the safe app answers with
-#: data it owns, so the waivers below stay narrow.
-_RENDERING_ROUTES = frozenset({"/search", "/lookup", "/profiles/{handle}"})
-
 ALLOWED: tuple[Waiver, ...] = (
     Waiver(
         check="tls_config",
@@ -80,35 +74,6 @@ ALLOWED: tuple[Waiver, ...] = (
             "The in-process test transport is http:// — a TestClient has no TLS "
             "to inspect, so 'not served over TLS' is necessarily true. This is a "
             "property of the harness, not of the application."
-        ),
-    ),
-    Waiver(
-        check="reflected_injection",
-        when=lambda f: bool(f.evidence.get("error_surface")),
-        reason=(
-            "A typed path parameter rejected with 422 echoes the value it could "
-            "not parse. The check already recognises this and reports it at info "
-            "with error_surface=true, which is the correct handling; the finding "
-            "describes the framework's error envelope, not a sink."
-        ),
-    ),
-    Waiver(
-        check="reflected_injection",
-        routes=_RENDERING_ROUTES,
-        reason=(
-            "These routes render the caller's own search term into their HTML "
-            "response, escaped. Escaping neutralises the markup, but the payload "
-            "still reaches the response body, which is exactly what a reflection "
-            "lead reports — heuristically, and explicitly not as exploitation."
-        ),
-    ),
-    Waiver(
-        check="signature_injection",
-        routes=_RENDERING_ROUTES,
-        reason=(
-            "Same rendering routes, same reason: reflection of an escaped payload "
-            "into a rendered page. No backend error signature is matched on any "
-            "of these, which is the signal this check actually exists for."
         ),
     ),
 )
@@ -349,8 +314,17 @@ def test_no_waiver_is_dead():
 
     Left in place it silently widens the gate's blind spot for the next finding
     that happens to match, so it fails here instead.
+
+    Checked against several seeds, not one: the injection payloads rotate per
+    scan seed, so a waiver tied to a reflection lead only appears for the seeds
+    whose draw reaches it. One arbitrary seed could make a real waiver look dead
+    and churn the list.
     """
-    findings = _scan_the_safe_app(allow_mutation=True, premium=True)
+    findings = [
+        f
+        for seed in range(8)
+        for f in _scan_the_safe_app(seed=seed, allow_mutation=True, premium=True)
+    ]
     unused = [w for w in ALLOWED if not any(w.covers(f) for f in findings)]
     assert not unused, (
         "waivers that matched nothing — remove them:\n"

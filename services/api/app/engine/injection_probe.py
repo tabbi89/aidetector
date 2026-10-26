@@ -24,6 +24,41 @@ from app.engine.base import ProbeResult, ScanContext, TargetOperation, render_pa
 from app.engine.request_shapes import control_value, points, request
 from app.engine.spec_values import InjectionPoint, injection_value
 
+#: Characters a response context would *neutralise* if it encoded output
+#: correctly. A payload metacharacter that survives one of these contexts is the
+#: reflection signal; a context that has none (``text``) can't be injection-broken
+#: by a reflected value at all.
+_CONTEXT_ACTIVE: dict[str, frozenset[str]] = {
+    "html": frozenset("<>\"'"),
+    "json": frozenset('"{}[]'),
+    "text": frozenset(),
+}
+
+
+def response_context(response: ProbeResult) -> str:
+    """Classify a response as ``html`` / ``json`` / ``text`` for reflection grading.
+
+    Prefers the declared ``Content-Type`` and falls back to sniffing the body,
+    because a reflected ``<script>`` only matters where it lands in markup and a
+    reflected ``"`` only matters where it breaks a JSON string.
+    """
+    content_type = ""
+    for key, value in response.headers.items():
+        if key.lower() == "content-type":
+            content_type = value.lower()
+            break
+    if "html" in content_type:
+        return "html"
+    if "json" in content_type:
+        return "json"
+    if not content_type:
+        head = response.text.lstrip()[:200].lower()
+        if head.startswith("<") or "<html" in head:
+            return "html"
+        if head.startswith(("{", "[")):
+            return "json"
+    return "text"
+
 
 @dataclass(frozen=True)
 class Attempt:
@@ -115,6 +150,49 @@ class Attempt:
             (plain_prefix and plain_prefix + needle in body)
             or (plain_suffix and needle + plain_suffix in body)
         )
+
+    @property
+    def injected(self) -> bool:
+        """Whether a reflection survived into a context that *should* have neutralised it.
+
+        :attr:`reflected` proves the payload's own text came back unencoded.
+        That is necessary but not sufficient: ``../../`` or ``;echo`` coming back
+        in an HTML page is inert — those characters are not markup — so an
+        endpoint that renders them unchanged is behaving correctly. The lead only
+        holds when a character the *response context* treats as active (``< > " '``
+        in HTML, a structural ``" { } [ ]`` in JSON) survived beside the marker.
+
+        This is what separates a truly unescaped reflection (``<`` comes back as
+        ``<``) from correct output encoding (``<`` comes back as ``&lt;``), which
+        the marker alone — alphanumeric by design — cannot tell apart.
+        """
+        if not self.reflected:
+            return False
+        prefix, found, suffix = self.value.partition(self.needle)
+        if not found:
+            return False
+        body = self.response.text.lower()
+        needle = self.needle.lower()
+        active = _CONTEXT_ACTIVE[response_context(self.response)]
+        surviving = ""
+        plain_prefix = unquote(prefix).lower()
+        plain_suffix = unquote(suffix).lower()
+        if plain_prefix and plain_prefix + needle in body:
+            surviving += plain_prefix
+        if plain_suffix and needle + plain_suffix in body:
+            surviving += plain_suffix
+        return any(char in active for char in surviving)
+
+    @property
+    def header_injected(self) -> bool:
+        """Whether a CRLF payload split the response into a new *header*.
+
+        The curated CRLF payload carries ``X-aidx<marker>: 1``; the weakness is
+        real only when that header name comes back among the response headers, so
+        the marker echoed into the body (inert text) is not enough.
+        """
+        wanted = f"x-{self.needle}".lower()
+        return any(key.lower() == wanted for key in self.response.headers)
 
 
 def probe_point(

@@ -103,12 +103,23 @@ function PlanTableImpl({ plan }: { plan: PlanRow[] }) {
  */
 function CoverageTableImpl({ coverage }: { coverage: CoverageRow[] }) {
   if (coverage.length === 0) return null;
+  const enabled = coverage.filter((r) => r.enabled);
+  const exercised = enabled.filter((r) => r.exercised).length;
+  // Reached (sent at least one request) but never answered a 2xx — the auth,
+  // path or body was wrong, so "0 findings" here means "never actually tested".
+  const reachedNotExercised = enabled.filter(
+    (r) => !r.exercised && r.requests > 0,
+  ).length;
   return (
     <div className="specbox">
       <div className="spec-head">
         <h2>Per-endpoint coverage</h2>
         <span className="muted-sm">
-          what the engine did to each endpoint · latest run
+          {exercised}/{enabled.length} endpoints exercised
+          {reachedNotExercised > 0
+            ? ` · ${reachedNotExercised} reached but never answered 2xx`
+            : ""}{" "}
+          · latest run
         </span>
       </div>
       <div className="cov-scroll" role="region" aria-label="Endpoint coverage table" tabIndex={0}>
@@ -116,6 +127,7 @@ function CoverageTableImpl({ coverage }: { coverage: CoverageRow[] }) {
           <colgroup>
             <col className="endpoint-column" />
             <col className="count-column" />
+            <col className="status-column" />
             <col className="count-column" />
             <col />
           </colgroup>
@@ -123,16 +135,25 @@ function CoverageTableImpl({ coverage }: { coverage: CoverageRow[] }) {
             <tr>
               <th>Endpoint</th>
               <th className="num">Requests</th>
+              <th>Status</th>
               <th className="num">Findings</th>
               <th>Checks exercised</th>
             </tr>
           </thead>
           <tbody>
-            {coverage.map((r) => (
+            {coverage.map((r) => {
+              const unexercised = r.enabled && !r.exercised && r.requests > 0;
+              return (
               <tr
                 key={r.operation_id ?? `${r.method} ${r.path}`}
                 className={
-                  !r.enabled ? "cov-off" : r.requests === 0 ? "cov-untouched" : ""
+                  !r.enabled
+                    ? "cov-off"
+                    : r.requests === 0
+                      ? "cov-untouched"
+                      : unexercised
+                        ? "cov-unexercised"
+                        : ""
                 }
               >
                 <td>
@@ -142,6 +163,15 @@ function CoverageTableImpl({ coverage }: { coverage: CoverageRow[] }) {
                   {!r.enabled && <span className="muted-sm"> (excluded)</span>}
                 </td>
                 <td className="num">{r.requests}</td>
+                <td className="cov-status">
+                  {!r.enabled
+                    ? "—"
+                    : r.requests === 0
+                      ? "not tested"
+                      : r.exercised
+                        ? `exercised (${r.ok}/${r.responses} 2xx)`
+                        : `no 2xx (0/${r.responses})`}
+                </td>
                 <td className={`num${r.findings > 0 ? " cov-hasfindings" : ""}`}>
                   {r.findings}
                 </td>
@@ -158,7 +188,8 @@ function CoverageTableImpl({ coverage }: { coverage: CoverageRow[] }) {
                     : "—"}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

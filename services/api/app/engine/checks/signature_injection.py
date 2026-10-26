@@ -100,9 +100,19 @@ class SignatureInjectionCheck:
                 matched = match
                 matched_pattern = pattern.pattern
                 break
-        # A reflection inside a 4xx is the framework echoing what it rejected;
-        # a 5xx means it got through. See the module docstring.
-        reflected = attempt.reflected and not (400 <= r.status < 500)
+        # A reflection inside a 4xx is the framework echoing what it rejected and
+        # is dropped. On a 2xx/3xx the reflection must survive into a context that
+        # would neutralise it (``injected``) — a metacharacter echoed into an
+        # *escaped* page proves nothing, the same precision rule
+        # ``reflected_injection`` applies. A **5xx** is kept on a bare reflection:
+        # the payload got past validation and broke the server, which is the
+        # signal regardless of the response's content type.
+        if 400 <= r.status < 500:
+            reflected = False
+        elif r.status >= 500:
+            reflected = attempt.reflected
+        else:
+            reflected = attempt.injected
         if matched is None and not reflected:
             return None
 

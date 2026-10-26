@@ -202,7 +202,7 @@ export const GROUPS: CheckGroup[] = [
   {
     title: "Injection — reflection probes",
     blurb:
-      "One rotating payload per family per scan, seeded so repeated scans exercise different variants. The rotation pool is the curated in-code library plus a vendored offline corpus (PayloadsAllTheThings / FuzzDB style), and an opt-in AI pass can add re-validated variants on top — but the draw stays one payload per family per scan, so per-scan request volume is unchanged. Each payload carries a unique marker; a finding means the marker came back verbatim in the response body. Injection is spec-shaped: payloads go into GET query + path params (always) and POST/PUT/PATCH JSON body fields (only with writes on, since sending a body changes target state), values keep a valid prefix for typed/enum/formatted params, and the operation's other required params are filled with spec-valid baselines so the payload reaches the sink. Reflections seen ONLY in a >=400 error response are downgraded to informational (frameworks commonly echo the request path/params in 404 envelopes — that is the error handler, not the sink).",
+      "One rotating payload per family per scan, seeded so repeated scans exercise different variants. The rotation pool is the curated in-code library plus a vendored offline corpus (PayloadsAllTheThings / FuzzDB style), and an opt-in AI pass can add re-validated variants on top — but the draw stays one payload per family per scan, so per-scan request volume is unchanged. A finding fires only when a character the response's own context would have to encode (< > \" ' in HTML, a structural \" { } [ ] in JSON) comes back intact beside the marker — a correctly-escaped page therefore does not match, unlike a bare marker search. Only the families where that proves something are leads here: XSS and SQLi (reflection) and CRLF (confirmed when the injected header comes back in the response headers). SSTI, command injection and traversal prove nothing by an echo and are confirmed by their own passes (the arithmetic oracle and OAST), so they are not reported from a reflection. Injection is spec-shaped: payloads go into GET query + path params (always) and POST/PUT/PATCH JSON body fields (only with writes on), values keep a valid prefix for typed/enum/formatted params, and the operation's other required params are filled with spec-valid baselines so the payload reaches the sink. A reflection seen ONLY in a 4xx is dropped (the framework echoing input it rejected); a 5xx is kept.",
     checks: [
       {
         name: "Cross-Site Scripting (XSS)",
@@ -210,63 +210,67 @@ export const GROUPS: CheckGroup[] = [
         owasp: "CWE-74",
         confidence: "heuristic",
         signal:
-          "Reflects <aidxMARKER>, svg/onload, img/onerror and javascript: payloads into query, path and JSON body parameters and looks for the marker in the body.",
+          "Sends markup-breaking payloads (<aidxMARKER>, svg/onload, img/onerror) into query, path and JSON body parameters; fires only when an unescaped <, >, \" or ' from the payload survives beside the marker in the response's context.",
         caveat:
-          "The marker is alphanumeric, so correctly HTML-escaped output still matches. No output-context or encoding analysis.",
-        source: "engine/payloads.py · engine/payload_corpus.py · checks/injection.py",
+          "A reflection proves input reaches the response unescaped, not that it executes. Attribute-context and scheme-only (javascript:) vectors are out of scope — they need a context the body reflection cannot see.",
+        source: "engine/payloads.py · engine/injection_probe.py · checks/injection.py",
       },
       {
         name: "SQL injection (SQLi)",
         owasp: "CWE-74",
         confidence: "heuristic",
         signal:
-          "Echo probes only — OR / UNION / stacked-statement payloads, flagged when the marker is reflected.",
+          "Quote-breaking OR / UNION / stacked-statement payloads, flagged when an unescaped quote from the payload survives in the response.",
         caveat:
-          "No error-based, boolean-based, time-based or UNION verification. Reflection alone is not evidence of SQL injection.",
-        source: "engine/payloads.py",
+          "No error-based, boolean-based, time-based or UNION verification. A surviving quote is a lead that input is not escaped, not evidence of SQL injection.",
+        source: "engine/payloads.py · engine/injection_probe.py",
       },
       {
         name: "Server-Side Template Injection (SSTI)",
         owasp: "CWE-74",
         confidence: "heuristic",
-        signal: "Sends {{marker}} and ${{marker}} and looks for the marker back.",
+        signal:
+          "Confirmed by evaluation, not reflection: the opt-in independent-injection pass sends an arithmetic expression and flags only when it is computed (e.g. a*b appears, the literal expression does not).",
         caveat:
-          "Detects reflection, not template evaluation. A real SSTI signal is arithmetic being evaluated (7*7 → 49); that is not tested.",
-        source: "engine/payloads.py",
+          "A bare echo of {{...}} is not reported — a reflected template expression is the opposite of an evaluated one. Needs the confirm pass; absent it, SSTI is not flagged.",
+        source: "engine/independent_injection.py · engine/payloads.py",
       },
       {
         name: "Command injection",
         owasp: "CWE-74",
         confidence: "heuristic",
-        signal: "Sends ;echo marker and |echo marker, flagged on reflection.",
+        signal:
+          "Confirmed out-of-band only: the OOB pass flags a command payload when the target calls back to the OAST collector.",
         caveat:
-          "Any endpoint that echoes its input matches. No out-of-band or timing confirmation.",
-        source: "engine/payloads.py",
+          "A reflected ;echo payload is inert text and is not reported — command execution cannot be proven by an echo. Needs a live OAST collector.",
+        source: "engine/checks/oob_injection.py · engine/payloads.py",
       },
       {
         name: "Path traversal",
         owasp: "CWE-74",
         confidence: "heuristic",
         signal:
-          "Sends ../../marker and its URL-encoded form, flagged on reflection.",
-        caveat: "Reflection is not evidence that a file was read.",
-        source: "engine/payloads.py",
+          "Confirmed out-of-band only (remote file include): the OOB pass flags a traversal/RFI payload when the target fetches the OAST URL.",
+        caveat:
+          "A reflected ../ sequence is not reported — it is not evidence a file was read. Local traversal with a file-content oracle is out of scope.",
+        source: "engine/checks/oob_injection.py · engine/payloads.py",
       },
       {
         name: "CRLF injection",
         owasp: "CWE-74",
-        confidence: "heuristic",
-        signal: "Sends an encoded CRLF header payload, flagged on body reflection.",
+        confidence: "verified",
+        signal:
+          "Sends an encoded CRLF header payload and flags only when the injected header comes back among the response headers — a real response split, not a body echo.",
         caveat:
-          "Checks the body, not whether the response headers actually split — the signal a real CRLF test needs.",
-        source: "engine/payloads.py",
+          "Confirmed by the response headers, so body-only reflection of the sequence is not reported.",
+        source: "engine/payloads.py · engine/injection_probe.py · checks/injection.py",
       },
     ],
   },
   {
     title: "Injection — signature & error leads",
     blurb:
-      "A second reflection tier for query-language classes, drawing benign marker-carrying payloads from PayloadsAllTheThings and backend error regexes from FuzzDB. One payload per class per scan, seeded so repeated scans rotate. Sinks match the reflection probes above (GET query + path params always; POST/PUT/PATCH JSON body fields only with writes on), with the same spec-shaped values. A backend error signature is medium (the payload reached the interpreter); bare marker reflection is low.",
+      "A second reflection tier for query-language classes, drawing benign marker-carrying payloads from PayloadsAllTheThings and backend error regexes from FuzzDB. One payload per class per scan, seeded so repeated scans rotate. Sinks match the reflection probes above (GET query + path params always; POST/PUT/PATCH JSON body fields only with writes on), with the same spec-shaped values. A backend error signature is medium (the payload reached the interpreter); a reflection-only lead is low and, like the reflection probes, requires a payload character the response context would have to encode to survive — a correctly-escaped echo is not a lead. A 4xx reflection is dropped; a 5xx is kept.",
     checks: [
       {
         name: "XPath injection",

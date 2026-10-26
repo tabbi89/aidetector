@@ -60,6 +60,12 @@ class CoverageRecorder:
         )
         #: operation id -> {check key -> request count}. What the report renders.
         self.per_operation: dict[str, dict[str, int]] = {}
+        #: operation id -> {"responses": total, "ok": 2xx count}. Lets the report
+        #: say an endpoint was *exercised* (a request actually succeeded), not
+        #: merely *reached* — an endpoint that only ever answered 401/404/422 was
+        #: probed with the wrong auth, path or body and its "0 findings" is not a
+        #: clean result.
+        self.outcomes: dict[str, dict[str, int]] = {}
 
     def operation_id(self, method: str, path: str) -> str | None:
         """The operation a request targeted, or None when nothing matches."""
@@ -82,3 +88,17 @@ class CoverageRecorder:
         bucket = self.per_operation.setdefault(op_id, {})
         key = check or "?"
         bucket[key] = bucket.get(key, 0) + 1
+
+    def note_result(self, method: str, path: str, status: int) -> None:
+        """Record one response's outcome against the operation it targeted.
+
+        Best-effort like :meth:`operation_id`: a request that matches no template
+        (a traversal payload, a discovered path) is simply not counted here.
+        """
+        op_id = self.operation_id(method, path)
+        if op_id is None:
+            return
+        bucket = self.outcomes.setdefault(op_id, {"responses": 0, "ok": 0})
+        bucket["responses"] += 1
+        if 200 <= status < 300:
+            bucket["ok"] += 1

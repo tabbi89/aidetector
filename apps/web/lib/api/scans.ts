@@ -179,6 +179,13 @@ export interface CoverageRow {
   path: string;
   enabled: boolean;
   requests: number;
+  /** Responses received, and how many were 2xx. `exercised` is true when the
+   * endpoint was reached and answered successfully at least once — a row with
+   * requests > 0 but exercised false was probed with the wrong auth, path or
+   * body, so its findings count is inconclusive. */
+  responses: number;
+  ok: number;
+  exercised: boolean;
   checks: string[];
   findings: number;
 }

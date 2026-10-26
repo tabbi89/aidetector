@@ -1,0 +1,23 @@
+{
+  "target": "VAmPI (erev0s/VAmPI, vulnerable mode)",
+  "source": "https://github.com/erev0s/VAmPI — run with vulnerable=1",
+  "note": "Ground truth curated from the project's documented weaknesses. Routes are VAmPI's real paths; refine against the running instance's spec. OWASP ids use the 2023 set the engine emits.",
+  "expected": [
+    {"owasp_id": "API3:2023", "method": "GET", "route": "/users/v1/_debug",
+     "check": "data_exposure", "note": "debug endpoint returns every user incl. password"},
+    {"owasp_id": "API1:2023", "method": "GET", "route": "/users/v1/{username}",
+     "note": "any user's record readable by any identity (BOLA)"},
+    {"owasp_id": "API1:2023", "method": "PUT", "route": "/users/v1/{username}/email",
+     "note": "update another user's email (BOLA write)"},
+    {"owasp_id": "API1:2023", "method": "PUT", "route": "/users/v1/{username}/password",
+     "note": "change another user's password (BOLA write)"},
+    {"owasp_id": "API1:2023", "method": "GET", "route": "/books/v1/{book_title}",
+     "note": "retrieve another user's private book secret (BOLA)"},
+    {"owasp_id": "API6:2023", "method": "POST", "route": "/users/v1/register",
+     "check": "mass_assignment", "note": "register honours a client-set admin flag"},
+    {"owasp_id": "API2:2023", "method": "POST", "route": "/users/v1/login",
+     "note": "broken auth: weak JWT / no lockout"},
+    {"owasp_id": "CWE-74", "method": "GET", "route": "/users/v1/{username}",
+     "note": "SQL injection in the username lookup (vulnerable mode)"}
+  ]
+}

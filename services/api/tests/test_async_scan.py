@@ -95,9 +95,62 @@ def test_run_records_per_endpoint_coverage(client, db_session, make_scan, engine
     assert "reflected_injection" in search["checks"]
     assert search["findings"] >= 1  # vulnapp reflects q
 
-    # the coverage endpoint serves the same rows
+    # /search answers 200, so it was *exercised*, not merely reached.
+    assert search["ok"] > 0
+    assert search["responses"] >= search["ok"]
+    assert search["exercised"] is True
+
+    # the coverage endpoint serves the same rows, carrying the outcome fields
     api_cov = client.get(f"/scans/{scan.id}/coverage").json()
     assert {(r["method"], r["path"]) for r in api_cov} == set(cov)
+    api_search = next(r for r in api_cov if (r["method"], r["path"]) == ("GET", "/search"))
+    assert api_search["exercised"] is True
+
+
+def test_coverage_marks_an_endpoint_reached_but_never_answered_as_unexercised():
+    """An endpoint the engine hit but that only ever answered 4xx was probed with
+    the wrong auth/path/body — its "0 findings" is inconclusive, and the report
+    must say so (exercised=False) rather than reading as clean."""
+    from dataclasses import dataclass
+
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+    from fastapi.testclient import TestClient
+
+    from app.engine.base import HttpProbe, TargetOperation
+    from app.engine.run_record import build_coverage
+
+    app = FastAPI()
+
+    @app.get("/locked")
+    def locked():
+        return JSONResponse({"detail": "forbidden"}, status_code=403)
+
+    op = TargetOperation(id="op-locked", method="GET", path="/locked")
+    probe = HttpProbe(TestClient(app), operations=[op])
+    assert probe.send("GET", "/locked").status == 403
+
+    @dataclass
+    class _Op:
+        id: str
+        method: str
+        path: str
+        enabled: bool = True
+
+    @dataclass
+    class _ScanStub:
+        operations: list
+        findings: list
+
+    rows = build_coverage(
+        _ScanStub(operations=[_Op("op-locked", "GET", "/locked")], findings=[]),
+        probe,
+    )
+    row = rows[0]
+    assert row["requests"] >= 1
+    assert row["responses"] >= 1
+    assert row["ok"] == 0
+    assert row["exercised"] is False
 
 
 def test_confirm_tools_are_opt_in(db_session, monkeypatch, make_scan, engine_client):

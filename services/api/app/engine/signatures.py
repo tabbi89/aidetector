@@ -58,7 +58,11 @@ _XPATH = SignatureClass(
     payloads=(
         "aidx{m}']",
         "' or aidx{m}='aidx{m}",
-        "count(//aidx{m})",
+        # Carries a quote like the others on purpose: the reflection-only tier
+        # fires only on a metacharacter the response context would neutralise
+        # (``Attempt.injected``), so a quote-free probe would make this class's
+        # *presence* depend on which payload the seed drew — churning the diff.
+        "count(//aidx{m}')",
     ),
     error_signatures=_rx(
         r"XPathException",

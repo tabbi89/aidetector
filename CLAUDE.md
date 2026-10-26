@@ -296,6 +296,19 @@ Key invariants, all deliberate:
   output, and only one is good news. `tests/test_detection_matrix.py` fails if a
   check neither runs nor explains itself. Write the reason so the fix is obvious
   ("no url-shaped parameter in the spec"), not so it is merely true.
+- **The same "we never looked" trap, per endpoint.** `build_coverage` records,
+  beside each operation's request count, its response outcomes (`responses`,
+  `ok`) and `exercised` — reached *and* answered ≥1 2xx. An enabled endpoint the
+  engine hit but that only ever returned 401/404/422 was probed with the wrong
+  auth, path or body, so its "0 findings" is inconclusive, not clean; the report
+  and diff say so (`CoverageRow`, surfaced in `RunInsights`). Counted in
+  `engine/coverage.py:CoverageRecorder.note_result`, which stays observational.
+- **Reachability is checked before the budget is spent.** `_run_engine_checks`
+  calls `engine/preflight.py` first: a few safe GETs, and if *nothing* answers
+  (origin down/unreachable) it emits `target_unreached` and stops the run before
+  it wastes ~750 requests. It aborts only on the unambiguous no-answer case — any
+  answer (even errors everywhere) proceeds to the full run and the richer
+  post-hoc `engine/target_health` diagnosis. Pure, so both lanes share it.
 - **`HttpProbe` enforces a 750-request budget per scan.** Past the cap, `send()`
   returns `None` and checks stop silently. Any new check must handle a `None`
   probe result.
@@ -376,22 +389,34 @@ keep a bounded, redacted body sample; it is a different store with its own
 rules — see "The request trace" below.) The reflection family does
 **not**: `app/engine/payloads.py` and `app/engine/signatures.py` send a payload
 carrying a unique `aidx<hex>` marker and a finding fires when that marker comes
-back **with the payload's own text intact**. The marker is alphanumeric so it
-survives transport — which means it also survives HTML escaping, so the marker
-alone cannot tell a verbatim echo from a correctly escaped one.
-`injection_probe.Attempt.reflected` splits the payload at the marker and looks
-for `prefix + marker` or `marker + suffix`; escaping breaks both, because
-escaping is exactly what rewrites those characters. A percent-encoded payload
-must have *decoded* — `%0d%0a` returned verbatim is proof the target never did.
-A reflection proves input reaches the response, not that
-it executes — so "SQLi", "SSTI", "command injection", "traversal", "CRLF" and
-the `signature_injection` classes (XPath/LDAP/NoSQL/SSI/JSON) are reflection
-leads, not confirmations. `signature_injection` also matches FuzzDB-style backend error
-regexes: a match is a stronger lead (the payload reached the interpreter) but
-still not exploitation. It **drops a reflection seen only in a 4xx** — a
-validation envelope echoing the value it rejected is the framework's error
-handler, not a query layer, and every typed path parameter does it. The cut is
-at 4xx, not "any error": a 5xx means the payload got through.
+back **with a payload character the response's own context would have to encode
+still intact beside it**. The marker is alphanumeric so it survives transport —
+which means it also survives HTML escaping, so the marker alone cannot tell a
+verbatim echo from a correctly escaped one, and *reflection of the marker is not
+the signal*. `injection_probe.Attempt.reflected` splits the payload at the marker
+and finds the decoded sides (`prefix + marker` / `marker + suffix`) that survived;
+`Attempt.injected` then requires one of those surviving sides to carry a
+character active in the response's context (`response_context`: `< > " '` in
+HTML, a structural `" { } [ ]` in JSON — a `text/plain` body has none, so a
+reflection there is never a lead). Escaping rewrites exactly those characters, so
+a correctly-escaped page drops the signal; a percent-encoded payload must have
+*decoded* (`%0d%0a` returned verbatim is proof the target never did). **Which
+family a reflection can even be a lead for is an oracle, not a free-for-all**
+(`payloads.FAMILY_ORACLE`): `xss`/`sqli` are `reflection` (a surviving
+metacharacter is the evidence); `crlf` is `header` (a lead only when the injected
+header name comes back in the response *headers* — a verified split, not a body
+echo); `ssti` is `evaluate` (confirmed by the arithmetic oracle in
+`independent_injection` under `confirm`, never by an echo) and `cmdi`/`traversal`
+are `oob` (confirmed by `oob_injection`). So `reflected_injection` sends only the
+`reflection` and `header` families and never turns a bare echo of `{{...}}`,
+`;echo` or `../` into a finding. `signature_injection` (XPath/LDAP/NoSQL/SSI/JSON)
+also matches FuzzDB-style backend error regexes: a match is a stronger lead (the
+payload reached the interpreter) but still not exploitation; its reflection-only
+tier obeys the same `injected` rule, so its curated payloads each carry a
+context-active character to keep a class's *presence* stable across the per-scan
+rotation. Both checks **drop a reflection seen only in a 4xx** — a validation
+envelope echoing the value it rejected is the framework's error handler, not a
+query layer — and **keep a 5xx**: the payload got through and broke something.
 
 Three tiers of confidence now exist, and coverage copy must not blur them.
 They are **data, not just prose**: every finding carries a `confidence`
