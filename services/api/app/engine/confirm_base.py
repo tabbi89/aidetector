@@ -120,7 +120,7 @@ class LeadConfirmer:
         self._timeout = (
             self.default_timeout_seconds if timeout_seconds is None else timeout_seconds
         )
-        self._log = logging.getLogger(f"aidetector.{self.tool}")
+        self._log = logging.getLogger(f"runpentests.{self.tool}")
 
     # ---- hooks implemented per tool -------------------------------------
 

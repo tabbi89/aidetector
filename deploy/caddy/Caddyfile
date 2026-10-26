@@ -1,4 +1,4 @@
-# aidetector.com — the one public entry point. Web on /, the API on /api.
+# The one public entry point ({$SITE_DOMAIN}). Web on /, the API on /api.
 #
 # The site sits behind Cloudflare's proxy. The client address is taken from
 # CF-Connecting-IP only when the TCP peer is a Cloudflare edge (the ranges
@@ -37,11 +37,12 @@ www.{$SITE_DOMAIN} {
 		}
 	}
 
-	# The CLI's server is https://aidetector.com, not .../api: its requests
-	# (User-Agent runpentests-cli/… or legacy aidetector-cli/…) go to the API at the root. Paths under
+	# The CLI's server is the site root, not .../api: its requests
+	# (a User-Agent carrying runpentests-cli/…, also as a second product token
+	# in older builds) go to the API at the root. Paths under
 	# /api stay with handle_path above, which strips the prefix first.
 	@cli {
-		header_regexp User-Agent ^(runpentests|aidetector)-cli/
+		header_regexp User-Agent (^|\s)runpentests-cli/
 		not path /api/*
 	}
 	handle @cli {

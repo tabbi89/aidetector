@@ -66,7 +66,7 @@ from app.scans.operations import retarget_operations
 from app.scans.policy import require_target_allowed
 from app.scans.run_options import RunOptions
 
-log = logging.getLogger("aidetector.engine")
+log = logging.getLogger("runpentests.engine")
 
 
 def _build_oob_client() -> OobClient:

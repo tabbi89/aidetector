@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 #: query string only at the transport call. Everything upstream (identity
 #: matching in the trace, forged variants, refresh) treats it as one more auth
 #: header, and the trace redacts it by name like any other key.
-QUERY_KEY_HEADER_PREFIX = "X-Aidetector-Query-Apikey-"
+QUERY_KEY_HEADER_PREFIX = "X-Runpentests-Query-Apikey-"
 
 
 def wire_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:

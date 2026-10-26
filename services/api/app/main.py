@@ -24,7 +24,7 @@ from app.api.routes import (
 )
 from app.core.config import settings
 
-log = logging.getLogger("aidetector.api")
+log = logging.getLogger("runpentests.api")
 
 app = FastAPI(
     title="runpentests API",

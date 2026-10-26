@@ -44,7 +44,7 @@ from app.domain.enums import Confidence, Severity
 from app.engine.base import EngineFinding, ScanContext
 from app.engine.checks.misconfig import sweep_headers
 
-log = logging.getLogger("aidetector.tls")
+log = logging.getLogger("runpentests.tls")
 
 _WEAK_SIG_HASHES = {"md5", "sha1"}
 _WEAK_CIPHER_TOKENS = ("RC4", "3DES", "DES", "NULL", "EXPORT", "MD5", "ANON")

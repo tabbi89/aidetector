@@ -61,7 +61,7 @@ from app.scans.run_levels import LOCAL_REFUSED
 from app.scans.run_token import new_run_token, token_matches
 
 router = APIRouter(tags=["runner"])
-log = logging.getLogger("aidetector.runner.ingest")
+log = logging.getLogger("runpentests.runner.ingest")
 
 #: Passes a local run cannot perform; the claim refuses them when asked for
 #: explicitly (a scan level already leaves them out). Shared with the level

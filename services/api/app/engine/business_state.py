@@ -1,4 +1,4 @@
-"""Explicit business invariants from x-aidetector-workflows.
+"""Explicit business invariants from x-runpentests-workflows.
 
 No policy is inferred from a route name. Each scenario uses a fresh fixture,
 requires a successful normal workflow, observes persisted state, and tears down
@@ -55,7 +55,7 @@ def read_pointer(value: Any, pointer: str) -> Any:
 
 
 def configured(ctx) -> list[Workflow]:
-    raw = (ctx.spec or {}).get("x-aidetector-workflows", [])
+    raw = (ctx.spec or {}).get("x-runpentests-workflows", [])
     if not isinstance(raw, list):
         return []
     workflows = []
@@ -129,7 +129,7 @@ def run_workflows(ctx) -> list[EngineFinding]:
         return []
     findings = []
     workflows = configured(ctx)
-    if (ctx.spec or {}).get("x-aidetector-workflows") and not workflows:
+    if (ctx.spec or {}).get("x-runpentests-workflows") and not workflows:
         ctx.probe.test_cases.append(
             {
                 "check": "business_flow",

@@ -31,7 +31,7 @@ from app.engine.operations import TargetOperation
 #: Tool endpoints one Kali run calls; all of them failing means the service is down.
 KALI_PASSES = 6
 
-log = logging.getLogger("aidetector.engine")
+log = logging.getLogger("runpentests.engine")
 
 #: Emits a progress event: (stage, pct, message).
 Emit = Callable[[str, int, str], None]

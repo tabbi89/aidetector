@@ -86,9 +86,11 @@ run 'runpentests help <command>' for a command's flags and examples
 
 // Run executes one command line and returns the process exit code.
 func Run(ctx context.Context, args []string, env Env) int {
-	env.Getenv = config.CompatibleEnv(env.Getenv)
+	if env.Getenv == nil {
+		env.Getenv = func(string) string { return "" }
+	}
 	e := &env
-	api.UserAgent = "aidetector-cli/" + Version + " runpentests-cli/" + Version
+	api.UserAgent = "runpentests-cli/" + Version
 	if len(args) == 0 {
 		// Inside a project, a bare `runpentests` runs what its file describes.
 		if wd, err := e.workdir(); err == nil {

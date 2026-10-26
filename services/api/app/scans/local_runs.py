@@ -23,7 +23,7 @@ from app.models.event import ScanEvent
 from app.models.scan import Scan, ScanRun, ScanStatus
 from app.scans import agent_memory
 
-log = logging.getLogger("aidetector.local_runs")
+log = logging.getLogger("runpentests.local_runs")
 
 #: AI passes a local run performs on the service after its upload.
 POST_UPLOAD_AI: tuple[str, ...] = ("adjudicate", "security_review")

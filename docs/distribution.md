@@ -11,17 +11,33 @@ Celery workers, migrations, AI provider implementations, tests and environment
 files are not exported. Included scanner source is readable by image consumers.
 Production continues to use its private API/worker image.
 
+This guide lives outside `cli/docs` on purpose: everything there is compiled into
+the public binary.
+
 ## One-time setup
 
-1. Create a separate public distribution repository, such as
-   `tabbi89/runpentests-releases`, with an initial README commit. Do not copy source.
-2. Set source-repository Actions variable `DISTRIBUTION_REPOSITORY` to that
-   `owner/repository`. Optionally set `RUNNER_IMAGE` to a GHCR name without a tag
-   (default: `ghcr.io/<source-owner>/runpentests-runner`).
-3. Set Actions secret `DISTRIBUTION_TOKEN` to a token with contents write access
-   only to the distribution repository. The source repository's `GITHUB_TOKEN`
-   publishes the container with `packages:write`.
-4. GHCR creates new packages privately. After the first reviewed push, set the
+Everything public is published by the organization and a GitHub App, so no
+personal account appears on the release page, in the distribution repository's
+history or in the image.
+
+1. Create the GitHub organization and keep members' visibility private. Move this
+   source repository into it (it stays private). The workflow pushes the runner
+   with the source repository's own `GITHUB_TOKEN`, which can only write packages
+   to its owner's namespace, so the image lands at
+   `ghcr.io/<organization>/runpentests-runner` (or `RUNNER_IMAGE`, below).
+2. Create an **empty** public distribution repository in the organization, such
+   as `runpentests/runpentests` — no README, no source. The first publish writes
+   its README as the app, so no personal commit or push ever lands there.
+3. Create a GitHub App owned by the organization (no webhook; repository
+   permission **Contents: read and write**, nothing else) and install it on the
+   distribution repository only. Its name is what the release page shows
+   (`<app-slug>[bot]`). Generate a private key.
+4. In this source repository's Actions settings:
+   - variable `DISTRIBUTION_REPOSITORY` = `owner/repository` of step 2;
+   - variable `DISTRIBUTION_APP_ID` = the app's ID;
+   - secret `DISTRIBUTION_APP_PRIVATE_KEY` = the app's private key (PEM);
+   - optionally variable `RUNNER_IMAGE` = a GHCR name without a tag.
+5. GHCR creates new packages privately. After the first reviewed push, set the
    runner package's visibility to **public**. Repository visibility remains private.
    Validate an anonymous pull before making the CLI release public.
 
@@ -43,13 +59,10 @@ Archives include third-party license notices. Checksums cover every archive and 
 uploaded. Inspect that draft and publish it when ready. Prerelease versions
 should be marked as prereleases in the release editor.
 
-On a clean machine, download the matching CLI archive and `SHA256SUMS`, verify
-its checksum, extract the executable and place it on PATH. Confirm
-`runpentests version`, then configure `runpentests mcp` as in the CLI README.
-On the first scan, the CLI offers to pull the pinned runner. CI must pull the
-image recorded in `runner.json` beforehand. `--image` and
-`RUNPENTESTS_RUNNER_IMAGE` remain explicit overrides. Local development builds
-continue to use `make runner-image` and `runpentests-runner:latest`.
+Before publishing, check the draft the way a user will install it: follow
+[cli/docs/install.md](../cli/docs/install.md) on a clean machine, signed out of
+GHCR. Local development builds keep using `make runner-image` and
+`runpentests-runner:latest`.
 
 GHCR visibility: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
 

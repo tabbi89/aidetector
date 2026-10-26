@@ -287,7 +287,7 @@ def request(
         elif media == "multipart/form-data":
             if not isinstance(body, dict) or any(isinstance(v, dict | list) for v in body.values()):
                 raise ValueError("nested multipart encoding unsupported")
-            boundary = "aidetector-boundary"
+            boundary = "runpentests-boundary"
             parts = []
             for name, item in body.items():
                 if any(c in str(name) for c in '\r\n"'):

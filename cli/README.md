@@ -8,7 +8,8 @@ the full request log), runs the AI analysis and renders the reports.
 Go is **not** required on your machine: everything builds and tests in the official
 `golang:1.23` image.
 
-Public binary/image publishing is described in [docs/distribution.md](docs/distribution.md).
+Installing a release is described in [docs/install.md](docs/install.md); publishing one
+in [../docs/distribution.md](../docs/distribution.md).
 Release binaries use a matching, immutable GHCR runner image; development builds
 use the locally built image below. The MCP helper is part of the same binary.
 
@@ -64,7 +65,7 @@ flag that lets a run change target data.
 
 ```bash
 runpentests login --server http://127.0.0.1:8000 --no-key     # local dev, auth off
-runpentests login                                              # https://aidetector.com; prompts for the API key
+runpentests login                                              # https://runpentests.com; prompts for the API key
 
 ID=$(runpentests scan create --target https://api.example.com --spec openapi.json)
 runpentests cred add $ID --name alice --role user  --auth-type bearer     # secret: prompt
@@ -81,7 +82,7 @@ Everything below is the detail.
 ## The everyday form
 
 ```bash
-runpentests login                                        # once; the server defaults to https://aidetector.com
+runpentests login                                        # once; the server defaults to https://runpentests.com
 
 runpentests https://api.example.com                      # scan this API
 runpentests https://api.example.com ./my-project         # ...and read the code in ./my-project
@@ -168,7 +169,7 @@ sends anywhere is the spec's text, to your runpentests server, for the same auth
 
 | command | does |
 | --- | --- |
-| `login [--server URL] [--profile NAME]` / `logout` / `status` | save a server (default https://aidetector.com) as a profile, remove the current profile, and check the connection |
+| `login [--server URL] [--profile NAME]` / `logout` / `status` | save a server (default https://runpentests.com) as a profile, remove the current profile, and check the connection |
 | `profile list` · `profile use NAME` · `profile rm NAME --yes` | manage saved server profiles (one server and key each) |
 | `init [URL] [--spec FILE] [--yes] [--force]` | write an `runpentests.yml` shaped by the spec's auth (public, one key, or roles) |
 | `scans list [--target URL] [--full-ids]` · `show [ID]` · `rm ID --yes` | manage scans |
@@ -238,7 +239,7 @@ request budget stays. The full list is in [docs/safety.md](docs/safety.md).
 key, plus which profile is current. Save several and switch between them:
 
 ```bash
-runpentests login                                                    # profile "default", https://aidetector.com
+runpentests login                                                    # profile "default", https://runpentests.com
 runpentests login --server https://staging.example.com --profile staging
 runpentests profile list          # NAME, SERVER, KEY set/none; * marks the current one
 runpentests profile use staging   # make staging current
@@ -280,12 +281,3 @@ partly support it. Two tests keep it honest:
 
 Adding a run flag to the engine therefore means: one `RunOptions` field, one checkbox in
 `RunPanel`, and one entry in `RunFlags` (`internal/commands/run.go`).
-
-## Renamed from aidetector
-
-The executable is now `runpentests` and new project files are `runpentests.yml`.
-Existing `aidetector.yml` / `.yaml` files still load, after the new names.
-`RUNPENTESTS_*` environment variables take precedence over legacy `AIDETECTOR_*`
-variables. A new server override never inherits a legacy API key.
-Existing saved profiles are reused when no new runpentests config exists.
-The hosted server address remains configured independently of the product name.

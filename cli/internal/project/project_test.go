@@ -456,19 +456,17 @@ func TestFindLooksForEitherName(t *testing.T) {
 	}
 }
 
-func TestFindAcceptsLegacyNamesAndPrefersRunpentests(t *testing.T) {
-	for _, name := range []string{"aidetector.yml", "aidetector.yaml"} {
-		dir := t.TempDir()
-		write(t, dir, name, "target: https://old.example\n")
-		got, err := Find(dir)
-		if err != nil || got == nil || got.Target != "https://old.example" {
-			t.Fatalf("legacy project: %v, %v", got, err)
-		}
-		write(t, dir, FileName, "target: https://new.example\n")
-		got, err = Find(dir)
-		if err != nil || got == nil || got.Target != "https://new.example" {
-			t.Fatalf("canonical project must win: %v, %v", got, err)
-		}
+func TestFindPrefersYmlAndIgnoresOtherNames(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "aidetector.yml", "target: https://old.example\n")
+	if got, err := Find(dir); err != nil || got != nil {
+		t.Fatalf("a file under another name is not a project file: %v, %v", got, err)
+	}
+	write(t, dir, AltFileName, "target: https://alt.example\n")
+	write(t, dir, FileName, "target: https://new.example\n")
+	got, err := Find(dir)
+	if err != nil || got == nil || got.Target != "https://new.example" {
+		t.Fatalf("%s must win: %v, %v", FileName, got, err)
 	}
 }
 

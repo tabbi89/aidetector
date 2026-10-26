@@ -138,5 +138,5 @@ def hmac_probe_suite(
 
     # Invalid signature over the unchanged claims: a rejected control proving
     # the target does validate signatures before a time-claim result is trusted.
-    rejected = f"{encoded_header}.{encoded_payload}.aidetectorInvalidSignature"
+    rejected = f"{encoded_header}.{encoded_payload}.runpentestsInvalidSignature"
     return HmacProbeSuite(token, rejected, tuple(probes))

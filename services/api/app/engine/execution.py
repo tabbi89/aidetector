@@ -28,7 +28,7 @@ from app.engine.http_types import HttpClient
 from app.engine.journal import RunJournal
 from app.engine.probe import HttpProbe
 
-log = logging.getLogger("aidetector.engine.execution")
+log = logging.getLogger("runpentests.engine.execution")
 
 
 def prepare_credentials(

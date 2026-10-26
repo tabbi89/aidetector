@@ -37,8 +37,8 @@ const (
 	AltFileName = "runpentests.yaml"
 )
 
-// FileNames lists canonical names before compatibility names from earlier releases.
-var FileNames = []string{FileName, AltFileName, "aidetector.yml", "aidetector.yaml"}
+// FileNames lists the names a project file is found by, preferred first.
+var FileNames = []string{FileName, AltFileName}
 
 // maxFileBytes bounds the read: a project file is a few dozen lines.
 const maxFileBytes = 64 << 10

@@ -28,7 +28,7 @@ from app.scans.run_options import RunOptions
 # A scan already queued/running is skipped so schedules don't stack up.
 _BUSY = {ScanStatus.queued, ScanStatus.running}
 
-log = logging.getLogger("aidetector.scheduler")
+log = logging.getLogger("runpentests.scheduler")
 
 
 def due_scans(db: Session, now: datetime) -> list[Scan]:

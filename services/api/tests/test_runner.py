@@ -356,7 +356,7 @@ def test_a_server_refusal_marks_the_run_lost_and_stops_the_checks():
 
 
 def test_the_runner_link_identifies_as_the_cli_so_the_hosted_proxy_routes_it_to_the_api():
-    """Caddy routes both the legacy aidetector-cli/ and new runpentests-cli/ prefixes.
+    """Caddy routes the runpentests-cli/ User-Agent prefix to the API.
 
     httpx's default User-Agent landed every heartbeat on the web app, whose 404
     the runner read as a lost run while the API reaped the silent scan.
@@ -373,9 +373,7 @@ def test_the_runner_link_identifies_as_the_cli_so_the_hosted_proxy_routes_it_to_
     link = ServerLink("https://runpentests.example", "run-1", "tok", client=client)
     link.post("/heartbeat", {})
     link.get("/memory")
-    assert seen and all(
-        ua.startswith("aidetector-cli/") and "runpentests-cli/" in ua for ua in seen
-    )
+    assert seen and all(ua.startswith("runpentests-cli/") for ua in seen)
 
 
 def test_a_local_run_with_a_plan_scans_the_riskiest_operation_first(

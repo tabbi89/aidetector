@@ -248,7 +248,7 @@ def test_a_query_key_reaches_the_target_and_never_the_trace():
     probe.send("GET", "/items", headers=cred.headers())
 
     assert seen[0]["params"] == {"api_key": "s3cr3t"}
-    assert not any(k.lower().startswith("x-aidetector-query") for k in seen[0]["headers"])
+    assert not any(k.lower().startswith("x-runpentests-query") for k in seen[0]["headers"])
     row = probe.mutations[0]
     # The trace still knows who sent it, and holds no copy of the key.
     assert row["identity"] == "k"
@@ -377,7 +377,7 @@ def test_sqlmap_request_file_carries_a_query_key_in_the_query_only(tmp_path):
         raw = open(command[command.index("-r") + 1], newline="").read()
     first, *headers = raw.split("\r\n")
     assert first == "GET /items?q=1&api_key=s3cr3t HTTP/1.1"
-    assert not any(h.lower().startswith("x-aidetector-query") for h in headers)
+    assert not any(h.lower().startswith("x-runpentests-query") for h in headers)
     assert "s3cr3t" not in url  # the evidence URL never carries it
 
 

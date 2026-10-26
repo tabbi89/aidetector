@@ -77,7 +77,7 @@ def _forged_variants(ctx: ScanContext) -> list[_Variant]:
     variants: list[_Variant] = []
     seen_channels: set[tuple[AuthType, tuple[str, ...]]] = set()
     for cred in ctx.credentials:
-        headers = _headers_for(cred, f"aidetector-forged-{uuid.uuid4().hex[:8]}")
+        headers = _headers_for(cred, f"runpentests-forged-{uuid.uuid4().hex[:8]}")
         channel = (cred.auth_type, tuple(sorted(name.lower() for name in headers)))
         if headers and channel not in seen_channels:
             seen_channels.add(channel)
@@ -93,7 +93,7 @@ def _forged_variants(ctx: ScanContext) -> list[_Variant]:
             _Variant(
                 "random_token",
                 "a random, never-issued token was accepted",
-                {"Authorization": f"aidetector-forged-{uuid.uuid4().hex[:8]}"},
+                {"Authorization": f"runpentests-forged-{uuid.uuid4().hex[:8]}"},
             )
         )
     seen_tokens: set[str] = set()

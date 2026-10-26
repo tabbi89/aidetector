@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// On aidetector.com the API shares an origin with the web app, and the
+// On the hosted service the API shares an origin with the web app, and the
 // User-Agent prefix is what routes a CLI request to the API.
 func TestEveryRequestCarriesTheCLIUserAgent(t *testing.T) {
 	got := ""
@@ -18,12 +18,12 @@ func TestEveryRequestCarriesTheCLIUserAgent(t *testing.T) {
 	}))
 	defer srv.Close()
 	old := UserAgent
-	UserAgent = "aidetector-cli/test runpentests-cli/test"
+	UserAgent = "runpentests-cli/test"
 	defer func() { UserAgent = old }()
 	if err := New(srv.URL, "").Ready(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(got, "aidetector-cli/") || !strings.Contains(got, "runpentests-cli/") {
-		t.Fatalf("User-Agent = %q, want both legacy routing and the new CLI identity", got)
+	if !strings.HasPrefix(got, "runpentests-cli/") {
+		t.Fatalf("User-Agent = %q, want the runpentests-cli/ routing prefix", got)
 	}
 }

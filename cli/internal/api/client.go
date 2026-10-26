@@ -121,11 +121,10 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("server answered %d: %s", e.Status, e.Detail)
 }
 
-// UserAgent identifies the CLI on every request. On aidetector.com the API
+// UserAgent identifies the CLI on every request. On the hosted service the API
 // shares an origin with the web app, and this prefix is what routes a request
 // for /scans to the API instead of the page (deploy/caddy/Caddyfile).
-// Keep the legacy routing prefix until existing proxies are upgraded.
-var UserAgent = "aidetector-cli/dev runpentests-cli/dev"
+var UserAgent = "runpentests-cli/dev"
 
 // Client talks to one server with one API key.
 type Client struct {

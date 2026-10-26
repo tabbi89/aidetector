@@ -22,7 +22,7 @@ from app.specs.parser import (
     spec_warnings,
 )
 
-log = logging.getLogger("aidetector.service")
+log = logging.getLogger("runpentests.service")
 
 
 #: Path-item keys that are OpenAPI metadata rather than operations.

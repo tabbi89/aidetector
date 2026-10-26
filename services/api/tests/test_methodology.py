@@ -101,7 +101,7 @@ def test_workflow_rejects_out_of_scope_steps_and_insufficient_budget():
     ctx, rows = workflow_context(budget=12)
     assert run_workflows(ctx) == []
     assert ctx.probe.count == 0 and rows == {}
-    ctx.spec["x-aidetector-workflows"][0]["transitions"][0]["path"] = "https://elsewhere.invalid"
+    ctx.spec["x-runpentests-workflows"][0]["transitions"][0]["path"] = "https://elsewhere.invalid"
     assert run_workflows(ctx) == []
     assert ctx.probe.count == 0
 

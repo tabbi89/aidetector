@@ -38,7 +38,7 @@ from app.agent.source import SourceIndex
 from app.engine.base import ScanContext
 from app.engine.journal import RunJournal
 
-log = logging.getLogger("aidetector.agent.loop")
+log = logging.getLogger("runpentests.agent.loop")
 
 #: Engine checks whose leads a confirmation tool (sqlmap) can follow up.
 _INJECTION_LEADS = frozenset({"reflected_injection", "signature_injection"})

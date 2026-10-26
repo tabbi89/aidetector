@@ -4,7 +4,7 @@ Schema context is **local-only**. The server never connects to a target database
 
 Migration `0052` adds `scan_runs.schema_context` and drops `database_connections` together with the encrypted passwords it held (the downgrade recreates an empty table; the secrets are gone by design). Run `alembic upgrade head` in `services/api`. There are no `DB_SCHEMA_*` settings and nothing to configure on the server or worker for schema access.
 
-## `aidetector.yml`
+## `runpentests.yml`
 
 ```yaml
 schema:

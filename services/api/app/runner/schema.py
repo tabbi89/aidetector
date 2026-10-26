@@ -1,6 +1,6 @@
 """Read the project's database schema on the CLI machine — the only place it is read.
 
-The CLI passes the ``schema:`` block of ``aidetector.yml`` on stdin, password
+The CLI passes the ``schema:`` block of ``runpentests.yml`` on stdin, password
 included; this module runs the bounded metadata adapter against it and returns
 two things: the record uploaded with the run (structure or a fixed reason
 code — never the password, a DSN or a driver message) and the context the run's

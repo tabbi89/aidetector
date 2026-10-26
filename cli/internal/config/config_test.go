@@ -11,50 +11,25 @@ import (
 
 func noEnv(string) string { return "" }
 
-func TestBrandEnvironmentCompatibilityKeepsKeysWithTheirServer(t *testing.T) {
-	get := CompatibleEnv(env(map[string]string{
-		"AIDETECTOR_SERVER":       "https://old.example",
-		"AIDETECTOR_API_KEY":      "old-key",
-		"AIDETECTOR_SECRET_ALICE": "old-token",
-	}))
-	if get("RUNPENTESTS_SERVER") != "https://old.example" || get("RUNPENTESTS_API_KEY") != "old-key" || get("RUNPENTESTS_SECRET_ALICE") != "old-token" {
-		t.Fatal("legacy environment must remain usable")
-	}
-	get = CompatibleEnv(env(map[string]string{
-		"RUNPENTESTS_SERVER": "https://new.example",
+func TestOnlyTheRunpentestsEnvironmentIsRead(t *testing.T) {
+	got, err := Load(filepath.Join(t.TempDir(), "config.json"), env(map[string]string{
 		"AIDETECTOR_SERVER":  "https://old.example",
 		"AIDETECTOR_API_KEY": "old-key",
 	}))
-	if get("RUNPENTESTS_SERVER") != "https://new.example" || get("RUNPENTESTS_API_KEY") != "" {
-		t.Fatal("new server must not inherit an old namespace key")
-	}
-	get = CompatibleEnv(env(map[string]string{"RUNPENTESTS_API_KEY": "new-key", "AIDETECTOR_API_KEY": "old-key"}))
-	if get("RUNPENTESTS_API_KEY") != "new-key" {
-		t.Fatal("new namespace must win")
+	if err != nil || got.ServerFromEnv || got.APIKey != "" {
+		t.Fatalf("Load = %+v, %v; want no server or key from another namespace", got, err)
 	}
 }
 
-func TestBrandConfigReusesSavedProfilesWithoutCreatingSecretCopies(t *testing.T) {
+func TestConfigLivesInTheRunpentestsDirectory(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("XDG config layout is Unix-specific")
 	}
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	legacy := filepath.Join(dir, "aidetector", "config.json")
-	if err := Save(legacy, twoProfiles()); err != nil {
-		t.Fatal(err)
-	}
 	got, err := Path("")
-	if err != nil || got != legacy {
-		t.Fatalf("existing profiles: %q, %v", got, err)
-	}
-	current := filepath.Join(dir, "runpentests", "config.json")
-	if err := Save(current, Store{}); err != nil {
-		t.Fatal(err)
-	}
-	got, err = Path("")
-	if err != nil || got != current {
-		t.Fatalf("new config must win: %q, %v", got, err)
+	if want := filepath.Join(dir, "runpentests", "config.json"); err != nil || got != want {
+		t.Fatalf("Path = %q, %v; want %q", got, err, want)
 	}
 }
 

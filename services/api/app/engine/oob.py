@@ -31,7 +31,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-log = logging.getLogger("aidetector.oob")
+log = logging.getLogger("runpentests.oob")
 
 # A bare hostname line (the session callback domain interactsh prints at startup).
 _DOMAIN_RE = re.compile(

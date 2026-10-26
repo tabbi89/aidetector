@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,26 @@ import yaml
 from scripts.package_runner import export
 
 API_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = API_ROOT.parents[1]
+
+
+def _repo_root() -> Path:
+    """The checkout: ``AIDETECTOR_REPO_ROOT`` (the api container mounts it there),
+    else the nearest ancestor holding the workflows. Inside the container the api
+    root is ``/app``, which has no checkout above it."""
+    override = os.getenv("AIDETECTOR_REPO_ROOT", "").strip()
+    candidates = ([Path(override)] if override else []) + list(API_ROOT.parents)
+    for candidate in candidates:
+        if (candidate / ".github" / "workflows" / "distribution.yml").is_file():
+            return candidate
+    reason = "no repository checkout is visible (set AIDETECTOR_REPO_ROOT)"
+    if os.getenv("CI") or os.getenv("TEST_REQUIRE_DB"):
+        pytest.fail(reason)
+    pytest.skip(reason)
+
+
+@pytest.fixture
+def repo_root() -> Path:
+    return _repo_root()
 
 
 def test_export_contains_scanner_and_no_server_or_secret_files(tmp_path):
@@ -77,9 +97,9 @@ def test_scanner_dependency_pins_match_the_api():
     )
 
 
-def test_publication_is_manual_and_never_uses_the_source_repo_for_releases():
+def test_publication_is_manual_and_never_uses_the_source_repo_for_releases(repo_root):
     workflow = yaml.load(
-        (REPO_ROOT / ".github/workflows/distribution.yml").read_text(), Loader=yaml.BaseLoader
+        (repo_root / ".github/workflows/distribution.yml").read_text(), Loader=yaml.BaseLoader
     )
     assert set(workflow["on"]) == {"workflow_dispatch"}
     assert workflow["on"]["workflow_dispatch"]["inputs"]["publish"]["default"] == "false"
@@ -89,18 +109,21 @@ def test_publication_is_manual_and_never_uses_the_source_repo_for_releases():
     command = publish["steps"][-1]["run"]
     assert '--repo "$RELEASE_REPOSITORY" --draft' in command
     assert "git archive" not in command
-    for job in ("verify", "runner", "cli"):
-        assert "DISTRIBUTION_TOKEN" not in str(workflow["jobs"][job])
+    # The release is authored by the organization's app, not a personal token.
+    assert publish["steps"][-1]["env"]["GH_TOKEN"] == "${{ steps.app.outputs.token }}"
+    assert "DISTRIBUTION_TOKEN" not in str(workflow)
+    for job in ("prepare", "verify", "runner", "cli"):
+        assert "DISTRIBUTION_APP_PRIVATE_KEY" not in str(workflow["jobs"][job])
 
 
-def test_release_builder_rejects_unversioned_images_and_shell_inputs():
+def test_release_builder_rejects_unversioned_images_and_shell_inputs(repo_root):
     spec = importlib.util.spec_from_file_location(
-        "cli_release", REPO_ROOT / "scripts/build_cli_release.py"
+        "cli_release", repo_root / "scripts/build_cli_release.py"
     )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    digest = "ghcr.io/example/aidetector-runner@sha256:" + "a" * 64
+    digest = "ghcr.io/example/runpentests-runner@sha256:" + "a" * 64
     module.validate("v1.2.3-rc.1", digest)
     for version, image in [
         ("main", digest),

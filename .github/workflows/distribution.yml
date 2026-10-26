@@ -27,6 +27,8 @@ jobs:
     outputs:
       image: ${{ steps.config.outputs.image }}
       repository: ${{ steps.config.outputs.repository }}
+      owner: ${{ steps.config.outputs.owner }}
+      repository_name: ${{ steps.config.outputs.repository_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,7 +61,8 @@ jobs:
               if tag != head:
                   raise SystemExit('Release tag must point to this exact checkout')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f'image={image}\nrepository={repository}\n')
+              owner, _, name = repository.partition('/')
+              output.write(f'image={image}\nrepository={repository}\nowner={owner}\nrepository_name={name}\n')
           PY
 
   verify:
@@ -157,14 +160,41 @@ jobs:
         with:
           name: cli-release
           path: release
+      - name: Check the publishing app is configured
+        env:
+          APP_ID: ${{ vars.DISTRIBUTION_APP_ID }}
+          APP_KEY_SET: ${{ secrets.DISTRIBUTION_APP_PRIVATE_KEY != '' }}
+        run: |
+          test -n "$APP_ID" && test "$APP_KEY_SET" = true || {
+            echo 'Set DISTRIBUTION_APP_ID and DISTRIBUTION_APP_PRIVATE_KEY (docs/distribution.md)'; exit 1; }
+      # An installation token for the organization's app, scoped to the one
+      # distribution repository: the release and its README are authored by the
+      # app, never by the person who ran this workflow.
+      - uses: actions/create-github-app-token@v1
+        id: app
+        with:
+          app-id: ${{ vars.DISTRIBUTION_APP_ID }}
+          private-key: ${{ secrets.DISTRIBUTION_APP_PRIVATE_KEY }}
+          owner: ${{ needs.prepare.outputs.owner }}
+          repositories: ${{ needs.prepare.outputs.repository_name }}
       - name: Create draft public distribution release
         env:
-          GH_TOKEN: ${{ secrets.DISTRIBUTION_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           RELEASE_REPOSITORY: ${{ needs.prepare.outputs.repository }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          test -n "$GH_TOKEN" || { echo 'Set DISTRIBUTION_TOKEN with contents:write on the distribution repository'; exit 1; }
           test "$(gh api "repos/$RELEASE_REPOSITORY" --jq .visibility)" = public
+          # An empty repository has no commit to tag: the first publish writes
+          # the README as the app.
+          status=$(gh api "repos/$RELEASE_REPOSITORY/commits?per_page=1" --include 2>/dev/null | head -1 | cut -d' ' -f2 || true)
+          if [ "$status" = 409 ]; then
+            printf '%s\n' '# runpentests' '' \
+              'Release downloads for the runpentests CLI. See the latest release for' \
+              'the archives, `SHA256SUMS` and `runner.json`.' \
+              | base64 -w0 > /tmp/readme.b64
+            gh api -X PUT "repos/$RELEASE_REPOSITORY/contents/README.md" \
+              -f message='Add README' -F content=@/tmp/readme.b64 >/dev/null
+          fi
           cd release
           sha256sum --check SHA256SUMS
           printf '%s\n' 'CLI binaries include the MCP setup helper (runpentests mcp).' 'runner.json records the immutable runner image for this release.' > /tmp/release-notes.md

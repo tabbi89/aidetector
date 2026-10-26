@@ -42,7 +42,7 @@ from typing import Any
 from app.domain.enums import Confidence, Severity
 from app.engine.base import EngineFinding
 
-log = logging.getLogger("aidetector.agent.sandbox")
+log = logging.getLogger("runpentests.agent.sandbox")
 
 #: Hardening every sandbox container runs with, whatever the tool.
 _HARDENING = (

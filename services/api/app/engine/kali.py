@@ -36,7 +36,7 @@ from typing import Any, Protocol
 from app.domain.enums import Confidence, Severity
 from app.engine.base import EngineFinding
 
-log = logging.getLogger("aidetector.kali")
+log = logging.getLogger("runpentests.kali")
 
 # Cap on extra operation URLs passed to the tool passes, so a huge spec cannot
 # multiply the sidecar's workload unboundedly.

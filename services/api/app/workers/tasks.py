@@ -20,7 +20,7 @@ from app.scans.run_options import RunOptions
 from app.scans.scheduler import dispatch_due
 from app.workers.celery_app import celery
 
-log = logging.getLogger("aidetector.tasks")
+log = logging.getLogger("runpentests.tasks")
 
 
 def stamp_heartbeat(scan_id: uuid.UUID) -> None:

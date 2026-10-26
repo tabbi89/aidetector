@@ -10,8 +10,8 @@ import (
 func listedDomain(host string) map[string]any {
 	return map[string]any{
 		"id": "dddddddd-0000-0000-0000-00000000000a", "host": host, "token": "tok",
-		"dns_record_name": "_aidetector-challenge." + host, "dns_record_value": "aidetector-verify=tok",
-		"http_path": "/.well-known/aidetector-verify/tok", "http_url": "https://" + host + "/.well-known/aidetector-verify/tok",
+		"dns_record_name": "_runpentests-challenge." + host, "dns_record_value": "runpentests-verify=tok",
+		"http_path": "/.well-known/runpentests-verify/tok", "http_url": "https://" + host + "/.well-known/runpentests-verify/tok",
 		"verified_at": nil, "last_checked_at": nil, "last_error": nil, "last_checks": []any{},
 		"created_at": "2026-10-26T10:00:00Z",
 	}
@@ -37,8 +37,8 @@ func TestDomainsAddPrintsExactlyWhatToPublish(t *testing.T) {
 	}
 	out := h.out.String()
 	for _, want := range []string{
-		"_aidetector-challenge.api.example.com", "aidetector-verify=tok123",
-		"/.well-known/aidetector-verify/tok123", "runpentests domains verify api.example.com",
+		"_runpentests-challenge.api.example.com", "runpentests-verify=tok123",
+		"/.well-known/runpentests-verify/tok123", "runpentests domains verify api.example.com",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q:\n%s", want, out)

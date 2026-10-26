@@ -1,7 +1,7 @@
 """Fixed PostgreSQL catalog queries, pinned egress and enforceable call deadlines.
 
 Runs only inside the local runner, on the machine the user ran the
-``aidetector`` CLI from: the server never connects to a target database. It stays as
+``runpentests`` CLI from: the server never connects to a target database. It stays as
 strict as when it ran server-side — fixed catalog queries in a read-only
 transaction, one vetted address, hard deadlines, bounded output — because the
 runner is still our code holding the user's password.
@@ -172,7 +172,7 @@ async def read_schema(
                 # the clear; refuse that method so it can only be challenged.
                 require_auth="!password" if config.sslmode == "disable" else None,
                 connect_timeout=3,
-                application_name="aidetector-schema",
+                application_name="runpentests-schema",
                 options="-c search_path=pg_catalog -c default_transaction_read_only=on "
                 "-c statement_timeout=1500 -c lock_timeout=500 "
                 "-c idle_in_transaction_session_timeout=3000",

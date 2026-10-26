@@ -34,7 +34,7 @@ from app.engine.resource_map import (
 from app.engine.resource_proposal import proposal_payload, request_schema, validate_body
 from app.engine.spec_values import base_value
 
-log = logging.getLogger("aidetector.engine")
+log = logging.getLogger("runpentests.engine")
 
 
 def _key(name: str) -> str:

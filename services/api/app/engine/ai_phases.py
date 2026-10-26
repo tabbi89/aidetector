@@ -28,7 +28,7 @@ from app.models.finding import Finding
 from app.models.ledger import TokenLedger
 from app.models.scan import Scan, ScanRun
 
-log = logging.getLogger("aidetector.engine")
+log = logging.getLogger("runpentests.engine")
 
 T = TypeVar("T")
 

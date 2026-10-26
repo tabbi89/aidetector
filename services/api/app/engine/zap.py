@@ -31,7 +31,7 @@ from urllib.parse import urlsplit, urlunsplit
 from app.domain.enums import Confidence, Severity
 from app.engine.base import EngineFinding
 
-log = logging.getLogger("aidetector.zap")
+log = logging.getLogger("runpentests.zap")
 
 # Cap on seeded operation URLs so a huge spec cannot queue unbounded spiders.
 _MAX_SEED_URLS = 20

@@ -2,10 +2,10 @@
 
 Two proofs, because each answers a different question:
 
-- **DNS TXT** at ``_aidetector-challenge.<host>`` proves control of the *name*.
+- **DNS TXT** at ``_runpentests-challenge.<host>`` proves control of the *name*.
   It is not enough alone: whoever owns ``attacker.com`` may point
   ``victim.attacker.com`` at someone else's address, and the TXT check passes.
-- **An HTTP token** at ``/.well-known/aidetector-verify/<token>``, fetched from
+- **An HTTP token** at ``/.well-known/runpentests-verify/<token>``, fetched from
   the exact address the scan will connect to, proves control of the *machine
   that answers*. Someone else's server does not serve our token, which is what
   defeats pointing a name you own at an address you don't.
@@ -29,9 +29,9 @@ import httpx
 from app.core.pinning import PinnedTransport, PinPolicy, canonical_host, url_host
 from app.core.target_guard import TargetNotAllowed, check_resolved
 
-DNS_LABEL = "_aidetector-challenge"
-TXT_PREFIX = "aidetector-verify="
-WELL_KNOWN = "/.well-known/aidetector-verify/"
+DNS_LABEL = "_runpentests-challenge"
+TXT_PREFIX = "runpentests-verify="
+WELL_KNOWN = "/.well-known/runpentests-verify/"
 #: A token response is one line; anything longer is not ours.
 _MAX_BODY = 4096
 _TXT_TYPE = 16

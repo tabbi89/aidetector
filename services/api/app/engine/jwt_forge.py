@@ -140,12 +140,12 @@ def forge_from_token(token: str) -> list[ForgedToken]:
         ForgedToken(
             "sig_tampered",
             "a token with an invalid (garbage) signature was accepted",
-            _encode(header, payload, "aidetectorInvalidSignature"),
+            _encode(header, payload, "runpentestsInvalidSignature"),
         ),
         ForgedToken(
             "claims_tampered",
             "a token with elevated claims and a broken signature was accepted",
-            _encode(header, tampered_claims, "aidetectorInvalidSignature"),
+            _encode(header, tampered_claims, "runpentestsInvalidSignature"),
         ),
         ForgedToken(
             "alg_none_case",
@@ -233,5 +233,7 @@ def forge_jku(token: str, jku_url: str) -> ForgedToken | None:
         "jku_injection",
         "a token whose jku header pointed at an attacker-controlled host was "
         "honored (the target fetched it)",
-        _encode({**header, "jku": jku_url}, _bump_privilege(payload), "aidetectorInvalidSignature"),
+        _encode(
+            {**header, "jku": jku_url}, _bump_privilege(payload), "runpentestsInvalidSignature"
+        ),
     )

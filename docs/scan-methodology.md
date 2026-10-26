@@ -19,7 +19,7 @@ being converted to a GET query.
 ## Business state
 
 An OpenAPI document can declare explicit workflows under
-`x-aidetector-workflows`. A workflow names setup, transitions, an observation
+`x-runpentests-workflows`. A workflow names setup, transitions, an observation
 JSON pointer, the expected normal state, cleanup, and bounded scenarios for
 skipping, replaying, or switching identities. Each scenario runs against a
 fresh fixture after a successful normal control. Invalid or out-of-scope

@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-get purge -y git curl && apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=tools /out/ /usr/local/bin/
-COPY --from=tools /licenses/ /usr/share/doc/aidetector-go-tools/
+COPY --from=tools /licenses/ /usr/share/doc/runpentests-go-tools/
 COPY --from=source /export/app/ /app/app/
 # Smoke-test the exported tree, not the private checkout. Includes every check
 # and the optional local source/schema/adaptive imports.

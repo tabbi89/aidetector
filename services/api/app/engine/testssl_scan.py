@@ -28,7 +28,7 @@ from app.domain.enums import Confidence, Severity
 from app.engine.base import EngineFinding
 from app.engine.confirm_base import Execute, default_execute
 
-log = logging.getLogger("aidetector.testssl")
+log = logging.getLogger("runpentests.testssl")
 
 # testssl.sh severities → our ladder. INFO/LOW are skipped: a full sweep emits
 # dozens of informational lines that would drown the findings list. CRITICAL

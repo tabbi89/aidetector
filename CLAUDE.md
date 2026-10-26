@@ -172,7 +172,7 @@ code:
    unauthenticated (an `auth_grant_failed` event) rather than failing the scan.
    For a non-static grant the encrypted secret holds the grant's sensitive half
    (client_secret / password); the non-secret parameters live in `grant_params`.
-   The web form and `aidetector.yml` (`grant:`) both expose it.
+   The web form and `runpentests.yml` (`grant:`) both expose it.
    A key can also ride in the query string or a cookie (`auth_type` `query` /
    `cookie`, `header_name` naming the parameter or cookie; migration `0057`).
    A query key travels inside the engine as a pseudo-header
@@ -696,11 +696,11 @@ primitives → feature blocks. Every colour is a CSS custom property with a
 
 ### The CLI (`cli/`)
 
-**The everyday form is `aidetector URL [DIR]`** (`cli/internal/commands/target.go`), or bare
-`aidetector` inside a project with an `aidetector.yml` (`cli/internal/project`). It composes
+**The everyday form is `runpentests URL [DIR]`** (`cli/internal/commands/target.go`), or bare
+`runpentests` inside a project with a `runpentests.yml` (`cli/internal/project`). It composes
 the subcommands: consent first, then reuse the scan for that target (or create one), find a
 spec, upsert identities by name, run, and print the findings. Like `run`, it is always a
-local run (below); a DIR adds whitebox source (`--source` on `run`). `aidetector.yml` sets settings with precedence **flags > file > web >
+local run (below); a DIR adds whitebox source (`--source` on `run`). `runpentests.yml` sets settings with precedence **flags > file > web >
 defaults**, per setting. It never holds secrets (`secret_env` names an environment variable;
 secret-looking keys are refused) or consent (no `authorized` key, unknown keys refused). The
 CLI reports what the file owns via `PUT /scans/{id}/managed-config` → `Scan.managed_config`,
@@ -722,12 +722,12 @@ app. **Changing the API contract means `make cli-contract` then `make test-cli`,
 committing both.** The CLI keeps the product's safety posture: `run` answers the
 authorization gate before sending any request and refuses a non-interactive run without
 `--authorized`; secrets are never flags (prompt, `--key-stdin`, `--secret-stdin`, or
-`AIDETECTOR_API_KEY`); its config and reports are written `0600`.
+`RUNPENTESTS_API_KEY`); its config and reports are written `0600`.
 
 **`aidetector mcp`** (`internal/commands/mcp.go` over the hand-written stdio server in
 `internal/mcp`) is a setup helper for coding agents: it serves the user guides in
 `cli/docs/*.md` (embedded, and linked from `cli/README.md`) and tools that find the spec,
-draft `aidetector.yml` through `init`'s own `draftInitFile`, validate it with
+draft `runpentests.yml` through `init`'s own `draftInitFile`, validate it with
 `project.Parse`, and list the commands for the person to run. It deliberately has **no tool
 that runs a scan** (a tool call is not a person answering the authorization gate; a test
 pins the exact tool set), never handles a secret value, and confines every path to the
@@ -767,7 +767,7 @@ blocks cloud metadata. `ScanRun.executor` records who ran a run, and the diff fl
 `executor_changed` because a different vantage point can make a finding look fixed or new.
 
 **Database schema context is local-only** (`docs/database-schema-context.md`). It is a
-`schema:` block in `aidetector.yml` (password named by `password_env`), read only by the
+`schema:` block in `runpentests.yml` (password named by `password_env`), read only by the
 local runner (`app/runner/schema.py` → the bounded `app/db_schema/postgres.py` adapter) on the
 CLI machine; the password reaches the container on stdin like credential secrets. The runner
 uploads a structure-only snapshot with its results, re-validated by
@@ -826,8 +826,8 @@ suggestions:
 - **A public target is scanned only after its workspace proves ownership**
   (`app/scans/domains.clear_target`, `app/core/ownership.py`; migration `0055`,
   `/workspace/domains`). Proof is two-part on purpose: a DNS TXT record at
-  `_aidetector-challenge.<host>` (queried over DoH, never the local resolver)
-  proves the *name*, and an HTTP token at `/.well-known/aidetector-verify/<token>`
+  `_runpentests-challenge.<host>` (queried over DoH, never the local resolver)
+  proves the *name*, and an HTTP token at `/.well-known/runpentests-verify/<token>`
   fetched from the *pinned* address proves the machine — owning `attacker.com`
   lets anyone point `victim.attacker.com` at someone else's IP. The run, schedule
   and local-claim routes answer it, and the worker repeats it at scan start.

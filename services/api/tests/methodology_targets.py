@@ -321,13 +321,13 @@ def _soft_delete_workflow() -> dict:
 
 def workflow_spec():
     """The original approval workflow, kept for the focused workflow tests."""
-    return {"x-aidetector-workflows": [_approval_workflow()]}
+    return {"x-runpentests-workflows": [_approval_workflow()]}
 
 
 def expanded_workflow_specs():
     """The four-workflow benchmark corpus: approval, nested, bulk, restore."""
     return {
-        "x-aidetector-workflows": [
+        "x-runpentests-workflows": [
             _approval_workflow(),
             _nested_ownership_workflow(),
             _bulk_approval_workflow(),

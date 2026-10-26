@@ -24,7 +24,7 @@ from app.models.event import ScanEvent
 from app.models.finding import Finding
 from app.models.scan import Scan, ScanRun, ScanStatus
 
-log = logging.getLogger("aidetector.engine")
+log = logging.getLogger("runpentests.engine")
 
 #: External tools whose ``<tool>_skipped`` event means a requested pass did not
 #: run. Recorded on the run so the diff cannot count its findings as fixed.

@@ -60,7 +60,7 @@ def select_sqli_targets(findings: list[Any], *, max_targets: int = 5) -> list[di
 # sqlmap writes per-target session data (session.db, logs) under an output dir
 # that defaults to its cwd — which in the worker is /app (the mounted source
 # tree). Pin it to a temp path so scans never pollute the repo.
-_SQLMAP_OUTPUT_DIR = "/tmp/aidetector-sqlmap"  # noqa: S108 — scratch, not sensitive
+_SQLMAP_OUTPUT_DIR = "/tmp/runpentests-sqlmap"  # noqa: S108 — scratch, not sensitive
 
 
 def build_command(sqlmap_bin: str, url: str) -> list[str]:
@@ -104,7 +104,7 @@ class SqlmapConfirmer(LeadConfirmer):
     def target_command(self, target: dict[str, Any], url: str, stack: ExitStack) -> list[str]:
         if "request" not in target:
             return self.build_command(url)
-        folder = Path(stack.enter_context(TemporaryDirectory(prefix="aidetector-confirm-")))
+        folder = Path(stack.enter_context(TemporaryDirectory(prefix="runpentests-confirm-")))
         parsed = urlsplit(url)
         # The engine's own request path moves a query-string key out of its
         # pseudo-header at the transport call; this request file is the one

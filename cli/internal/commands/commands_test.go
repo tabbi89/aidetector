@@ -236,8 +236,8 @@ func (f *fake) handler() http.Handler {
 			_ = json.Unmarshal(buf.Bytes(), &in)
 			d := map[string]any{
 				"id": "dddddddd-0000-0000-0000-000000000001", "host": strings.ToLower(in.Host), "token": "tok123",
-				"dns_record_name": "_aidetector-challenge." + strings.ToLower(in.Host), "dns_record_value": "aidetector-verify=tok123",
-				"http_path": "/.well-known/aidetector-verify/tok123", "http_url": "https://" + strings.ToLower(in.Host) + "/.well-known/aidetector-verify/tok123",
+				"dns_record_name": "_runpentests-challenge." + strings.ToLower(in.Host), "dns_record_value": "runpentests-verify=tok123",
+				"http_path": "/.well-known/runpentests-verify/tok123", "http_url": "https://" + strings.ToLower(in.Host) + "/.well-known/runpentests-verify/tok123",
 				"verified_at": nil, "last_checked_at": nil, "last_error": nil, "last_checks": []any{}, "created_at": "2026-10-26T10:00:00Z",
 			}
 			if strings.Count(in.Host, ".") == 3 && strings.Trim(in.Host, "0123456789.") == "" {
@@ -1754,7 +1754,7 @@ func TestWithNoServerConfiguredTheClientUsesTheHostedService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Base() != config.DefaultServer || config.DefaultServer != "https://aidetector.com" {
-		t.Fatalf("base = %q, want %q", c.Base(), "https://aidetector.com")
+	if c.Base() != config.DefaultServer || config.DefaultServer != "https://runpentests.com" {
+		t.Fatalf("base = %q, want %q", c.Base(), "https://runpentests.com")
 	}
 }

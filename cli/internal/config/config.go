@@ -58,14 +58,7 @@ func Path(override string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("no user config directory: %w", err)
 	}
-	current := filepath.Join(dir, "runpentests", "config.json")
-	if _, err := os.Stat(current); errors.Is(err, os.ErrNotExist) {
-		legacy := filepath.Join(dir, "aidetector", "config.json")
-		if _, legacyErr := os.Stat(legacy); legacyErr == nil {
-			return legacy, nil
-		}
-	}
-	return current, nil
+	return filepath.Join(dir, "runpentests", "config.json"), nil
 }
 
 // ReadStore reads the saved profiles without applying the environment. A
@@ -106,7 +99,9 @@ func ReadStore(path string) (Store, error) {
 // Load reads the saved profiles, selects one and applies the environment. A
 // missing file is not an error: CI runs with the environment alone.
 func Load(path string, getenv func(string) string) (Config, error) {
-	getenv = CompatibleEnv(getenv)
+	if getenv == nil {
+		getenv = func(string) string { return "" }
+	}
 	st, err := ReadStore(path)
 	if err != nil {
 		return Config{}, err
@@ -145,26 +140,6 @@ func Load(path string, getenv func(string) string) (Config, error) {
 		c.APIKey = v
 	}
 	return c, nil
-}
-
-// CompatibleEnv prefers the new namespace, with old variables accepted for CI.
-// A newly selected server must never inherit the old namespace's API key.
-func CompatibleEnv(getenv func(string) string) func(string) string {
-	return func(key string) string {
-		if getenv == nil {
-			return ""
-		}
-		if value := getenv(key); value != "" {
-			return value
-		}
-		if key == "RUNPENTESTS_API_KEY" && getenv("RUNPENTESTS_SERVER") != "" {
-			return ""
-		}
-		if strings.HasPrefix(key, "RUNPENTESTS_") {
-			return getenv("AIDETECTOR_" + strings.TrimPrefix(key, "RUNPENTESTS_"))
-		}
-		return ""
-	}
 }
 
 // sameServer compares two server URLs as typed: case and a trailing slash
@@ -268,7 +243,7 @@ func NormalizeServer(raw string, allowInsecureHTTP bool) (string, error) {
 
 // DefaultServer is the hosted service. `login` uses it when --server is not
 // given, and a client with no server configured talks to it.
-const DefaultServer = "https://aidetector.com"
+const DefaultServer = "https://runpentests.com"
 
 // IsLoopback reports whether a host name or address is this machine.
 func IsLoopback(host string) bool { return isLoopback(host) }

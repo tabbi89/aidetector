@@ -110,10 +110,9 @@ The runner image is built by hand, so it can fall behind the CLI. A run warns wh
 `runpentests-runner:latest` was built from another version — rebuild it with
 `make runner-image`. An old image is why `runpentests runs trace` can show no requests.
 
-Release binaries pull a digest-pinned GHCR runner image, with a confirmation in
+Release binaries pull a digest-pinned runner image, with a confirmation in
 a terminal; CI needs to pull the image in the release's `runner.json` first.
-The dedicated runner exports only reviewed scanner files, not the API/worker
-source tree. See [distribution.md](distribution.md).
+See [install.md](install.md).
 
 When a source directory is mounted, its PHP, Python, Kotlin, Java, Node.js and Go
 version declarations are checked against live NVD CVEs. The runner reads supported

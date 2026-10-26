@@ -44,7 +44,7 @@ class AsyncHttpClientBridge:
         self._startup_error: BaseException | None = None
         self._thread = threading.Thread(
             target=self._serve,
-            name="aidetector-http",
+            name="runpentests-http",
             daemon=True,
         )
         self._thread.start()

@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # docker compose derives it from WEB_HOST_PORT.
     web_origin: str = "http://localhost:3000"
 
-    database_url: str = "postgresql+psycopg://aidetector:aidetector@localhost:5432/aidetector"
+    database_url: str = "postgresql+psycopg://runpentests:runpentests@localhost:5432/runpentests"
     redis_url: str = "redis://localhost:6379/0"
 
     # Secrets vault (Fernet key). Empty in local dev falls back to an ephemeral key.

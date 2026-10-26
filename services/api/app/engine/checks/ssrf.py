@@ -29,7 +29,7 @@ from app.engine.resource_map import path_values
 from app.engine.spec_values import base_value
 
 _MUTATING = ("POST", "PUT", "PATCH")
-_INTERNAL_MARKER = "http://169.254.169.254/latest/meta-data/aidetector"
+_INTERNAL_MARKER = "http://169.254.169.254/latest/meta-data/runpentests"
 
 
 def _candidates(op, allow_mutation: bool) -> list[tuple[str, str]]:

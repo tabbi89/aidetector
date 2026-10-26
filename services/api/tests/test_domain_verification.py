@@ -114,7 +114,7 @@ def test_seeded_pin_is_not_re_resolved(monkeypatch):
 def _doh(status: int, *answers: str) -> httpx.MockTransport:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.params["type"] == "TXT"
-        assert request.url.params["name"] == "_aidetector-challenge.api.example.com"
+        assert request.url.params["name"] == "_runpentests-challenge.api.example.com"
         return httpx.Response(
             200,
             content=json.dumps(
@@ -127,7 +127,7 @@ def _doh(status: int, *answers: str) -> httpx.MockTransport:
 
 def test_dns_txt_matches_a_split_record():
     # A long TXT value arrives as several quoted character-strings.
-    data = f'"aidetector-verify={TOKEN[:10]}" "{TOKEN[10:]}"'
+    data = f'"runpentests-verify={TOKEN[:10]}" "{TOKEN[10:]}"'
     ownership.check_dns_txt(
         "api.example.com", TOKEN, doh_url="https://doh.test/q", transport=_doh(0, data)
     )
@@ -137,7 +137,7 @@ def test_dns_txt_matches_a_split_record():
     "status,answers,match",
     [
         (3, (), "no TXT record"),
-        (0, ('"aidetector-verify=someone-else"',), "does not contain"),
+        (0, ('"runpentests-verify=someone-else"',), "does not contain"),
         (0, ('"v=spf1 -all"',), "does not contain"),
     ],
 )
@@ -175,7 +175,7 @@ def test_http_token_is_fetched_from_the_pinned_address():
     assert request.url.host == PUBLIC
     assert request.headers["host"] == "api.example.com"
     # The origin's well-known path, never under the API's base path.
-    assert request.url.path == f"/.well-known/aidetector-verify/{TOKEN}"
+    assert request.url.path == f"/.well-known/runpentests-verify/{TOKEN}"
 
 
 def test_http_token_accepts_the_txt_value():
@@ -184,7 +184,7 @@ def test_http_token_accepts_the_txt_value():
         "https://api.example.com",
         TOKEN,
         address=PUBLIC,
-        inner=_serving(200, f"aidetector-verify={TOKEN}\n", []),
+        inner=_serving(200, f"runpentests-verify={TOKEN}\n", []),
     )
 
 
@@ -250,7 +250,7 @@ def test_prove_each_reports_dns_passing_and_http_failing():
         TOKEN,
         address=PUBLIC,
         transports=domains.ProofTransports(
-            dns=_doh(0, f'"aidetector-verify={TOKEN}"'),
+            dns=_doh(0, f'"runpentests-verify={TOKEN}"'),
             http=_serving(404, "", []),
         ),
     )
@@ -317,7 +317,7 @@ def test_proven_target_is_cleared_and_pinned(db_session, monkeypatch):
     _resolver(monkeypatch, domains, {"api.example.com": [PUBLIC]})
     _record(db_session, "api.example.com")
     seen: list[httpx.Request] = []
-    data = f'"aidetector-verify={TOKEN}"'
+    data = f'"runpentests-verify={TOKEN}"'
 
     def doh(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -348,7 +348,7 @@ def test_a_private_lane_override_never_proves_through_a_private_address(
     _resolver(monkeypatch, domains, {"mixed.example.com": ["10.0.0.5", PUBLIC]})
     _record(db_session, "mixed.example.com")
     seen: list[httpx.Request] = []
-    data = f'"aidetector-verify={TOKEN}"'
+    data = f'"runpentests-verify={TOKEN}"'
 
     def doh(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -497,11 +497,11 @@ def test_domain_routes(client, monkeypatch):
     assert r.status_code == 201, r.text
     row = r.json()
     assert row["host"] == "api.example.com" and row["verified_at"] is None
-    assert row["dns_record_name"] == "_aidetector-challenge.api.example.com"
-    assert row["dns_record_value"] == f"aidetector-verify={row['token']}"
-    assert row["http_path"] == f"/.well-known/aidetector-verify/{row['token']}"
+    assert row["dns_record_name"] == "_runpentests-challenge.api.example.com"
+    assert row["dns_record_value"] == f"runpentests-verify={row['token']}"
+    assert row["http_path"] == f"/.well-known/runpentests-verify/{row['token']}"
     assert row["http_url"] == (
-        f"https://api.example.com/.well-known/aidetector-verify/{row['token']}"
+        f"https://api.example.com/.well-known/runpentests-verify/{row['token']}"
     )
 
     assert client.post("/workspace/domains", json={"host": "api.example.com"}).status_code == 409

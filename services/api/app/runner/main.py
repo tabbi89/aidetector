@@ -1,6 +1,6 @@
 """The local runner — execute a claimed scan here, upload the result.
 
-Every CLI run (``aidetector run``, ``aidetector URL``) claims a scan from the
+Every CLI run (``runpentests run``, ``runpentests URL``) claims a scan from the
 server (the authorization gate, the request budget and the per-run token are
 all answered there), then starts
 this process in a throwaway container on the CLI machine. The scan traffic
@@ -84,7 +84,7 @@ from app.runner.schema import read_local_schema
 from app.scans.run_options import RunOptions, supplied_resource_ids
 from app.specs.parser import load_spec
 
-log = logging.getLogger("aidetector.runner")
+log = logging.getLogger("runpentests.runner")
 
 #: Events are sent in batches; this is the size at which one is sent early.
 _FLUSH_EVERY = 20
@@ -98,7 +98,7 @@ _MAX_BUFFERED_EVENTS = 2000
 #: Tries the end-of-run drain makes: nothing flushes after it.
 _DRAIN_ATTEMPTS = 3
 # Preserve routing through already-deployed proxies during the product rename.
-RUNNER_USER_AGENT = "aidetector-cli/runner runpentests-cli/runner"
+RUNNER_USER_AGENT = "runpentests-cli/runner"
 
 #: Exit codes. The CLI reads the scan's status from the server; these are for a
 #: human running the container by hand.
@@ -533,7 +533,7 @@ def execute(cfg: dict[str, Any], link: ServerLink, out: TextIO | None = None) ->
         )
         pending.extend(cred_events)
 
-        # Schema context (aidetector.yml ``schema:``): read here, on this
+        # Schema context (runpentests.yml ``schema:``): read here, on this
         # machine, and nowhere else — the server never connects to the database.
         schema_context: dict[str, Any] | None = None
         if cfg.get("schema") is not None:

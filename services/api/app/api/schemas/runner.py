@@ -269,7 +269,7 @@ class RunnerComplete(BaseModel):
     # Reported by the runner for the run record's executor column.
     runner_version: str = Field(default="", max_length=100)
     engine_digest: str = Field(default="", max_length=100)
-    # The run's schema read on the CLI machine (aidetector.yml ``schema:``),
+    # The run's schema read on the CLI machine (runpentests.yml ``schema:``),
     # absent when the project configures none. Deliberately untyped here: the
     # server validates it separately (``db_schema.contracts.accept_upload``) so a
     # snapshot it cannot accept is recorded as such without refusing findings.

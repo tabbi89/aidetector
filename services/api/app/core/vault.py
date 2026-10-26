@@ -20,7 +20,7 @@ from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 
 from app.core.config import settings
 
-log = logging.getLogger("aidetector.vault")
+log = logging.getLogger("runpentests.vault")
 
 
 class VaultKeyError(RuntimeError):
