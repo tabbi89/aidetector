@@ -25,6 +25,11 @@ from app.api.schemas.credentials import (
     CredentialCreate,
     CredentialOut,
     CredentialUpdate,
+    FunctionLevelPair,
+    IdentityPairsIn,
+    IdentityPairsOut,
+    IdentityShapeIn,
+    ObjectLevelPair,
     RoleHintOut,
 )
 from app.api.schemas.domains import (
@@ -53,6 +58,8 @@ from app.api.schemas.notifications import (
 )
 from app.api.schemas.runner import (
     AgentMemoryRow,
+    AuthCheckConfig,
+    AuthCheckRequest,
     LocalRunConfig,
     OastConfig,
     RunnerAiIn,
@@ -74,6 +81,10 @@ from app.api.schemas.runs import (
     MutationRow,
     PlanRow,
     ResourceAttemptRow,
+    ResourceBindingsIn,
+    ResourceBindingsOut,
+    ResourceNameBinding,
+    ResourceRoute,
     ResourceRow,
     RunAccepted,
     RunDiffOut,
@@ -127,6 +138,11 @@ from app.api.schemas.workspace import (
 
 __all__ = [
     "AuthHintsOut",
+    "FunctionLevelPair",
+    "IdentityPairsIn",
+    "IdentityPairsOut",
+    "IdentityShapeIn",
+    "ObjectLevelPair",
     "AuthHintsRequest",
     "AuthSchemeHintOut",
     "RoleHintOut",
@@ -165,6 +181,8 @@ __all__ = [
     "DomainVerifyRequest",
     "TargetOwnershipOut",
     "LocalRunConfig",
+    "AuthCheckConfig",
+    "AuthCheckRequest",
     "OastConfig",
     "RunnerAiIn",
     "RunnerAiOut",
@@ -188,6 +206,10 @@ __all__ = [
     "PlanRow",
     "RequestRateUpdate",
     "ResourceAttemptRow",
+    "ResourceBindingsIn",
+    "ResourceBindingsOut",
+    "ResourceNameBinding",
+    "ResourceRoute",
     "ResourceId",
     "ResourceName",
     "ResourceRow",

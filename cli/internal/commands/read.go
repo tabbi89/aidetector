@@ -335,12 +335,20 @@ func indentBlock(s string) string {
 func cmdDiff(ctx context.Context, e *Env, args []string) int {
 	fs := e.newFlagSet("diff")
 	asJSON := fs.Bool("json", false, "print JSON")
+	from := fs.Int("from", 0, "the older run number (default: the run before --to)")
+	to := fs.Int("to", 0, "the newer run number (default: the latest run)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return e.parseFailed("diff", fs, err)
 	}
 	if len(pos) > 1 {
 		return e.usage("diff takes at most one scan ID")
+	}
+	if *from < 0 || *to < 0 {
+		return e.usage("--from and --to are run numbers")
+	}
+	if *from > 0 && *to > 0 && *from >= *to {
+		return e.usage("--from must be an older run than --to")
 	}
 	c, err := e.client()
 	if err != nil {
@@ -350,11 +358,11 @@ func cmdDiff(ctx context.Context, e *Env, args []string) int {
 	if code != ExitOK {
 		return code
 	}
-	d, err := c.Diff(ctx, id)
+	d, err := c.Diff(ctx, id, *from, *to)
 	if err != nil {
 		var apiErr *api.APIError
 		if errors.As(err, &apiErr) && apiErr.Status == 409 {
-			return e.usage("a diff needs two runs of this scan")
+			return e.usage("a diff needs two runs of this scan (%s)", apiErr.Detail)
 		}
 		return e.exitFor(err)
 	}
@@ -372,6 +380,13 @@ func cmdDiff(ctx context.Context, e *Env, args []string) int {
 	}
 	if d.ExecutorChanged {
 		e.printf("note: the runs used different executors, so the comparison is partial\n")
+	}
+	if d.ConfigChanged {
+		e.printf("note: the runs used different project files, so the comparison is partial\n")
+	}
+	if len(d.NotRetested) > 0 {
+		e.printf("note: not retested means the newer run could not have found it again (a pass, check, " +
+			"identity or endpoint it did not exercise) — it is not fixed\n")
 	}
 	for _, f := range d.Added {
 		e.printf("  + %-8s %s\n", f.Severity, printable(f.Title))
@@ -499,12 +514,16 @@ func cmdRuns(ctx context.Context, e *Env, args []string) int {
 	sort.SliceStable(runs, func(i, j int) bool {
 		return runs[i].RunNumber > runs[j].RunNumber
 	})
-	e.printf("%-4s  %-9s  %-16s  %-8s  %-8s  %-8s  %-8s  %s\n",
-		"RUN", "STATUS", "STARTED", "DURATION", "FINDINGS", "REQUESTS", "EXECUTOR", "PASSES")
+	e.printf("%-4s  %-9s  %-16s  %-8s  %-8s  %-8s  %-8s  %-10s  %s\n",
+		"RUN", "STATUS", "STARTED", "DURATION", "FINDINGS", "REQUESTS", "EXECUTOR", "SEED", "PASSES")
 	for _, r := range runs {
-		e.printf("%-4d  %-9s  %-16s  %-8s  %-8d  %-8d  %-8s  %s\n",
+		seed := "-"
+		if n, ok := manifestSeed(&r); ok {
+			seed = fmt.Sprintf("%d", n)
+		}
+		e.printf("%-4d  %-9s  %-16s  %-8s  %-8d  %-8d  %-8s  %-10s  %s\n",
 			r.RunNumber, r.Status, localStamp(r.StartedAt), runDuration(r),
-			r.FindingsCount, r.Requests, executorLabel(r.Executor), passesLabel(r.Options))
+			r.FindingsCount, r.Requests, executorLabel(r.Executor), seed, passesLabel(r.Options))
 	}
 	for _, r := range runs {
 		if line := gapLine(r); line != "" {

@@ -237,7 +237,8 @@ func TestCoverageSortsByPathAndUntestedFilters(t *testing.T) {
 	if a, b, c := strings.Index(out, "/a"), strings.Index(out, "/b"), strings.Index(out, "/c"); a < 0 || b < 0 || c < 0 || !(a < b && b < c) {
 		t.Fatalf("endpoints should be sorted by path:\n%s", out)
 	}
-	if !strings.Contains(out, "3 endpoint(s), 2 never probed") {
+	// /b predates response outcomes: unknown, never "no response".
+	if !strings.Contains(out, "3 endpoint(s) shown; of 2 in scope: 0 exercised, 0 no 2xx, 0 no response, 1 never probed, 1 unknown") {
 		t.Fatalf("footer missing:\n%s", out)
 	}
 	if !strings.Contains(out, "(excluded)") {
@@ -252,7 +253,7 @@ func TestCoverageSortsByPathAndUntestedFilters(t *testing.T) {
 	if strings.Contains(out, "/b") || !strings.Contains(out, "/a") || !strings.Contains(out, "/c") {
 		t.Fatalf("--untested should keep only the never-probed endpoints:\n%s", out)
 	}
-	if !strings.Contains(out, "2 endpoint(s), 2 never probed") {
+	if !strings.Contains(out, "2 endpoint(s) shown") {
 		t.Fatalf("footer should count what was shown:\n%s", out)
 	}
 }

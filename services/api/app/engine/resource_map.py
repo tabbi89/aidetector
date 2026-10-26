@@ -208,3 +208,52 @@ def created_id(headers: dict[str, str], text: str, read_op: TargetOperation) -> 
         if isinstance(val, str | int):
             return str(val)
     return None
+
+
+_PATH_PARAM = re.compile(r"\{([^{}/]+)\}")
+
+
+def preview_bindings(
+    operations: list[tuple[str, str]], names: list[str]
+) -> dict[str, Any]:
+    """Which path parameters each supplied resource name would fill. Pure.
+
+    ``operations`` are ``(method, path template)`` pairs; ``names`` are the keys
+    of a ``predefined_resource_ids`` map. The lookup is the engine's own
+    (:func:`resource_id_for`), run with each name standing in for its id, so the
+    preview cannot disagree with what a run renders. Names only: a caller never
+    needs to reveal an id to learn where it would go.
+
+    Two names that normalise to one key (``merchant`` and ``merchant_id``) are
+    *ambiguous*: the engine would keep one silently, so both are reported.
+    """
+    by_key: dict[str, list[str]] = {}
+    for name in names:
+        by_key.setdefault(resource_key(name), []).append(name)
+    # The engine's map is keyed by normalised name; a placeholder per key says
+    # which supplied name won it.
+    lookup = {key: group[-1] for key, group in by_key.items() if key}
+    routes: dict[str, list[dict[str, str]]] = {name: [] for name in names}
+    unbound: list[dict[str, str]] = []
+    for method, path in operations:
+        for param in _PATH_PARAM.findall(path):
+            winner = resource_id_for(path, param, lookup)
+            row = {"method": method, "path": path, "param": param}
+            if winner is None:
+                unbound.append(row)
+            else:
+                routes[winner].append(row)
+    return {
+        "names": [
+            {
+                "name": name,
+                "key": resource_key(name),
+                "routes": routes[name],
+                "ambiguous_with": [
+                    other for other in by_key.get(resource_key(name), []) if other != name
+                ],
+            }
+            for name in names
+        ],
+        "unbound": unbound,
+    }

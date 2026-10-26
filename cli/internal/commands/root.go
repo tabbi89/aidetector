@@ -22,6 +22,7 @@ usage: runpentests [URL] [DIR] [flags]      scan an API; the everyday form
   (nothing)  run what ./runpentests.yml describes
 
   common flags: --authorized --fail-on SEV --verified-only --new-only
+                --baseline-run N --require-complete --min-exercised PCT
                 --output table|json|github|junit
                 --level quick|standard|deep   how hard to look (default quick)
                 --writes   allow tests that change target data
@@ -32,13 +33,17 @@ usage: runpentests [URL] [DIR] [flags]      scan an API; the everyday form
   is optional, runpentests.yml's scan: (or target:) picks the scan
 
 commands:
-  init       [URL] [--spec FILE] [--force] [--yes]   write runpentests.yml
+  init       [URL] [--spec FILE] [--tenants] [--force] [--yes]   write runpentests.yml
   login      --server URL [--profile NAME] [--key-stdin | --no-key] [--insecure-http]
   logout     remove the current profile
   status
+  doctor     [--docker-network N] [--zap] [--kali] [--json]
+             can this machine run a scan? checks server, key, Docker, images, networks
   profile    list | use NAME | rm NAME [--yes]
   scans      list [--json] [--target URL] [--full-ids] | show [ID] | rm ID --yes
   scan       create --target URL --spec FILE
+  auth       check [ID] [--authorized] [--json]
+             are the identities' credentials accepted? a few GETs each, no scan
   cred       add ID --name N --role R --auth-type T [--header-name H] [--secret-stdin]
              | list [ID] [--json] | rm ID NAME|ID --yes
   run        ID [--authorized] [--level L] [--writes] [--ai] [pass flags]
@@ -50,10 +55,15 @@ commands:
              show [ID] FINDING [--json]   one finding by ID or fingerprint prefix
              dismiss|confirm|reopen [SCAN] FINDING...   triage findings
   cost       [ID] [--json]               AI spend: total, per model, per phase
-  coverage   [ID] [--json] [--untested]  what the latest run did to each endpoint
-  diff       [ID] [--json]
+  coverage   [ID] [--run N] [--json] [--untested | --inconclusive]
+             what a run did to each endpoint, and whether it was exercised
+  diff       [ID] [--from N] [--to N] [--json]
+  retest     [ID] FINDING [--authorized] [--writes | --read-only] [--ai]
+             run the check behind one finding again and say whether it is gone
   runs       [ID] [--limit N] [--json]   run history: status, passes, gaps
              trace [ID] [RUN] [--check KEY] [--identity N] [--status S] [--seq N]
+  domains    list | add HOST | verify HOST [--wait D] | check [ID] | rm HOST --yes
+             prove this workspace controls a public target (DNS TXT + HTTP token)
   report     [ID] --format pdf|html|pentest|sarif|json [-o FILE]
              (default file: runpentests-<id8>.<ext>)
   completion bash|zsh|fish   print a shell completion script
@@ -65,7 +75,8 @@ profiles:
   RUNPENTESTS_SERVER / RUNPENTESTS_API_KEY still override the selected profile.
   'runpentests profile list' shows every saved profile and never a key.
 
-exit codes: 0 clean, 1 findings reached --fail-on, 2 usage/auth, 3 failed, 4 timeout
+exit codes: 0 clean, 1 findings reached --fail-on, 2 usage/auth, 3 failed, 4 timeout,
+            5 an opted-in quality policy failed (--require-complete, --min-exercised)
 
 Secrets are never taken from flags (they land in shell history and ps): use a
 prompt, --key-stdin / --secret-stdin, or RUNPENTESTS_API_KEY.
@@ -112,6 +123,8 @@ func Run(ctx context.Context, args []string, env Env) int {
 		return cmdLogout(e, rest)
 	case "status":
 		return cmdStatus(ctx, e, rest)
+	case "doctor":
+		return cmdDoctor(ctx, e, rest)
 	case "profile":
 		return cmdProfile(e, rest)
 	case "scans":
@@ -142,6 +155,12 @@ func Run(ctx context.Context, args []string, env Env) int {
 		return cmdCompletion(ctx, e, rest)
 	case "mcp":
 		return cmdMCP(ctx, e, rest)
+	case "domains":
+		return cmdDomains(ctx, e, rest)
+	case "retest":
+		return cmdRetest(ctx, e, rest)
+	case "auth":
+		return cmdAuth(ctx, e, rest)
 	}
 	if strings.HasPrefix(args[0], "-") || project.LooksLikeTarget(args[0]) || isDir(args[0]) {
 		return cmdTarget(ctx, e, args)

@@ -180,3 +180,40 @@ class AuthHintsRequest(BaseModel):
     # Same ceiling as a stored spec is not enforced here; this bounds the work
     # one anonymous-to-the-scan request can ask for.
     spec: str = Field(min_length=1, max_length=5_000_000)
+
+
+class IdentityShapeIn(BaseModel):
+    """An identity's shape for pairing: never its secret."""
+
+    name: str = Field(min_length=1, max_length=120)
+    role: str = Field(min_length=1, max_length=60)
+    privilege: int | None = Field(default=None, ge=0, le=3)
+    tenant: str | None = Field(default=None, max_length=120)
+
+
+class IdentityPairsIn(BaseModel):
+    identities: list[IdentityShapeIn] = Field(default_factory=list, max_length=50)
+
+
+class ObjectLevelPair(ResponseModel):
+    owner: str
+    attacker: str
+
+
+class FunctionLevelPair(ResponseModel):
+    privileged: str
+    lower: str
+
+
+class IdentityPairsOut(ResponseModel):
+    """The pairs a run would use for each authorization boundary, or why none."""
+
+    tenants_declared: bool
+    #: Cross-identity (with tenants: cross-tenant) object access — BOLA.
+    object_level: ObjectLevelPair | None = None
+    object_level_gap: str | None = None
+    #: A lower identity calling a privileged function in one tenant — BFLA.
+    function_level: FunctionLevelPair | None = None
+    function_level_gap: str | None = None
+    #: Identities with no tenant once others declare one: they sit out.
+    left_out: list[str] = []

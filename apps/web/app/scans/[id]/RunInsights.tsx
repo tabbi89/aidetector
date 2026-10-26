@@ -104,18 +104,22 @@ function PlanTableImpl({ plan }: { plan: PlanRow[] }) {
 function CoverageTableImpl({ coverage }: { coverage: CoverageRow[] }) {
   if (coverage.length === 0) return null;
   const enabled = coverage.filter((r) => r.enabled);
-  const exercised = enabled.filter((r) => r.exercised).length;
+  const exercised = enabled.filter((r) => r.exercised === true).length;
   // Reached (sent at least one request) but never answered a 2xx — the auth,
   // path or body was wrong, so "0 findings" here means "never actually tested".
   const reachedNotExercised = enabled.filter(
-    (r) => !r.exercised && r.requests > 0,
+    (r) => r.exercised === false && r.requests > 0,
   ).length;
+  // A run recorded before the server kept response outcomes: unknown.
+  const outcomeUnknown = enabled.some((r) => r.exercised === null);
   return (
     <div className="specbox">
       <div className="spec-head">
         <h2>Per-endpoint coverage</h2>
         <span className="muted-sm">
-          {exercised}/{enabled.length} endpoints exercised
+          {outcomeUnknown
+            ? "response outcomes not recorded for this run"
+            : `${exercised}/${enabled.length} endpoints exercised`}
           {reachedNotExercised > 0
             ? ` · ${reachedNotExercised} reached but never answered 2xx`
             : ""}{" "}
@@ -142,7 +146,7 @@ function CoverageTableImpl({ coverage }: { coverage: CoverageRow[] }) {
           </thead>
           <tbody>
             {coverage.map((r) => {
-              const unexercised = r.enabled && !r.exercised && r.requests > 0;
+              const unexercised = r.enabled && r.exercised === false && r.requests > 0;
               return (
               <tr
                 key={r.operation_id ?? `${r.method} ${r.path}`}
@@ -168,9 +172,11 @@ function CoverageTableImpl({ coverage }: { coverage: CoverageRow[] }) {
                     ? "—"
                     : r.requests === 0
                       ? "not tested"
-                      : r.exercised
-                        ? `exercised (${r.ok}/${r.responses} 2xx)`
-                        : `no 2xx (0/${r.responses})`}
+                      : r.exercised === null
+                        ? "outcome unknown"
+                        : r.exercised
+                          ? `exercised (${r.ok}/${r.responses} 2xx)`
+                          : `no 2xx (0/${r.responses})`}
                 </td>
                 <td className={`num${r.findings > 0 ? " cov-hasfindings" : ""}`}>
                   {r.findings}

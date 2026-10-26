@@ -174,6 +174,9 @@ def build_findings_snapshot(scan: Scan) -> list[dict[str, Any]]:
         {
             "check": f.check,
             "method": methods.get(str(f.operation_id)) if f.operation_id else None,
+            # Lets the diff ask whether a later run actually exercised the
+            # endpoint before it calls a missing finding fixed. Not identity.
+            "operation_id": str(f.operation_id) if f.operation_id else None,
             # The identity a diff matches on; empty for rows from before it.
             "fingerprint": f.fingerprint or "",
             "severity": f.severity.value,
@@ -222,6 +225,7 @@ def build_coverage(scan: Scan, probe: HttpProbe) -> list[dict[str, Any]]:
                 "requests": requests,
                 "responses": responses,
                 "ok": ok,
+                "denied": outcome.get("denied", 0),
                 # Reached and answered at least one 2xx. An enabled operation the
                 # engine hit but that never succeeded (wrong auth, path or body)
                 # was *not* exercised, so its "0 findings" is inconclusive, not

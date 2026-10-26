@@ -51,6 +51,10 @@ PURE_MODULES = [
     # The local runner executes a scan with no database: prove it never needs one.
     "app.runner.main",
     "app.runner.source_audit",
+    # The credential check runs in the same container: no database either.
+    "app.runner.auth_check",
+    "app.engine.auth_probe",
+    "app.engine.identity_pairs",
     # Schema context is read inside the runner: the reader, the adapter and the
     # upload contract must never pull the ORM in with them.
     "app.runner.schema",

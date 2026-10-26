@@ -46,6 +46,9 @@ class RunFindingOut(ResponseModel):
     title: str
     owasp_id: str | None = None
     verdict: Verdict
+    #: The operation the finding was on; null for a discovered or run-wide
+    #: finding, and on snapshots archived before it was recorded.
+    operation_id: str | None = None
 
     @field_validator("owasp_id", mode="before")
     @classmethod
@@ -93,11 +96,14 @@ class CoverageRow(ResponseModel):
     #: Responses received, and how many were 2xx. ``exercised`` is true when the
     #: operation was reached *and* answered successfully at least once — so a row
     #: with ``requests > 0`` but ``exercised`` false was probed with the wrong
-    #: auth, path or body and its findings count is inconclusive. Defaulted for
-    #: runs archived before these fields existed.
-    responses: int = 0
-    ok: int = 0
-    exercised: bool = False
+    #: auth, path or body and its findings count is inconclusive. Null on rows
+    #: archived before these fields existed (or uploaded by an older runner):
+    #: that is "unknown", and a client must not read it as "never answered".
+    responses: int | None = None
+    ok: int | None = None
+    #: Of those responses, how many were 401/403 — a refusal, not a 404 or 5xx.
+    denied: int | None = None
+    exercised: bool | None = None
     checks: list[str] = []
     findings: int = 0
 
@@ -466,3 +472,31 @@ class ScheduleRequest(RunRequest):
             "security-test this target."
         ),
     )
+
+
+class ResourceBindingsIn(BaseModel):
+    """Resource names to preview — never their ids."""
+
+    names: list[ResourceName] = Field(default_factory=list, max_length=50)
+
+
+class ResourceRoute(ResponseModel):
+    method: str
+    path: str
+    param: str
+
+
+class ResourceNameBinding(ResponseModel):
+    name: str
+    #: The normalised key the engine matches path parameters on.
+    key: str
+    #: Every enabled route parameter this name would fill.
+    routes: list[ResourceRoute] = []
+    #: Other supplied names with the same key: only one of them would be used.
+    ambiguous_with: list[str] = []
+
+
+class ResourceBindingsOut(ResponseModel):
+    names: list[ResourceNameBinding] = []
+    #: Enabled route parameters no supplied name fills (they get a spec baseline).
+    unbound: list[ResourceRoute] = []

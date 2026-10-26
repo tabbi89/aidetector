@@ -109,6 +109,16 @@ type File struct {
 	FailOn       string   `yaml:"fail_on"`
 	VerifiedOnly bool     `yaml:"verified_only"`
 	NewOnly      bool     `yaml:"new_only"`
+	// The execution-quality gate: fail (exit 5) a run that did not do what it
+	// was asked, or exercised less than this percent of its endpoints.
+	RequireComplete bool `yaml:"require_complete"`
+	MinExercised    int  `yaml:"min_exercised"`
+	// Known resource ids for path parameters ({"merchant": "m_123"}), so item
+	// routes reach real objects without writes. Inline here, or — to keep
+	// environment-specific ids out of the repository — in a local JSON/YAML
+	// file named by resource_ids_file (git-ignore it). Never sent to the server.
+	ResourceIDs     map[string]string `yaml:"resource_ids"`
+	ResourceIDsFile string            `yaml:"resource_ids_file"`
 	// Shorthands: the one thing a file says about auth without listing every
 	// identity. Both expand to ordinary identities in ExpandIdentities.
 	Auth        string     `yaml:"auth"`         // public: deliberately unauthenticated
@@ -266,6 +276,12 @@ func (f *File) validate() error {
 	}
 	if (f.VerifiedOnly || f.NewOnly) && f.FailOn == "" {
 		return fmt.Errorf("verified_only and new_only refine fail_on; set fail_on too")
+	}
+	if f.MinExercised < 0 || f.MinExercised > 100 {
+		return fmt.Errorf("min_exercised must be a percentage from 1 to 100")
+	}
+	if err := ValidateResourceIDs(f.ResourceIDs); err != nil {
+		return fmt.Errorf("resource_ids: %w", err)
 	}
 	if err := f.validateAuthShorthand(); err != nil {
 		return err

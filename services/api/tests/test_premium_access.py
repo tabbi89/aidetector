@@ -35,6 +35,24 @@ def test_capabilities_reports_premium_for_an_entitled_tenant(client: TestClient,
     assert premium == {"available": True, "plan": "premium", "reason": None}
 
 
+def test_capabilities_previews_each_level_for_this_tenant(client: TestClient, monkeypatch):
+    """The CLI's dry run reads the server's expansion instead of keeping a copy."""
+    monkeypatch.setattr(settings, "premium_tenants", "someone-else")
+    levels = client.get("/capabilities").json()["levels"]
+    assert levels["quick"]["passes"] == []
+    # Free plan: the premium pass is left out of standard, not refused.
+    assert levels["standard"]["passes"] == ["fuzz"]
+    assert "zap" in levels["deep"]["passes"] and "premium" not in levels["deep"]["passes"]
+    assert "plan" in levels["quick"]["ai"]
+    # resource_refine is premium and needs writes: nothing to add on free.
+    assert levels["deep"]["ai_with_writes"] == []
+
+    monkeypatch.setattr(settings, "premium_tenants", "*")
+    levels = client.get("/capabilities").json()["levels"]
+    assert levels["standard"]["passes"] == ["fuzz", "premium"]
+    assert levels["deep"]["ai_with_writes"] == ["resource_refine"]
+
+
 def test_pentest_report_is_refused_on_the_free_plan(
     client: TestClient, new_scan, monkeypatch
 ):

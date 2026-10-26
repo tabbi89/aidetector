@@ -31,6 +31,7 @@ type fake struct {
 	mu       sync.Mutex
 	requests []string          // "METHOD /path"
 	bodies   map[string][]byte // "METHOD /path" -> last body
+	queries  map[string]string // "METHOD /path" -> last raw query
 	statuses []string          // scan statuses to return, one per GET /scans/{id}
 	failure  string
 	findings []map[string]any
@@ -52,6 +53,16 @@ type fake struct {
 	traceRows    []map[string]any // the run's trace, returned a page at a time
 	traceOffsets []int            // offsets the client asked for
 
+	// ownership: workspace domains and the scan's advisory answer
+	domains       []map[string]any // GET /workspace/domains (filtered by ?host=)
+	verifyAnswers []map[string]any // successive answers to POST .../verify
+	verifyCalls   int
+	ownership     map[string]any // GET /scans/{id}/ownership; nil => 404
+	bindings      map[string]any // POST /scans/{id}/resource-bindings; nil => 404 (older server)
+	claimOptions  map[string]any // the options the local-run claim returns (default {})
+	claimStatus   int            // when set, the local-run claim answers this
+	claimDetail   string         // ... with this detail
+
 	// local runner
 	localStatus      string // when set, GET /scans/{id} reports this
 	claimTarget      string
@@ -71,6 +82,10 @@ func (f *fake) handler() http.Handler {
 		var buf bytes.Buffer
 		_, _ = buf.ReadFrom(r.Body)
 		f.bodies[key] = buf.Bytes()
+		if f.queries == nil {
+			f.queries = map[string]string{}
+		}
+		f.queries[key] = r.URL.RawQuery
 		if f.headers == nil {
 			f.headers = map[string]http.Header{}
 		}
@@ -164,6 +179,16 @@ func (f *fake) handler() http.Handler {
 				runs = []map[string]any{}
 			}
 			_ = json.NewEncoder(w).Encode(runs)
+		case strings.HasPrefix(path, fakeScanPath+"/runs/") && !strings.HasSuffix(path, "/trace"):
+			n, _ := strconv.Atoi(strings.TrimPrefix(path, fakeScanPath+"/runs/"))
+			for _, run := range f.runs {
+				if number, _ := run["run_number"].(int); number == n {
+					_ = json.NewEncoder(w).Encode(run)
+					return
+				}
+			}
+			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"detail":"no such run for this scan"}`))
 		case strings.HasPrefix(path, fakeScanPath+"/runs/") && strings.HasSuffix(path, "/trace"):
 			// One page of the trace, sliced the way the server slices it.
 			run, _ := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(path, fakeScanPath+"/runs/"), "/trace"))
@@ -195,10 +220,95 @@ func (f *fake) handler() http.Handler {
 			_, _ = w.Write([]byte(`{"version":"2.1.0"}`))
 		case path == fakeScanPath+"/export":
 			_, _ = w.Write([]byte(`{"findings":[]}`))
+		case path == "/workspace/domains" && r.Method == "GET":
+			out := []map[string]any{}
+			want := strings.TrimSuffix(strings.ToLower(r.URL.Query().Get("host")), ".")
+			for _, d := range f.domains {
+				if want == "" || d["host"] == want || d["unicode"] == want {
+					out = append(out, d)
+				}
+			}
+			_ = json.NewEncoder(w).Encode(out)
+		case path == "/workspace/domains" && r.Method == "POST":
+			var in struct {
+				Host string `json:"host"`
+			}
+			_ = json.Unmarshal(buf.Bytes(), &in)
+			d := map[string]any{
+				"id": "dddddddd-0000-0000-0000-000000000001", "host": strings.ToLower(in.Host), "token": "tok123",
+				"dns_record_name": "_aidetector-challenge." + strings.ToLower(in.Host), "dns_record_value": "aidetector-verify=tok123",
+				"http_path": "/.well-known/aidetector-verify/tok123", "http_url": "https://" + strings.ToLower(in.Host) + "/.well-known/aidetector-verify/tok123",
+				"verified_at": nil, "last_checked_at": nil, "last_error": nil, "last_checks": []any{}, "created_at": "2026-10-26T10:00:00Z",
+			}
+			if strings.Count(in.Host, ".") == 3 && strings.Trim(in.Host, "0123456789.") == "" {
+				d["dns_record_name"] = nil
+			}
+			f.domains = append(f.domains, d)
+			w.WriteHeader(201)
+			_ = json.NewEncoder(w).Encode(d)
+		case strings.HasPrefix(path, "/workspace/domains/") && strings.HasSuffix(path, "/verify"):
+			id := strings.TrimSuffix(strings.TrimPrefix(path, "/workspace/domains/"), "/verify")
+			answer := map[string]any{}
+			if len(f.verifyAnswers) > 0 {
+				i := f.verifyCalls
+				if i >= len(f.verifyAnswers) {
+					i = len(f.verifyAnswers) - 1
+				}
+				answer = f.verifyAnswers[i]
+			}
+			f.verifyCalls++
+			for _, d := range f.domains {
+				if d["id"] == id {
+					out := map[string]any{}
+					for k, v := range d {
+						out[k] = v
+					}
+					for k, v := range answer {
+						out[k] = v
+					}
+					_ = json.NewEncoder(w).Encode(out)
+					return
+				}
+			}
+			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"detail":"domain not found"}`))
+		case strings.HasPrefix(path, "/workspace/domains/") && r.Method == "DELETE":
+			_, _ = w.Write([]byte(`{"status":"deleted"}`))
+		case path == fakeScanPath+"/resource-bindings":
+			if f.bindings == nil {
+				w.WriteHeader(404)
+				_, _ = w.Write([]byte(`{"detail":"Not Found"}`))
+				return
+			}
+			_ = json.NewEncoder(w).Encode(f.bindings)
+		case path == fakeScanPath+"/auth-checks":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"target_base_url": "http://localhost:9000",
+				"operations":      []any{map[string]any{"id": "o1", "method": "GET", "path": "/me"}},
+				"credentials": []any{
+					map[string]any{"name": "alice", "role": "user", "auth_type": "bearer"},
+					map[string]any{"name": "bob", "role": "user", "auth_type": "bearer"},
+				},
+				"target_policy": map[string]any{}, "max_requests": 40, "requests_per_second": 5,
+			})
+		case path == fakeScanPath+"/ownership":
+			if f.ownership == nil {
+				w.WriteHeader(404)
+				_, _ = w.Write([]byte(`{"detail":"Not Found"}`))
+				return
+			}
+			_ = json.NewEncoder(w).Encode(f.ownership)
+		case path == fakeScanPath+"/local-runs" && f.claimStatus != 0:
+			w.WriteHeader(f.claimStatus)
+			_ = json.NewEncoder(w).Encode(map[string]any{"detail": f.claimDetail})
 		case path == fakeScanPath+"/local-runs":
 			target := f.claimTarget
 			if target == "" {
 				target = "http://localhost:9000"
+			}
+			claimOptions := f.claimOptions
+			if claimOptions == nil {
+				claimOptions = map[string]any{}
 			}
 			creds := f.claimCredentials
 			if creds == nil {
@@ -210,7 +320,7 @@ func (f *fake) handler() http.Handler {
 			w.WriteHeader(201)
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"run_id": "r1aaaaaa-bbbb", "run_number": 1, "token": "run-token-xyz",
-				"options": map[string]any{}, "max_requests": 750, "requests_per_second": 10,
+				"options": claimOptions, "max_requests": 750, "requests_per_second": 10,
 				"target_base_url": target, "spec_text": "{}", "operations": []any{},
 				"credentials": creds,
 			})

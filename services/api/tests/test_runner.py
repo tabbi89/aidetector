@@ -766,3 +766,14 @@ def test_a_long_outage_keeps_a_bounded_buffer(monkeypatch):
         journal.event("e", 0, str(i))
         journal.flush()
     assert len(journal._events) == 5
+
+
+def test_a_local_run_records_the_seed_it_used(client, make_scan, bridges):
+    """`runs --json` shows manifest.seed; `--seed N` on the next run reuses it."""
+    scan = make_scan(target_base_url="http://127.0.0.1")
+    code, log = _go(client, _claim(client, scan, seed=1234))
+    assert code == EXIT_OK, log
+    run = client.get(f"/scans/{scan.id}/runs").json()[0]
+    assert run["manifest"]["seed"] == 1234
+    assert run["options"]["seed"] == 1234
+    assert run["manifest"]["engine_digest"]

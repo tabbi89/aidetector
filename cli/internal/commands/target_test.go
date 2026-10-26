@@ -32,6 +32,8 @@ type stateful struct {
 	capabilities map[string]any
 	// hints, when set, is the answer to POST /specs/auth-hints; nil 404s.
 	hints map[string]any
+	// pairs, when set, is the answer to POST /specs/identity-pairs; nil 404s.
+	pairs map[string]any
 	// events is the answer to GET /scans/{id}/events.
 	events []map[string]any
 }
@@ -65,6 +67,12 @@ func (s *stateful) handler() http.Handler {
 			_ = json.NewEncoder(w).Encode(v)
 		}
 		switch {
+		case r.URL.Path == "/specs/identity-pairs" && r.Method == "POST":
+			if s.pairs == nil {
+				writeJSON(404, map[string]string{"detail": "Not Found"})
+				return
+			}
+			writeJSON(200, s.pairs)
 		case r.URL.Path == "/specs/auth-hints" && r.Method == "POST":
 			if s.hints == nil {
 				writeJSON(404, map[string]string{"detail": "not found"})

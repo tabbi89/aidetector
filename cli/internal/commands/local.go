@@ -106,6 +106,12 @@ type localFlags struct {
 	// schemaCA is the host path of the CA certificate mounted read-only into
 	// the runner at schemaCAMount; empty when no CA was configured.
 	schemaCA string
+	// onClaim, when set, learns the run number the server issued, so a caller
+	// that gates later gates this run and not whichever is newest by then.
+	onClaim func(runNumber int)
+	// resourceIDs are known ids for path parameters. They go to the runner on
+	// stdin only: never argv, the environment or the server.
+	resourceIDs map[string]string
 }
 
 // sourceMount is the fixed path the project is mounted at inside the runner.
@@ -115,7 +121,7 @@ const sourceMount = "/src"
 const schemaCAMount = "/run/runpentests/schema-ca.pem"
 
 func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[string]any,
-	lf localFlags, failOn string, verified, newOnly bool, output string) int {
+	lf localFlags, gp gatePolicy, output string) int {
 	if e.Docker == nil {
 		return e.usage("this build cannot start containers")
 	}
@@ -131,6 +137,15 @@ func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[st
 	if lf.image == runnerImageDefault {
 		warnStaleRunner(ctx, e, lf.image)
 	}
+	if code := previewResourceIDs(ctx, e, c, id, lf.resourceIDs); code != ExitOK {
+		return code
+	}
+	// ZAP and Kali need a shared network and their images: check before the
+	// claim, from the server's own level expansion, so a missing prerequisite
+	// is a usage error, not a failed run.
+	if code := preclaimAdjuncts(ctx, e, lf, expectedPasses(body, advisoryCapabilities(ctx, c))); code != ExitOK {
+		return code
+	}
 	// The claim is where the server says yes or no: authorization, the target
 	// guard, premium, and which passes a local run may use.
 	claim, err := c.ClaimLocalRun(ctx, id, body)
@@ -140,11 +155,16 @@ func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[st
 			e.errorf("hint: local runs are off on this server — set LOCAL_RUNNER_ENABLED=true " +
 				"on the API\n")
 		}
-		return e.exitFor(err)
+		code := e.exitFor(err)
+		ownershipHint(ctx, e, c, id, err)
+		return code
 	}
 	runID, token := claim.Str("run_id"), claim.Str("token")
 	if runID == "" || token == "" {
 		return e.exitFor(fmt.Errorf("the server's claim was incomplete"))
+	}
+	if lf.onClaim != nil {
+		lf.onClaim(claim.Int("run_number"))
 	}
 
 	// From here a run is open on the server: every exit path must close it.
@@ -177,7 +197,7 @@ func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[st
 			return e.usage("%v", err)
 		}
 	}
-	adjuncts, stopSiblings, code := startAdjunctSiblings(ctx, e, lf, runID, body)
+	adjuncts, stopSiblings, code := startAdjunctSiblings(ctx, e, lf, runID, claimedPasses(claim, body))
 	if code != ExitOK {
 		abandon("the CLI could not start the adjunct tool containers")
 		return code
@@ -193,7 +213,7 @@ func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[st
 	}
 	defer stopSiblingsOnce()
 	cfg, err := runnerConfig(
-		c.Base(), claim, secrets, lf.runnerServer, containerSource, schemaBlock, adjuncts,
+		c.Base(), claim, secrets, lf.runnerServer, containerSource, schemaBlock, adjuncts, lf.resourceIDs,
 	)
 	if err != nil {
 		abandon("the CLI could not build the runner configuration")
@@ -253,10 +273,11 @@ func runLocal(ctx context.Context, e *Env, c *api.Client, id string, body map[st
 		e.errorf("local run ended %s%s\n", scan.Status, reason)
 		return ExitFailed
 	}
-	if failOn == "" {
+	if !gp.active() {
 		return ExitOK
 	}
-	return gate(ctx, e, c, id, strings.ToLower(failOn), verified, newOnly, output)
+	// Gate this run, by number: not whichever run is newest by now.
+	return gate(ctx, e, c, id, claim.Int("run_number"), gp, output)
 }
 
 // ensureImage makes sure a container image the run needs is on this machine,
@@ -451,7 +472,7 @@ func collectSchema(e *Env, s *project.Schema, dir string) (map[string]any, strin
 
 // runnerConfig is what the container reads from stdin: the claim exactly as the
 // server sent it (with hosts it must reach rewritten), the secrets, a version.
-func runnerConfig(serverBase string, claim api.LocalClaim, secrets map[string]map[string]string, override, containerSource string, schema map[string]any, adjuncts map[string]any) ([]byte, error) {
+func runnerConfig(serverBase string, claim api.LocalClaim, secrets map[string]map[string]string, override, containerSource string, schema map[string]any, adjuncts map[string]any, resourceIDs map[string]string) ([]byte, error) {
 	server := override
 	if server == "" {
 		server = rewriteLoopback(serverBase)
@@ -473,6 +494,11 @@ func runnerConfig(serverBase string, claim api.LocalClaim, secrets map[string]ma
 	}
 	if schema != nil {
 		cfg["schema"] = schema
+	}
+	if len(resourceIDs) > 0 {
+		// Beside the claim, not inside it: the claim is what the server issued,
+		// and these never went through the server.
+		cfg["predefined_resource_ids"] = resourceIDs
 	}
 	if len(adjuncts) > 0 {
 		// The sibling URLs the runner points ZAP/Kali at, and their per-run API
@@ -497,10 +523,9 @@ func randomHex(n int) string {
 // The tools must share a user-defined network with the runner: Docker's default
 // bridge has no name resolution, so --docker-network is required here.
 func startAdjunctSiblings(
-	ctx context.Context, e *Env, lf localFlags, runID string, body map[string]any,
+	ctx context.Context, e *Env, lf localFlags, runID string, passes map[string]bool,
 ) (map[string]any, func(), int) {
-	wantZap, _ := body["zap"].(bool)
-	wantKali, _ := body["kali"].(bool)
+	wantZap, wantKali := passes["zap"], passes["kali"]
 	if !wantZap && !wantKali {
 		return nil, func() {}, ExitOK
 	}
@@ -574,6 +599,93 @@ func startAdjunctSiblings(
 		e.errorf("started Kali (%s) on the scan network\n", name)
 	}
 	return adjuncts, cleanup, ExitOK
+}
+
+// advisoryCapabilities is GET /capabilities, or nil when the server cannot say.
+func advisoryCapabilities(ctx context.Context, c *api.Client) *api.Capabilities {
+	caps, err := c.Capabilities(ctx)
+	if err != nil {
+		return nil
+	}
+	return &caps
+}
+
+// expectedPasses predicts which run flags a body turns on: its explicit flags
+// plus the server's expansion of its level and ai switch. With no level table
+// from the server, only the explicit flags are known.
+func expectedPasses(body map[string]any, caps *api.Capabilities) map[string]bool {
+	out := map[string]bool{}
+	for k, v := range body {
+		if b, ok := v.(bool); ok && b && k != "authorized" {
+			out[k] = true
+		}
+	}
+	level, _ := body["level"].(string)
+	ai, _ := body["ai"].(bool)
+	if caps == nil || caps.Levels == nil || (level == "" && !ai) {
+		return out
+	}
+	if level == "" {
+		level = "quick"
+	}
+	exp, ok := caps.Levels[level]
+	if !ok {
+		return out
+	}
+	if body["level"] != nil {
+		for _, p := range exp.Passes {
+			out[p] = true
+		}
+	}
+	if ai {
+		for _, p := range exp.AI {
+			out[p] = true
+		}
+		if out["mutate"] {
+			for _, p := range exp.AIWithWrites {
+				out[p] = true
+			}
+		}
+	}
+	return out
+}
+
+// claimedPasses is what the server actually turned on (the claim's options,
+// after it expanded the level), plus the body's explicit flags.
+func claimedPasses(claim api.LocalClaim, body map[string]any) map[string]bool {
+	out := expectedPasses(body, nil)
+	if opts, ok := claim["options"].(map[string]any); ok {
+		for k, v := range opts {
+			if b, ok := v.(bool); ok && b {
+				out[k] = true
+			}
+		}
+	}
+	return out
+}
+
+// preclaimAdjuncts checks what ZAP and Kali need before a run is claimed.
+func preclaimAdjuncts(ctx context.Context, e *Env, lf localFlags, passes map[string]bool) int {
+	if !passes["zap"] && !passes["kali"] {
+		return ExitOK
+	}
+	if len(lf.networks) == 0 {
+		return e.usage("ZAP and Kali run in their own containers and the runner reaches them by " +
+			"name, which needs a shared Docker network: pass --docker-network (create one with " +
+			"`docker network create runpentests`)")
+	}
+	if passes["zap"] {
+		if code := ensureImage(ctx, e, envOr(e, "RUNPENTESTS_ZAP_IMAGE", zapImageDefault), ""); code != ExitOK {
+			return code
+		}
+	}
+	if passes["kali"] {
+		if code := ensureImage(ctx, e, envOr(e, "RUNPENTESTS_KALI_IMAGE", kaliImageDefault),
+			"build it with `make kali-image` in the runpentests repository"); code != ExitOK {
+			return code
+		}
+	}
+	return ExitOK
 }
 
 // envOr returns the environment value for key, or def when unset.

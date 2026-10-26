@@ -132,7 +132,7 @@ def claim_local_run(
         run_number=len(scan.runs) + 1,
         status="running",
         # Archive what was authorized, not what the upload later claims.
-        options={k: v for k, v in opts.to_dict().items() if k != "predefined_resource_ids"},
+        options=opts.archived(),
         executor={
             "kind": "local_runner",
             "max_requests": DEFAULT_MAX_REQUESTS,
@@ -199,6 +199,63 @@ def claim_local_run(
             else None
         ),
         adjunct_budget_seconds=settings.adjunct_budget_seconds,
+    )
+
+
+@router.post(
+    "/scans/{scan_id}/auth-checks",
+    response_model=schemas.AuthCheckConfig,
+)
+def claim_auth_check(
+    scan_id: uuid.UUID,
+    body: schemas.AuthCheckRequest,
+    principal: ScanWriteDep,
+    db: Session = Depends(get_db),
+) -> schemas.AuthCheckConfig:
+    """Let the CLI check its identities against the target before a full scan.
+
+    The same consent and target rules as a run — ``authorized`` per call, the
+    egress guard and the ownership proof — but no run is opened and nothing is
+    archived: the runner sends a few GETs per identity and prints its verdict on
+    the CLI machine. The routes are chosen here (GET only) and the request
+    count is bounded, so this can never become a scan.
+    """
+    from app.api.routes.scans._shared import _require_target_allowed
+    from app.engine.auth_probe import MAX_REQUESTS, pick_routes
+
+    _enabled_or_404()
+    scan = service.get_scan(db, scan_id, principal.tenant)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="scan not found")
+    if not body.authorized:
+        raise HTTPException(
+            status_code=403,
+            detail="authorized must be true: an auth check sends live requests to the target",
+        )
+    if not scan.operations:
+        raise HTTPException(status_code=400, detail="upload a spec before checking credentials")
+    clearance = _require_target_allowed(scan, db, allow_private=True)
+    enabled = [schemas.OperationOut.model_validate(op) for op in scan.operations if op.enabled]
+    chosen_ids = {
+        str(op["id"]) for op in pick_routes([o.model_dump(mode="json") for o in enabled])
+    }
+    routes = [op for op in enabled if str(op.id) in chosen_ids]
+    if not routes:
+        raise HTTPException(
+            status_code=400,
+            detail="the scan has no enabled GET operation to check credentials against",
+        )
+    workspace.record_audit(
+        db, principal, "auth_check.claimed", "scan", scan.id, {"routes": len(routes)}
+    )
+    db.commit()
+    return schemas.AuthCheckConfig(
+        target_base_url=scan.target_base_url,
+        operations=routes,
+        credentials=[schemas.CredentialOut.model_validate(cp) for cp in scan.credential_profiles],
+        target_policy=schemas.TargetPolicy(**clearance.runner_policy()),
+        max_requests=MAX_REQUESTS,
+        requests_per_second=min(int(settings.engine_requests_per_second), 5),
     )
 
 

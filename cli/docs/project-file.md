@@ -15,6 +15,9 @@ checks: [bola, bfla]
 fail_on: high
 verified_only: true
 new_only: true
+require_complete: true        # exit 5 unless the run did everything it was asked
+min_exercised: 80             # exit 5 unless 80% of endpoints answered a 2xx
+resource_ids_file: .runpentests-ids.json   # known ids for item routes; git-ignore it
 identities:
   - { name: alice, role: user,  secret_env: ALICE_TOKEN }
   - { name: admin, role: admin, auth: header, header: X-Api-Key, secret_env: ADMIN_TOKEN }
@@ -45,6 +48,10 @@ identities:
 | `fail_on` | the CI gate: `info`, `low`, `medium`, `high` or `critical` |
 | `verified_only` | the gate counts only verified findings (needs `fail_on`) |
 | `new_only` | the gate counts only findings new since the previous run (needs `fail_on`) |
+| `require_complete` | the gate exits 5 when the run did not do what it was asked (see [CI gate](ci-gate.md)) |
+| `min_exercised` | the gate exits 5 when fewer than this percent (1–100) of in-scope endpoints answered a 2xx |
+| `resource_ids` | known resource ids for path parameters, `{merchant: m_123}` (see below) |
+| `resource_ids_file` | the same map in a local JSON or YAML file, relative to this file — keep it out of git |
 | `auth` | `public`: the API takes no identity |
 | `token_env` | one API key, read from this environment variable |
 | `token_auth` | how that key is sent (default `bearer`) |
@@ -86,6 +93,34 @@ identity unauthenticated rather than failing the scan.
 
 A `schema` block takes `host`, `port`, `database`, `username`, `password_env`,
 `sslmode`, `sslrootcert` and `tables`. Only a local run reads it, on the CLI machine.
+
+## Known resource ids
+
+Item routes such as `GET /merchants/{merchantId}` need an id that exists, or every
+request answers 404 and the endpoint is never really tested. Without `--writes` the
+scanner cannot create one, so give it ids your test environment already has:
+
+```yaml
+resource_ids:
+  merchant: m_123             # fills {merchantId}, {merchant_id}, /merchants/{id}
+  project: p_9                # nested routes too: /projects/{projectId}/items/{itemId}
+  item: it_77
+```
+
+A name is matched to a path parameter the way the engine matches it: `merchantId`,
+`merchant_id` and `merchants` are all `merchant`, and a bare `{id}` takes the name of
+the segment before it (`/merchants/{id}`). Environment-specific ids usually belong out
+of the repository: put the same mapping in a JSON or YAML file, name it with
+`resource_ids_file:`, and git-ignore it; `--resource-ids FILE` does the same for one
+run. Keys from the file win over inline ones, and the flag wins over both.
+
+The map goes to the runner on stdin and each id to the target in a request path; the
+map itself is never sent to the server and the CLI never prints an id. (A finding that
+records the URL it probed can still contain one, as it would any request path.) Before the run, the CLI asks the server which
+routes each name binds (names only, no ids) and prints that, so a name that binds
+nothing, or two names that bind the same parameter, are visible before the budget is
+spent. A supplied id is never created or deleted, and it does not enable writes: every
+state-changing check still needs `--writes`.
 
 ## Describing how the API authenticates
 
@@ -137,6 +172,9 @@ identities:
   - { name: a-write, role: editor, rank: 2, tenant: a, secret_env: A_WRITE_KEY }  # BOLA: a-write vs b-write
   - { name: b-write, role: editor, rank: 2, tenant: b, secret_env: B_WRITE_KEY }
 ```
+
+`runpentests init --tenants` writes this shape for you (`a-admin`, `a-user`, `b-user`), and
+`runpentests auth check --authorized` confirms each key is accepted before a full scan.
 
 Identities with no `tenant` sit out the cross-tenant pairing once any identity sets one. With more tiers, BFLA also tries each middle tier when the
 lowest is refused; a middle-tier hit is reported as a lead, not a verified finding.

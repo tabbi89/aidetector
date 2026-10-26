@@ -107,18 +107,24 @@ func phaseTotals(entries []api.LedgerEntry) []phaseTotal {
 	return totals
 }
 
-// cmdCoverage prints what the latest run did to each endpoint. A row with no
-// requests was in scope but untouched; an excluded row was opted out.
+// cmdCoverage prints what a run did to each endpoint. Requests alone say
+// little: an endpoint that answered every request with 401 or 404 was reached
+// but never tested, so each row says whether it was exercised (answered a 2xx).
 func cmdCoverage(ctx context.Context, e *Env, args []string) int {
 	fs := e.newFlagSet("coverage")
 	asJSON := fs.Bool("json", false, "print JSON")
 	untested := fs.Bool("untested", false, "only endpoints that received no requests")
+	inconclusive := fs.Bool("inconclusive", false, "only in-scope endpoints that were not exercised (no 2xx, no response, untested or unknown)")
+	runNumber := fs.Int("run", 0, "an archived run number (default: the latest run)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return e.parseFailed("coverage", fs, err)
 	}
 	if len(pos) > 1 {
 		return e.usage("coverage takes at most one scan ID")
+	}
+	if *runNumber < 0 {
+		return e.usage("--run must be a run number")
 	}
 	c, err := e.client()
 	if err != nil {
@@ -128,7 +134,7 @@ func cmdCoverage(ctx context.Context, e *Env, args []string) int {
 	if code != ExitOK {
 		return code
 	}
-	rows, err := c.Coverage(ctx, id)
+	rows, err := c.Coverage(ctx, id, *runNumber)
 	if err != nil {
 		return e.exitFor(err)
 	}
@@ -138,23 +144,23 @@ func cmdCoverage(ctx context.Context, e *Env, args []string) int {
 		}
 		return rows[i].Method < rows[j].Method
 	})
-	neverProbed := 0
+	counts := map[string]int{}
+	shown := make([]coverageOut, 0, len(rows))
 	for _, r := range rows {
-		if r.Requests == 0 {
-			neverProbed++
-		}
-	}
-	shown := make([]api.CoverageRow, 0, len(rows))
-	for _, r := range rows {
+		state := endpointState(r)
+		counts[state]++
 		if *untested && r.Requests != 0 {
 			continue
 		}
-		shown = append(shown, r)
+		if *inconclusive && (state == endpointExercised || state == endpointExcluded) {
+			continue
+		}
+		shown = append(shown, coverageOut{CoverageRow: r, State: state})
 	}
 	if *asJSON {
 		return printJSON(e, shown)
 	}
-	e.printf("%-7s  %-40s  %8s  %8s  %s\n", "METHOD", "PATH", "REQUESTS", "FINDINGS", "CHECKS")
+	e.printf("%-7s  %-40s  %8s  %-14s  %8s  %s\n", "METHOD", "PATH", "REQUESTS", "STATUS", "FINDINGS", "CHECKS")
 	for _, r := range shown {
 		path := printable(r.Path)
 		if !r.Enabled {
@@ -168,9 +174,45 @@ func cmdCoverage(ctx context.Context, e *Env, args []string) int {
 			}
 			checks = strings.Join(names, ", ")
 		}
-		e.printf("%-7s  %-40s  %8d  %8d  %s\n",
-			printable(r.Method), path, r.Requests, r.Findings, checks)
+		e.printf("%-7s  %-40s  %8d  %-14s  %8d  %s\n",
+			printable(r.Method), path, r.Requests, coverageStatus(r.CoverageRow, r.State), r.Findings, checks)
 	}
-	e.printf("%d endpoint(s), %d never probed\n", len(shown), neverProbed)
+	inScope := len(rows) - counts[endpointExcluded]
+	e.printf("%d endpoint(s) shown; of %d in scope: %d exercised, %d no 2xx, %d no response, %d never probed",
+		len(shown), inScope, counts[endpointExercised], counts[endpointNo2xx],
+		counts[endpointNoResponse], counts[endpointUntested])
+	if n := counts[endpointUnknown]; n > 0 {
+		e.printf(", %d unknown (the run predates response outcomes)", n)
+	}
+	e.printf("\n")
 	return ExitOK
+}
+
+// coverageOut is a coverage row with its state named, for --json.
+type coverageOut struct {
+	api.CoverageRow
+	State string `json:"state"`
+}
+
+// coverageStatus is the STATUS cell: the state plus the 2xx share behind it.
+func coverageStatus(r api.CoverageRow, state string) string {
+	switch state {
+	case endpointExercised:
+		if r.OK != nil && r.Responses != nil {
+			return fmt.Sprintf("ok %d/%d", *r.OK, *r.Responses)
+		}
+		return "exercised"
+	case endpointNo2xx:
+		if r.Responses != nil {
+			return fmt.Sprintf("no 2xx 0/%d", *r.Responses)
+		}
+		return "no 2xx"
+	case endpointNoResponse:
+		return "no response"
+	case endpointUntested:
+		return "not probed"
+	case endpointExcluded:
+		return "-"
+	}
+	return "unknown"
 }

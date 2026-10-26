@@ -137,6 +137,11 @@ export const NO_RUN_OPTIONS: RunOptions = {
 export interface Capabilities {
   passes: Partial<Record<"zap" | "kali" | "confirm" | "testssl" | "plan" | "adjudicate" | "security_review" | "genai_payloads",
     { available: boolean; reason: string | null }>>;
+  /** What each scan level turns on for this tenant on the CLI lane. The web
+   * keeps its own table (app/components/scanLevels.ts); this is for clients
+   * that preview the server's expansion. */
+  levels?: Record<"quick" | "standard" | "deep",
+    { passes: string[]; ai: string[]; ai_with_writes: string[] }>;
 }
 
 export interface Health {

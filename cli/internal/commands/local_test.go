@@ -717,7 +717,7 @@ func TestDockerArgsMountTheSchemaCAAndNeverThePassword(t *testing.T) {
 	}
 
 	cfg, err := runnerConfig("http://127.0.0.1:8000", api.LocalClaim{"token": "t"},
-		map[string]map[string]string{}, "", "", block, nil)
+		map[string]map[string]string{}, "", "", block, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -732,7 +732,7 @@ func TestDockerArgsMountTheSchemaCAAndNeverThePassword(t *testing.T) {
 	}
 
 	noSchema, _ := runnerConfig("http://127.0.0.1:8000", api.LocalClaim{"token": "t"},
-		map[string]map[string]string{}, "", "", nil, nil)
+		map[string]map[string]string{}, "", "", nil, nil, nil)
 	var raw map[string]any
 	if err := json.Unmarshal(noSchema, &raw); err != nil {
 		t.Fatal(err)

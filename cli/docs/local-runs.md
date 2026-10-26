@@ -83,6 +83,29 @@ progress log that change what the findings mean, worst first:
 - `!` lines narrowed the run without voiding it (resource setup failed, a tool did not run,
   the budget ran out); one last line counts the checks with nothing to test in this API.
 
+## Before the first scan: doctor and auth check
+
+Two commands catch most of those lines before a run spends its budget:
+
+```bash
+runpentests doctor --docker-network staging_default   # server, key, Docker, images, networks — no traffic
+runpentests auth check --authorized                     # is each identity's credential accepted?
+```
+
+`auth check` runs in the same runner container and network as a scan, with the same
+secrets, pins and token minting, and sends a few GET requests per identity plus the same
+ones anonymously — no payload, no write, no redirect followed, and no run opened. Per
+identity it says **accepted** (a route that refuses anonymous callers answered 2xx),
+**rejected** (every answer was 401/403), **unproven** (2xx only on routes anyone can
+read: a public 200 is not proof), **inconclusive** (404s, 5xx, nothing), **missing
+secret** or **grant failed**. It exits 0 when every identity is accepted, 1 when one is
+not, and 3 when the target did not answer. It asks for consent like a run, and a public
+target needs its ownership proof first.
+
+For a multi-tenant API, `runpentests init --tenants` writes a tenant-a admin, a tenant-a
+user and a tenant-b user: BOLA is then tested across tenants and BFLA inside tenant a,
+and init prints which pair tests which (and what to add when one is missing).
+
 The runner image is built by hand, so it can fall behind the CLI. A run warns when
 `runpentests-runner:latest` was built from another version — rebuild it with
 `make runner-image`. An old image is why `runpentests runs trace` can show no requests.

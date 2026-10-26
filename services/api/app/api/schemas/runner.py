@@ -77,6 +77,27 @@ class LocalRunConfig(ResponseModel):
     adjunct_budget_seconds: int = 0
 
 
+class AuthCheckRequest(BaseModel):
+    """Consent for one credential check: it sends live requests to the target."""
+
+    authorized: bool = False
+
+
+class AuthCheckConfig(ResponseModel):
+    """What the local runner needs to check credentials: no run, no token.
+
+    The routes are a few GET operations the server picked; the credentials are
+    shapes only — secrets stay on the CLI machine. Nothing is uploaded back.
+    """
+
+    target_base_url: str
+    operations: list[OperationOut]
+    credentials: list[CredentialOut]
+    target_policy: TargetPolicy = Field(default_factory=TargetPolicy)
+    max_requests: int
+    requests_per_second: int
+
+
 class RunnerEvent(BaseModel):
     stage: str = Field(max_length=60)
     pct: int = Field(default=0, ge=0, le=100)
