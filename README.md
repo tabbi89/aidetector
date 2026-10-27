@@ -54,6 +54,8 @@ Agent SDK), **DeepSeek V4** executes the high-volume work as a delegated tool.
 > [docs/ui-ux-review-2026-10-20.md](docs/ui-ux-review-2026-10-20.md), and the
 > [production UX improvements and next priorities](docs/ui-ux-production-review-2026-10-22.md).
 
+Hosted-product evaluation (2026-10-20): [docs/product-evaluation-2026-10-20.md](docs/product-evaluation-2026-10-20.md).
+
 ## Stack
 
 | Layer            | Choice                                    |
