@@ -22,6 +22,18 @@ import (
 // whatever the check scope says.
 var retestCarried = []string{"fuzz", "premium"}
 
+// confirmSignals are evidence signals only the confirm pass produces, under a
+// check key the engine also reports without it (the arithmetic template oracle
+// files a verified SSTI as reflected_injection). Mirrors CONFIRM_SIGNALS in
+// services/api/app/scans/run_options.py.
+var confirmSignals = map[string]bool{"independent_arithmetic": true}
+
+// needsConfirm reports whether only the confirm pass can find this again.
+func needsConfirm(f api.Finding) bool {
+	signal, _ := f.Evidence["signal"].(string)
+	return confirmSignals[signal]
+}
+
 // retestAIPasses are the token-spending passes --ai repeats from the original.
 var retestAIPasses = []string{"plan", "adjudicate", "security_review", "genai_payloads", "adaptive", "resource_refine"}
 
@@ -37,6 +49,7 @@ func cmdRetest(ctx context.Context, e *Env, args []string) int {
 	authorized := fs.Bool("authorized", false, "I own or am authorized to security-test this target")
 	writes := fs.Bool("writes", false, PassHelp["writes"])
 	readOnly := fs.Bool("read-only", false, "retest without writes even though the original run had them (its write findings come back not retested)")
+	withConfirm := fs.Bool("confirm", false, "repeat the confirmation pass a confirmed finding needs (slow: runs the confirm tools too)")
 	withAI := fs.Bool("ai", false, "repeat the original run's AI passes (spends tokens)")
 	asJSON := fs.Bool("json", false, "print the outcome as JSON")
 	image := fs.String("image", defaultRunnerImage(e), "runner image")
@@ -108,6 +121,13 @@ func cmdRetest(ctx context.Context, e *Env, args []string) int {
 			"way, or --read-only to retest without (a write finding then comes back not retested)", original.RunNumber)
 	}
 
+	// Without the pass that proved it, a retest could only answer "not retested"
+	// (the diff says so too): ask before spending a run on that.
+	if needsConfirm(finding) && !*withConfirm {
+		return e.usage("run %d proved this finding with --confirm, and only that pass can find it again: "+
+			"pass --confirm to retest the same way", original.RunNumber)
+	}
+
 	body := map[string]any{"authorized": true, "checks": []string{finding.Check}}
 	for _, field := range retestCarried {
 		if on, _ := opts[field].(bool); on {
@@ -116,6 +136,9 @@ func cmdRetest(ctx context.Context, e *Env, args []string) int {
 	}
 	if *writes {
 		body["mutate"] = true
+	}
+	if *withConfirm {
+		body["confirm"] = true
 	}
 	if *withAI {
 		for _, field := range retestAIPasses {

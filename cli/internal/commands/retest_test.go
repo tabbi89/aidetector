@@ -106,6 +106,47 @@ func TestRetestNeedsWritesWhenTheOriginalHadThem(t *testing.T) {
 	}
 }
 
+func TestRetestNeedsConfirmForATemplateFindingOnlyConfirmProves(t *testing.T) {
+	run := readOnlyRun()
+	run["options"] = map[string]any{"confirm": true}
+	f := retestFake(run, "unchanged")
+	f.findings[0]["check"] = "reflected_injection"
+	f.findings[0]["evidence"] = map[string]any{"signal": "independent_arithmetic", "family": "ssti"}
+	h, calls := localHarness(t, f, "completed", nil, nil)
+	if got := h.run("retest", fakeScanID, "9e41", "--authorized"); got != ExitUsage {
+		t.Fatalf("exit = %d\n%s", got, h.errOut.String())
+	}
+	if len(*calls) != 0 || f.sawRequest("POST "+fakeScanPath+"/local-runs") {
+		t.Fatal("nothing may run that could only come back not retested")
+	}
+	if !strings.Contains(h.errOut.String(), "--confirm") {
+		t.Fatalf("the refusal must name the flag:\n%s", h.errOut.String())
+	}
+
+	h, _ = localHarness(t, f, "completed", nil, nil)
+	h.run("retest", fakeScanID, "9e41", "--authorized", "--confirm")
+	var body map[string]any
+	_ = json.Unmarshal(f.bodies["POST "+fakeScanPath+"/local-runs"], &body)
+	if body["confirm"] != true {
+		t.Fatalf("--confirm must reach the run: %v", body)
+	}
+}
+
+func TestRetestDoesNotRepeatConfirmUnasked(t *testing.T) {
+	run := readOnlyRun()
+	run["options"] = map[string]any{"confirm": true}
+	f := retestFake(run, "unchanged")
+	h, _ := localHarness(t, f, "completed", nil, nil)
+	if got := h.run("retest", fakeScanID, "9e41", "--authorized"); got != ExitFindings {
+		t.Fatalf("exit = %d\n%s", got, h.errOut.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(f.bodies["POST "+fakeScanPath+"/local-runs"], &body)
+	if _, ok := body["confirm"]; ok {
+		t.Fatalf("a BOLA finding needs no confirm tools: %v", body)
+	}
+}
+
 func TestRetestAsksForConsent(t *testing.T) {
 	f := retestFake(readOnlyRun(), "unchanged")
 	h, calls := localHarness(t, f, "completed", nil, nil)

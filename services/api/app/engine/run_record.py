@@ -162,6 +162,11 @@ def finish_run(run: ScanRun, status: str, scan: Scan, probe: HttpProbe) -> None:
     run.manifest = finish_manifest(probe)
 
 
+def _signal(evidence: Any) -> str | None:
+    signal = evidence.get("signal") if isinstance(evidence, dict) else None
+    return signal[:100] if isinstance(signal, str) else None
+
+
 def build_findings_snapshot(scan: Scan) -> list[dict[str, Any]]:
     """The archived per-finding snapshot a diff matches on. Shared by the server
     runner (``finish_run``) and the local-runner ingest, so both archive the
@@ -177,6 +182,9 @@ def build_findings_snapshot(scan: Scan) -> list[dict[str, Any]]:
             # Lets the diff ask whether a later run actually exercised the
             # endpoint before it calls a missing finding fixed. Not identity.
             "operation_id": str(f.operation_id) if f.operation_id else None,
+            # The evidence signal tells a pass-only finding from a lead sharing its
+            # check key (the confirm-only arithmetic oracle). Not identity.
+            "signal": _signal(f.evidence),
             # The identity a diff matches on; empty for rows from before it.
             "fingerprint": f.fingerprint or "",
             "severity": f.severity.value,

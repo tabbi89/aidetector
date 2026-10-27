@@ -291,3 +291,19 @@ def test_finding_confidence_vocabulary_matches_the_web_client():
         f"FindingConfidence in api.ts is {sorted(declared)}, "
         f"Confidence is {sorted(c.value for c in Confidence)}"
     )
+
+
+def test_retest_knows_every_confirm_only_signal():
+    """`runpentests retest` refuses to spend a run that could only come back not
+    retested; it must recognise every signal the diff treats as confirm-only."""
+    from app.scans.run_options import CONFIRM_SIGNALS
+
+    retest = REPO / "cli" / "internal" / "commands" / "retest.go"
+    if not retest.is_file():
+        reason = "the CLI tree is not visible (set AIDETECTOR_REPO_ROOT)"
+        if os.getenv("CI") or os.getenv("TEST_REQUIRE_DB"):
+            pytest.fail(reason)
+        pytest.skip(reason)
+    block = re.search(r"confirmSignals = map\[string\]bool\{([^}]*)\}", retest.read_text())
+    assert block, "confirmSignals not found in retest.go"
+    assert set(re.findall(r'"([^"]+)":\s*true', block.group(1))) == set(CONFIRM_SIGNALS)

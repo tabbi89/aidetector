@@ -30,6 +30,7 @@ app/engine/adaptive/contracts.py
 app/engine/adaptive/policy.py
 app/engine/adaptive/runner.py
 app/engine/adjunct_run.py
+app/engine/auth_probe.py
 app/engine/base.py
 app/engine/business_state.py
 app/engine/checks/__init__.py
@@ -90,6 +91,7 @@ app/engine/operations.py
 app/engine/param_hints.py
 app/engine/payload_corpus.py
 app/engine/payloads.py
+app/engine/preflight.py
 app/engine/probe.py
 app/engine/reauth.py
 app/engine/remediation.py
@@ -111,6 +113,7 @@ app/engine/transport.py
 app/engine/zap.py
 app/runner/__init__.py
 app/runner/__main__.py
+app/runner/auth_check.py
 app/runner/main.py
 app/runner/schema.py
 app/runner/source_audit.py

@@ -35,12 +35,15 @@ type fake struct {
 	statuses []string          // scan statuses to return, one per GET /scans/{id}
 	failure  string
 	findings []map[string]any
-	runs     []map[string]any
-	diff     *map[string]any // nil => 409
-	events   []map[string]any
-	status   map[string]int // "METHOD /path" -> forced status
-	apiKey   string         // when set, requests must carry it
-	getCalls int
+	// onFindings, when set, runs (under the lock) before GET findings answers:
+	// a run that starts between two of the client's reads.
+	onFindings func(f *fake)
+	runs       []map[string]any
+	diff       *map[string]any // nil => 409
+	events     []map[string]any
+	status     map[string]int // "METHOD /path" -> forced status
+	apiKey     string         // when set, requests must carry it
+	getCalls   int
 
 	scanList     []map[string]any // when set, the answer to GET /scans
 	credentials  []map[string]any // identities on GET /scans/{id}
@@ -132,6 +135,9 @@ func (f *fake) handler() http.Handler {
 		case path == fakeScanPath+"/events":
 			_ = json.NewEncoder(w).Encode(f.events)
 		case path == fakeScanPath+"/findings":
+			if f.onFindings != nil {
+				f.onFindings(f)
+			}
 			_ = json.NewEncoder(w).Encode(f.findings)
 		case strings.HasPrefix(path, fakeScanPath+"/findings/") && r.Method == "PATCH":
 			findingID := strings.TrimPrefix(path, fakeScanPath+"/findings/")

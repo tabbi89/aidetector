@@ -262,3 +262,43 @@ func TestGateJudgesTheRunItRanNotANewerOne(t *testing.T) {
 		t.Fatalf("exit = %d\n%s", got, h.out.String())
 	}
 }
+
+func TestGateIsNotFooledByARunStartingBetweenItsReads(t *testing.T) {
+	high := map[string]any{"fingerprint": "fp-high", "check": "bola", "severity": "high",
+		"confidence": "verified", "title": "BOLA", "verdict": "unreviewed"}
+	f := &fake{
+		runs: []map[string]any{{"run_number": 1, "status": "completed", "findings_snapshot": []any{high}}},
+		findings: []map[string]any{{"id": "f1", "fingerprint": "fp-high", "check": "bola", "severity": "high",
+			"confidence": "verified", "title": "BOLA", "verdict": "unreviewed"}},
+	}
+	// Run 1 is still the newest when the gate pins it; run 2 starts just before
+	// the live findings are read and clears them.
+	f.onFindings = func(f *fake) {
+		if len(f.runs) == 1 {
+			f.runs = append([]map[string]any{{"run_number": 2, "status": "running"}}, f.runs...)
+			f.findings = []map[string]any{}
+		}
+	}
+	h, _ := localHarness(t, f, "completed", nil, nil)
+	if got := h.run("run", fakeScanID, "--authorized", "--fail-on", "high"); got != ExitFindings {
+		t.Fatalf("an emptied live list must not pass the gate: exit = %d\n%s", got, h.out.String())
+	}
+}
+
+func TestGateKeepsALaterDismissalWhenItFallsBackToTheSnapshot(t *testing.T) {
+	high := map[string]any{"fingerprint": "fp-high", "check": "bola", "severity": "high",
+		"confidence": "verified", "title": "BOLA", "verdict": "unreviewed"}
+	// Run 1 is gated but run 2 is the newest; a person dismissed fp-high since.
+	f := &fake{
+		runs: []map[string]any{
+			{"run_number": 2, "status": "completed"},
+			{"run_number": 1, "status": "completed", "findings_snapshot": []any{high}},
+		},
+		findings: []map[string]any{{"id": "f9", "fingerprint": "fp-high", "check": "bola", "severity": "high",
+			"confidence": "verified", "title": "BOLA", "verdict": "dismissed"}},
+	}
+	h, _ := localHarness(t, f, "completed", nil, nil)
+	if got := h.run("run", fakeScanID, "--authorized", "--fail-on", "high"); got != ExitOK {
+		t.Fatalf("a dismissal on the live list must hold: exit = %d\n%s", got, h.out.String())
+	}
+}

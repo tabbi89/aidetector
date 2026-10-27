@@ -551,21 +551,9 @@ func gate(ctx context.Context, e *Env, c *api.Client, id string, runNumber int, 
 			}
 		}
 		if !newOnly {
-			// The live findings are the newest run's. When the gated run is no
-			// longer the newest, judge what that run archived instead, so both
-			// halves of the answer are about one run.
-			if run != nil && !isNewestRun(ctx, c, id, run.RunNumber) {
-				for _, f := range run.FindingsSnapshot {
-					rows = append(rows, gateRow{f.Fingerprint, f.Severity, f.Confidence, f.Verdict, f.Check, f.Title})
-				}
-			} else {
-				findings, err := c.Findings(ctx, id)
-				if err != nil {
-					return e.exitFor(err)
-				}
-				for _, f := range findings {
-					rows = append(rows, gateRow{f.ID, f.Severity, f.Confidence, f.Verdict, f.Check, f.Title})
-				}
+			rows, err = pinnedFindings(ctx, c, id, run)
+			if err != nil {
+				return e.exitFor(err)
 			}
 		}
 	}
@@ -673,11 +661,47 @@ func gate(ctx context.Context, e *Env, c *api.Client, id string, runNumber int, 
 	return code
 }
 
-// isNewestRun reports whether run is the scan's newest; true when unknown, so
-// an older server keeps the live findings it always used.
-func isNewestRun(ctx context.Context, c *api.Client, id string, run int) bool {
-	newest, err := fetchRun(ctx, c, id, 0)
-	return err != nil || newest == nil || newest.RunNumber == run
+// pinnedFindings is what the gated run found. The live findings are the newest
+// run's, and a run that starts at any moment clears them, so they count only
+// when the gated run is still the newest *after* they were read: the server
+// opens a run's history row no later than it clears the live findings. When it
+// is not, or that cannot be confirmed, the run's archived snapshot answers —
+// read with the run itself, so it is about that run whatever starts meanwhile.
+// Its verdicts are as of the run's end, so a later triage of the same
+// fingerprint, still on the live list, overrides them: a race can only empty
+// that list, which leaves the snapshot's own (fail-closed) verdicts.
+// A nil run (a server that could not say which run) keeps the live findings.
+func pinnedFindings(ctx context.Context, c *api.Client, id string, run *api.ScanRun) ([]gateRow, error) {
+	findings, err := c.Findings(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if run != nil {
+		newest, err := fetchRun(ctx, c, id, 0)
+		if err != nil || newest == nil || newest.RunNumber != run.RunNumber {
+			triage := make(map[string]string, len(findings))
+			for _, f := range findings {
+				if f.Fingerprint != "" {
+					triage[f.Fingerprint] = f.Verdict
+				}
+			}
+			rows := make([]gateRow, 0, len(run.FindingsSnapshot))
+			for _, f := range run.FindingsSnapshot {
+				verdict := f.Verdict
+				if v, ok := triage[f.Fingerprint]; ok && f.Fingerprint != "" {
+					verdict = v
+				}
+				// A snapshot row has no finding ID; its fingerprint is the stable name.
+				rows = append(rows, gateRow{f.Fingerprint, f.Severity, f.Confidence, verdict, f.Check, f.Title})
+			}
+			return rows, nil
+		}
+	}
+	rows := make([]gateRow, 0, len(findings))
+	for _, f := range findings {
+		rows = append(rows, gateRow{f.ID, f.Severity, f.Confidence, f.Verdict, f.Check, f.Title})
+	}
+	return rows, nil
 }
 
 // printGitHubQuality annotates the job with the execution-quality verdict.

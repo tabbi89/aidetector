@@ -18,6 +18,7 @@ from app.scans.run_options import (
     descoped,
     dropped_passes,
     required_passes,
+    snapshot_signal,
     unperformed,
 )
 from app.workers.tasks import run_scan_task
@@ -309,7 +310,10 @@ def diff_runs(
         not_retested=(
             (
                 lambda row: bool(
-                    required_passes(str(row.get("check", "")), row.get("method")) & dropped
+                    required_passes(
+                        str(row.get("check", "")), row.get("method"), snapshot_signal(row)
+                    )
+                    & dropped
                 )
                 or descoped(str(row.get("check", "")), older_options, newer_options)
                 or unperformed(str(row.get("check", "")), gaps)

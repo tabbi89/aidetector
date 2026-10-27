@@ -358,6 +358,10 @@ def test_required_passes_come_from_the_registry_and_adjunct_names():
     assert required_passes("reflected_injection", "POST") == {"mutate"}
     assert required_passes("reflected_injection", "GET") == frozenset()
     assert required_passes("reflected_injection") == frozenset()
+    # The arithmetic template oracle reports under the reflection key but runs
+    # only under confirm; a reflection lead on the same key does not need it.
+    assert required_passes("reflected_injection", "GET", "independent_arithmetic") == {"confirm"}
+    assert required_passes("reflected_injection", "GET", "reflection") == frozenset()
     for key in premium_check_keys():
         assert "premium" in required_passes(key)
 
@@ -425,6 +429,63 @@ def test_diff_does_not_call_findings_from_a_dropped_pass_fixed(
         "mutate" in required_passes(r["check"]) or r["check"] in skipped
         for r in body["resolved"]
     )
+
+
+def test_a_confirm_only_template_finding_is_not_retested_without_confirm(
+    client, db_session, make_scan
+):
+    """A retest that left ``confirm`` off could not re-run the arithmetic oracle."""
+    from app.models.scan import ScanRun
+
+    scan = make_scan()
+    ssti = _row("ssti", check="reflected_injection", method="GET",
+                signal="independent_arithmetic")
+    lead = _row("lead", check="reflected_injection", method="GET", signal="reflection")
+    for number, options, rows in (
+        (1, {"confirm": True}, [ssti, lead]),
+        (2, {"checks": ["reflected_injection"]}, []),
+    ):
+        db_session.add(ScanRun(scan_id=scan.id, run_number=number, status="completed",
+                               options=options, findings_snapshot=rows))
+    db_session.commit()
+
+    body = client.get(f"/scans/{scan.id}/diff").json()
+    assert [r["fingerprint"] for r in body["not_retested"]] == ["ssti"]
+    # The reflection lead needs no extra pass: the retest really looked again.
+    assert [r["fingerprint"] for r in body["resolved"]] == ["lead"]
+
+
+def test_a_snapshot_from_before_the_signal_still_needs_confirm():
+    from app.scans.run_options import snapshot_signal
+
+    legacy = _row("ssti", check="reflected_injection",
+                  title="Template expression evaluated on GET /render")
+    assert snapshot_signal(legacy) == "independent_arithmetic"
+    # A lead with the same key, or a row that recorded its signal, is read as is.
+    assert snapshot_signal({**legacy, "confidence": "heuristic"}) is None
+    assert snapshot_signal({**legacy, "signal": None}) is None
+    assert snapshot_signal(_row("x", check="reflected_injection", title="Reflected XSS")) is None
+
+
+def test_the_snapshot_archives_the_evidence_signal():
+    from starlette.testclient import TestClient
+
+    from app.domain.enums import Severity
+    from app.engine.base import HttpProbe
+    from app.engine.run_record import finish_run
+    from app.models.finding import Finding
+    from app.models.scan import Scan, ScanRun, ScanStatus
+    from tests.vulnapp import vulnapp
+
+    scan = Scan(target_base_url="http://t", status=ScanStatus.draft)
+    for evidence in ({"signal": "independent_arithmetic"}, {}, None):
+        scan.findings.append(Finding(check="reflected_injection", severity=Severity.high,
+                                     title="t", description="d", evidence=evidence))
+    run = ScanRun(run_number=1)
+    finish_run(run, "completed", scan, HttpProbe(TestClient(vulnapp)))
+    assert [row["signal"] for row in run.findings_snapshot] == [
+        "independent_arithmetic", None, None,
+    ]
 
 
 def test_diff_flags_a_change_of_executor(client, db_session, make_scan, engine_client):

@@ -42,6 +42,7 @@ from app.scans.run_options import (
     descoped,
     dropped_passes,
     required_passes,
+    snapshot_signal,
     unperformed,
 )
 
@@ -266,7 +267,7 @@ def _fixes_verified(scan: Scan) -> int:
         def _not_retested(row: dict[str, Any]) -> bool:
             check = str(row.get("check") or "")
             return (
-                bool(required_passes(check, row.get("method")) & dropped)
+                bool(required_passes(check, row.get("method"), snapshot_signal(row)) & dropped)
                 or descoped(check, older.options, newer.options)
                 or unperformed(check, gaps)
             )

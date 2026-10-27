@@ -184,6 +184,31 @@ _MUTATE_GATED = frozenset({"xxe_confirmation", "deserialization"})
 #: mutate. Their GET query/path findings share the key, so the method decides.
 _BODY_SINK_CHECKS = frozenset({"reflected_injection", "signature_injection", "oob_injection"})
 _READ_METHODS = frozenset({"GET", "HEAD"})
+#: Evidence signals only the ``confirm`` pass produces, reported under a check
+#: key the engine tier also reports without it: the arithmetic template oracle
+#: (``independent_injection``) files a verified SSTI as ``reflected_injection``.
+CONFIRM_SIGNALS = frozenset({"independent_arithmetic"})
+#: The arithmetic oracle's title, for snapshots archived before ``signal`` was.
+_ARITHMETIC_TITLE = "Template expression evaluated on "
+
+
+def snapshot_signal(row: dict[str, Any]) -> str | None:
+    """A snapshot row's evidence signal, for ``required_passes``.
+
+    Rows archived before the snapshot recorded it are read from what they do
+    carry: a verified ``reflected_injection`` titled as the arithmetic oracle
+    can only have come from the confirm pass.
+    """
+    if "signal" in row:
+        signal = row["signal"]
+        return signal if isinstance(signal, str) else None
+    if (
+        row.get("check") == "reflected_injection"
+        and row.get("confidence") == "verified"
+        and str(row.get("title") or "").startswith(_ARITHMETIC_TITLE)
+    ):
+        return "independent_arithmetic"
+    return None
 
 
 def dropped_passes(older: dict[str, Any] | None, newer: dict[str, Any] | None) -> frozenset[str]:
@@ -208,13 +233,17 @@ def descoped(check: str, older: dict[str, Any] | None, newer: dict[str, Any] | N
     return RunOptions.from_dict(older).selects(check)
 
 
-def required_passes(check: str, method: str | None = None) -> frozenset[str]:
+def required_passes(
+    check: str, method: str | None = None, signal: str | None = None
+) -> frozenset[str]:
     """The opt-in passes that must be on for ``check`` to report anything.
 
     Derived from the registry's own traits (``mutates``, premium) plus the
     adjunct naming, so a new mutating or premium check is covered without an
     entry here. Findings the discovery pass (``kali``) produces carry core check
     keys and cannot be told apart from engine-tier ones by key alone.
+    ``signal`` is the finding's evidence signal, archived on the snapshot; it
+    tells a ``confirm``-only finding from a lead sharing its check key.
     """
     from app.engine.checks import ALL_CHECKS, premium_check_keys
 
@@ -231,6 +260,8 @@ def required_passes(check: str, method: str | None = None) -> frozenset[str]:
         needed.add("fuzz")
     elif check == "adaptive_validation":
         needed.update({"premium", "adaptive"})
+    if signal in CONFIRM_SIGNALS:
+        needed.add("confirm")
     if check in premium_check_keys():
         needed.add("premium")
     if check in _MUTATE_GATED or any(

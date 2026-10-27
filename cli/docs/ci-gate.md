@@ -113,7 +113,10 @@ is a real run — consent, the ownership gate and the budget apply — and it be
 scan's newest run, so gate a later CI run with `--baseline-run`, not "the previous run".
 Writes and AI are never repeated implicitly: if the original run had writes on, pass
 `--writes` (or `--read-only` to accept that write findings come back not retested), and
-`--ai` to repeat its AI passes. ZAP, Kali and the other tools are left out.
+`--ai` to repeat its AI passes. ZAP, Kali and the other tools are left out. A finding only
+the confirmation pass can prove (a template expression evaluated under `--confirm`) needs
+`--confirm` again: without it the retest refuses to start, since it could only answer "not
+retested".
 
 ## How the gate counts
 
